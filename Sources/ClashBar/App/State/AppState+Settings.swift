@@ -14,6 +14,10 @@ extension AppState {
         await applyBooleanSetting(\.settingsUnifiedDelay, configKey: "unified-delay", value: value)
     }
 
+    func applySettingTunMode(_ value: Bool) async {
+        await toggleTunMode(value)
+    }
+
     func applySettingLogLevel(_ value: String) async {
         settingsLogLevel = value
         await applySettingEnumLogLevel(value)
@@ -81,7 +85,8 @@ extension AppState {
             fields: [
                 (\.settingsAllowLan, \.allowLan),
                 (\.settingsIPv6, \.ipv6),
-                (\.settingsUnifiedDelay, \.unifiedDelay)
+                (\.settingsUnifiedDelay, \.unifiedDelay),
+                (\.isTunEnabled, \.tunEnabled)
             ]
         )
 
@@ -108,6 +113,7 @@ extension AppState {
             allowLan: settingsAllowLan,
             ipv6: settingsIPv6,
             unifiedDelay: settingsUnifiedDelay,
+            tunEnabled: isTunEnabled,
             logLevel: settingsLogLevel,
             port: settingsPort,
             socksPort: settingsSocksPort,
@@ -165,6 +171,7 @@ extension AppState {
             "allow-lan": .bool(overlay.allowLan),
             "ipv6": .bool(overlay.ipv6),
             "unified-delay": .bool(overlay.unifiedDelay),
+            "tun": .object(["enable": .bool(overlay.tunEnabled)]),
             "log-level": .string(resolvedLogLevel)
         ]
         for (key, value) in portBody {
@@ -190,6 +197,7 @@ extension AppState {
         settingsAllowLan = snapshot.allowLan
         settingsIPv6 = snapshot.ipv6
         settingsUnifiedDelay = snapshot.unifiedDelay
+        isTunEnabled = snapshot.tunEnabled
         settingsLogLevel = snapshot.logLevel
         settingsPort = snapshot.port
         settingsSocksPort = snapshot.socksPort

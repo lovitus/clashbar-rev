@@ -145,6 +145,15 @@ extension MenuBarRoot {
                     set: { value in Task { await appState.applySettingUnifiedDelay(value) } }
                 ))
                 settingsDivider
+                settingsToggleRow(
+                    tr("ui.settings.tun_mode"),
+                    symbol: "shield.lefthalf.filled",
+                    isOn: Binding(
+                    get: { appState.isTunEnabled },
+                    set: { value in Task { await appState.applySettingTunMode(value) } }
+                ))
+                .disabled(!appState.isTunToggleEnabled)
+                settingsDivider
                 settingsMenuRow(
                     tr("ui.settings.log_level"),
                     symbol: "text.alignleft",

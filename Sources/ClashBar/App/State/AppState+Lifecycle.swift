@@ -193,6 +193,7 @@ extension AppState {
             syncingKey: overlaySyncingKey,
             successMessage: ""
         )
+        await validateTunPermissionsOnStartup()
         await ensureSystemProxyConsistencyOnFirstLaunchIfNeeded()
         enqueueProviderRefresh(trigger: providerTrigger)
 

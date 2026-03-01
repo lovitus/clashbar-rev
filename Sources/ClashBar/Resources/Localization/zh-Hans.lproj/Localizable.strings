@@ -34,6 +34,8 @@
 "ui.action.cancel" = "取消";
 "ui.action.flush_fakeip_cache" = "清理 FakeIP 缓存";
 "ui.action.flush_dns_cache" = "清理 DNS 缓存";
+"ui.action.enable_tun" = "开启 TUN 模式";
+"ui.action.disable_tun" = "关闭 TUN 模式";
 "ui.action.update_geo" = "更新 GEO 数据";
 "ui.action.upgrade_core" = "升级 Core";
 "ui.action.upgrade_ui" = "升级 UI";
@@ -47,6 +49,7 @@
 
 "ui.quick.switch_config" = "切换配置";
 "ui.quick.system_proxy" = "系统代理";
+"ui.quick.tun_mode" = "TUN 模式";
 "ui.quick.copy_terminal" = "复制终端命令";
 "ui.quick.reload_config_list" = "重载配置";
 "ui.quick.import_local_config" = "导入本地配置文件";
@@ -92,6 +95,7 @@
 "ui.settings.allow_lan" = "允许局域网";
 "ui.settings.ipv6" = "IPv6";
 "ui.settings.unified_delay" = "统一延迟";
+"ui.settings.tun_mode" = "TUN 模式";
 "ui.settings.log_level" = "日志级别";
 "ui.settings.port.port" = "HTTP 端口";
 "ui.settings.port.socks" = "SOCKS 端口";
@@ -148,6 +152,16 @@
 "app.system_proxy.error.helper_registration_failed" = "注册系统代理 helper 失败: %@";
 "app.system_proxy.error.helper_connection_failed" = "连接系统代理 helper 失败: %@";
 "app.system_proxy.error.helper_operation_failed" = "系统代理 helper 执行失败: %@";
+"app.tun.error.binary_not_found" = "未找到 mihomo 二进制，请重新打包或重装 ClashBar。";
+"app.tun.error.permission_missing" = "TUN 模式需要 mihomo 二进制具备 root + setuid 权限。";
+"app.tun.error.authorization_cancelled" = "管理员授权已取消。";
+"app.tun.error.authorization_failed" = "授予 TUN 权限失败: %@";
+"app.tun.error.permission_verify_failed" = "TUN 权限写入后校验失败。";
+"app.tun.error.config_unavailable" = "当前配置文件不可用，请重新选择配置文件。";
+"app.tun.error.config_write_failed" = "写入配置文件以启用 TUN 失败: %@";
+"app.tun.error.config_not_selected" = "未选择配置文件。";
+"app.tun.error.runtime_state_mismatch" = "重启内核后 TUN 状态未生效。";
+"app.tun.error.patch_failed" = "应用 TUN 运行时配置失败: %@";
 "app.config.remote_import.prompt" = "请输入远程配置地址与保存文件名";
 "app.config.import.overwrite.title" = "配置已存在：%@";
 "app.config.import.overwrite.message" = "是否覆盖现有配置文件？";
@@ -196,6 +210,14 @@
 "log.system_proxy.port_sync_failed" = "同步系统代理端口失败: %@";
 "log.system_proxy.startup_repaired" = "启动时发现系统代理与目标不一致，已修正为 %@:%d";
 "log.system_proxy.startup_repair_failed" = "启动时校验系统代理失败: %@";
+"log.tun.toggled" = "TUN 模式%@";
+"log.tun.enabled" = "已开启";
+"log.tun.disabled" = "已关闭";
+"log.tun.toggle_failed" = "切换 TUN 模式失败: %@";
+"log.tun.startup_disabled" = "启动时检测到 TUN 权限不足，已自动关闭 TUN 模式。";
+"log.tun.startup_check_failed" = "启动时校验 TUN 权限失败: %@";
+"log.tun.permission_requesting" = "正在请求管理员权限以启用 TUN 模式...";
+"log.tun.permission_granted" = "TUN 权限授予成功。";
 "log.proxy_export.copied" = "已复制代理导出命令";
 "log.provider.node_test_failed" = "Provider 节点测试失败 (%@/%@): %@";
 "log.provider.healthcheck_failed" = "Provider 健康检查失败（%@）: %@";

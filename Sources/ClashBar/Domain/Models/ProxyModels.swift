@@ -92,6 +92,10 @@ private struct ProxyDelayHistoryEntry: Decodable, Equatable {
 }
 
 struct ConfigSnapshot: Codable, Equatable {
+    struct TunConfig: Codable, Equatable {
+        let enable: Bool?
+    }
+
     let allowLan: Bool?
     let mode: String?
     let logLevel: String?
@@ -102,7 +106,10 @@ struct ConfigSnapshot: Codable, Equatable {
     let redirPort: Int?
     let tproxyPort: Int?
     let mixedPort: Int?
+    let tun: TunConfig?
     let externalController: String?
+
+    var tunEnabled: Bool? { tun?.enable }
 
     private enum CodingKeys: String, CodingKey {
         case allowLan = "allow-lan"
@@ -115,6 +122,7 @@ struct ConfigSnapshot: Codable, Equatable {
         case redirPort = "redir-port"
         case tproxyPort = "tproxy-port"
         case mixedPort = "mixed-port"
+        case tun
         case externalController = "external-controller"
     }
 }

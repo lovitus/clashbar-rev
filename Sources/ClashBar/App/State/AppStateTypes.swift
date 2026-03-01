@@ -32,6 +32,7 @@ enum ConfigPatchValue: Sendable {
     case bool(Bool)
     case int(Int)
     case string(String)
+    indirect case object([String: ConfigPatchValue])
 
     var jsonValue: JSONValue {
         switch self {
@@ -41,6 +42,8 @@ enum ConfigPatchValue: Sendable {
             return .int(value)
         case let .string(value):
             return .string(value)
+        case let .object(value):
+            return .object(value.mapValues(\.jsonValue))
         }
     }
 }
@@ -133,6 +136,7 @@ struct EditableSettingsSnapshot: Equatable, Codable {
     let allowLan: Bool
     let ipv6: Bool
     let unifiedDelay: Bool
+    let tunEnabled: Bool
     let logLevel: String
     let port: String
     let socksPort: String
@@ -140,10 +144,24 @@ struct EditableSettingsSnapshot: Equatable, Codable {
     let redirPort: String
     let tproxyPort: String
 
+    private enum CodingKeys: String, CodingKey {
+        case allowLan
+        case ipv6
+        case unifiedDelay
+        case tunEnabled
+        case logLevel
+        case port
+        case socksPort
+        case mixedPort
+        case redirPort
+        case tproxyPort
+    }
+
     init(config: ConfigSnapshot) {
         allowLan = config.allowLan ?? false
         ipv6 = config.ipv6 ?? false
         unifiedDelay = config.unifiedDelay ?? false
+        tunEnabled = config.tunEnabled ?? false
         logLevel = ConfigLogLevel(rawValue: config.logLevel ?? "")?.rawValue ?? ConfigLogLevel.info.rawValue
         port = config.port.map(String.init) ?? ""
         socksPort = config.socksPort.map(String.init) ?? ""
@@ -156,6 +174,7 @@ struct EditableSettingsSnapshot: Equatable, Codable {
         allowLan: Bool,
         ipv6: Bool,
         unifiedDelay: Bool,
+        tunEnabled: Bool,
         logLevel: String,
         port: String,
         socksPort: String,
@@ -166,12 +185,27 @@ struct EditableSettingsSnapshot: Equatable, Codable {
         self.allowLan = allowLan
         self.ipv6 = ipv6
         self.unifiedDelay = unifiedDelay
+        self.tunEnabled = tunEnabled
         self.logLevel = logLevel
         self.port = port
         self.socksPort = socksPort
         self.mixedPort = mixedPort
         self.redirPort = redirPort
         self.tproxyPort = tproxyPort
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        allowLan = try container.decode(Bool.self, forKey: .allowLan)
+        ipv6 = try container.decode(Bool.self, forKey: .ipv6)
+        unifiedDelay = try container.decode(Bool.self, forKey: .unifiedDelay)
+        tunEnabled = try container.decodeIfPresent(Bool.self, forKey: .tunEnabled) ?? false
+        logLevel = try container.decode(String.self, forKey: .logLevel)
+        port = try container.decode(String.self, forKey: .port)
+        socksPort = try container.decode(String.self, forKey: .socksPort)
+        mixedPort = try container.decode(String.self, forKey: .mixedPort)
+        redirPort = try container.decode(String.self, forKey: .redirPort)
+        tproxyPort = try container.decode(String.self, forKey: .tproxyPort)
     }
 }
 

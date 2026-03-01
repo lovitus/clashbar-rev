@@ -10,6 +10,7 @@ enum CoreLifecycleStatus: Equatable {
 protocol MihomoControlling: AnyObject {
     var status: CoreLifecycleStatus { get }
     var isRunning: Bool { get }
+    var detectedBinaryPath: String? { get }
     @discardableResult
     func start(configPath: String, controller: String) throws -> CoreLifecycleStatus
     func stop()

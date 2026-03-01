@@ -53,6 +53,8 @@ final class AppState: ObservableObject {
 
     @Published var isSystemProxyEnabled: Bool = false
     @Published var isProxySyncing: Bool = false
+    @Published var isTunEnabled: Bool = false
+    @Published var isTunSyncing: Bool = false
 
     @Published var apiStatus: APIHealth = .unknown { didSet { refreshMenuBarDisplaySnapshotIfNeeded() } }
     @Published var errorLogs: [AppErrorLogEntry] = []
@@ -193,6 +195,10 @@ final class AppState: ObservableObject {
         processManager.isRunning && apiStatus == .healthy
     }
 
+    var isTunToggleEnabled: Bool {
+        isRuntimeRunning && !isCoreActionProcessing && !isTunSyncing
+    }
+
     var autoStartCoreEnabled: Bool {
         get { autoStartCore }
         set { autoStartCore = newValue }
@@ -220,6 +226,8 @@ final class AppState: ObservableObject {
     let configManager: ConfigDirectoryManager
     let workingDirectoryManager: WorkingDirectoryManager
     let systemProxyService: SystemProxyService
+    let tunPermissionService: TunPermissionService
+    let tunConfigFileService: TunConfigFileService
     let configImportService: ConfigImportService
     let appLaunchService: AppLaunchService
     var apiClient: MihomoAPIClient?
@@ -283,6 +291,8 @@ final class AppState: ObservableObject {
         configManager: ConfigDirectoryManager? = nil,
         workingDirectoryManager: WorkingDirectoryManager = WorkingDirectoryManager(),
         systemProxyService: SystemProxyService = SystemProxyService(),
+        tunPermissionService: TunPermissionService = TunPermissionService(),
+        tunConfigFileService: TunConfigFileService = TunConfigFileService(),
         configImportService: ConfigImportService = ConfigImportService(),
         appLaunchService: AppLaunchService = AppLaunchService(),
         clashbarLogStore: AppLogStore? = nil,
@@ -292,6 +302,8 @@ final class AppState: ObservableObject {
         self.processManager = processManager ?? MihomoProcessManager()
         self.workingDirectoryManager = workingDirectoryManager
         self.systemProxyService = systemProxyService
+        self.tunPermissionService = tunPermissionService
+        self.tunConfigFileService = tunConfigFileService
         self.configImportService = configImportService
         self.appLaunchService = appLaunchService
         self.clashbarLogStore = clashbarLogStore
@@ -302,8 +314,8 @@ final class AppState: ObservableObject {
         applyAppAppearance()
         refreshLaunchAtLoginStatus()
 
+        mihomoBinaryPath = self.processManager.detectedBinaryPath ?? "-"
         if let managedProcess = self.processManager as? MihomoProcessManager {
-            mihomoBinaryPath = managedProcess.detectedBinaryPath ?? "-"
             managedProcess.onLog = { [weak self] line in
                 Task { @MainActor in
                     self?.appendMihomoLog(level: "info", message: line)
@@ -318,8 +330,6 @@ final class AppState: ObservableObject {
                     self?.cancelPolling()
                 }
             }
-        } else {
-            mihomoBinaryPath = "-"
         }
         do {
             try self.workingDirectoryManager.bootstrapDirectories()

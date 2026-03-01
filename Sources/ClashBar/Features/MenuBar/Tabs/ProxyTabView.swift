@@ -188,6 +188,30 @@ extension MenuBarRoot {
 
             quickRowsDivider
 
+            HStack(spacing: MenuBarLayoutTokens.hDense) {
+                quickIcon(symbol: "shield.lefthalf.filled", foreground: nativePositive, background: nativePositive.opacity(0.14))
+                Text(tr("ui.quick.tun_mode"))
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(nativePrimaryLabel)
+                Spacer(minLength: 0)
+                Toggle(
+                    "",
+                    isOn: Binding(
+                        get: { appState.isTunEnabled },
+                        set: { value in
+                            Task { await appState.toggleTunMode(value) }
+                        }
+                    )
+                )
+                .labelsHidden()
+                .toggleStyle(.switch)
+                .controlSize(.small)
+                .disabled(!appState.isTunToggleEnabled)
+            }
+            .menuRowPadding()
+
+            quickRowsDivider
+
             Button {
                 appState.copyProxyCommand()
             } label: {

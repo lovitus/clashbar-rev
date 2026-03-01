@@ -22,6 +22,15 @@ struct ClashBarApp: App {
                 }
                 .keyboardShortcut(".", modifiers: [.command, .shift])
                 .disabled(appDelegate.appState.isCoreActionProcessing)
+
+                Divider()
+
+                Button(appDelegate.appState.isTunEnabled ? tr("ui.action.disable_tun") : tr("ui.action.enable_tun")) {
+                    let toggled = !appDelegate.appState.isTunEnabled
+                    Task { await appDelegate.appState.toggleTunMode(toggled) }
+                }
+                .keyboardShortcut("T", modifiers: [.command, .option])
+                .disabled(!appDelegate.appState.isTunToggleEnabled)
             }
 
             CommandMenu("Panel") {

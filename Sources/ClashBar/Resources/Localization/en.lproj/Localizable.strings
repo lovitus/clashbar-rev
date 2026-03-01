@@ -34,6 +34,8 @@
 "ui.action.cancel" = "Cancel";
 "ui.action.flush_fakeip_cache" = "Flush FakeIP Cache";
 "ui.action.flush_dns_cache" = "Flush DNS Cache";
+"ui.action.enable_tun" = "Enable TUN Mode";
+"ui.action.disable_tun" = "Disable TUN Mode";
 "ui.action.update_geo" = "Update GEO Data";
 "ui.action.upgrade_core" = "Upgrade Core";
 "ui.action.upgrade_ui" = "Upgrade UI";
@@ -47,6 +49,7 @@
 
 "ui.quick.switch_config" = "Switch Config";
 "ui.quick.system_proxy" = "System Proxy";
+"ui.quick.tun_mode" = "TUN Mode";
 "ui.quick.copy_terminal" = "Copy Terminal Command";
 "ui.quick.reload_config_list" = "Reload Config List";
 "ui.quick.import_local_config" = "Import Local Config";
@@ -92,6 +95,7 @@
 "ui.settings.allow_lan" = "Allow LAN";
 "ui.settings.ipv6" = "IPv6";
 "ui.settings.unified_delay" = "Unified Delay";
+"ui.settings.tun_mode" = "TUN Mode";
 "ui.settings.log_level" = "Log Level";
 "ui.settings.port.port" = "HTTP Port";
 "ui.settings.port.socks" = "SOCKS Port";
@@ -148,6 +152,16 @@
 "app.system_proxy.error.helper_registration_failed" = "Failed to register privileged helper: %@";
 "app.system_proxy.error.helper_connection_failed" = "Failed to connect privileged helper: %@";
 "app.system_proxy.error.helper_operation_failed" = "Privileged helper operation failed: %@";
+"app.tun.error.binary_not_found" = "mihomo binary not found. Rebuild or reinstall ClashBar.";
+"app.tun.error.permission_missing" = "TUN mode requires root + setuid permissions on mihomo binary.";
+"app.tun.error.authorization_cancelled" = "Administrator authorization was cancelled.";
+"app.tun.error.authorization_failed" = "Failed to grant TUN permissions: %@";
+"app.tun.error.permission_verify_failed" = "TUN permissions were not applied successfully.";
+"app.tun.error.config_unavailable" = "Selected config file is unavailable. Please reselect a config file.";
+"app.tun.error.config_write_failed" = "Failed to update config file for TUN mode: %@";
+"app.tun.error.config_not_selected" = "No config file selected.";
+"app.tun.error.runtime_state_mismatch" = "TUN mode did not take effect after core restart.";
+"app.tun.error.patch_failed" = "Failed to patch TUN runtime config: %@";
 "app.config.remote_import.prompt" = "Enter the remote config URL and target file name.";
 "app.config.import.overwrite.title" = "Config already exists: %@";
 "app.config.import.overwrite.message" = "Do you want to overwrite the existing config file?";
@@ -196,6 +210,14 @@
 "log.system_proxy.port_sync_failed" = "Failed to sync system proxy port: %@";
 "log.system_proxy.startup_repaired" = "Startup check fixed system proxy to %@:%d";
 "log.system_proxy.startup_repair_failed" = "Startup system proxy check failed: %@";
+"log.tun.toggled" = "TUN mode %@";
+"log.tun.enabled" = "enabled";
+"log.tun.disabled" = "disabled";
+"log.tun.toggle_failed" = "TUN mode toggle failed: %@";
+"log.tun.startup_disabled" = "TUN mode was disabled at startup due to missing permissions.";
+"log.tun.startup_check_failed" = "Startup TUN permission check failed: %@";
+"log.tun.permission_requesting" = "Requesting administrator permissions for TUN mode...";
+"log.tun.permission_granted" = "TUN permissions granted.";
 "log.proxy_export.copied" = "Proxy export command copied";
 "log.provider.node_test_failed" = "Provider node test failed (%@/%@): %@";
 "log.provider.healthcheck_failed" = "Provider healthcheck failed (%@): %@";
