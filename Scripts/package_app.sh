@@ -14,7 +14,7 @@ REQUIRE_MIHOMO_BINARY="${REQUIRE_MIHOMO_BINARY:-1}"
 
 APP="$ROOT/dist/${APP_NAME}.app"
 HELPER_LABEL="com.clashbar.helper"
-HELPER_PLIST_SOURCE="$ROOT/Packaging/LaunchDaemons/${HELPER_LABEL}.plist"
+HELPER_PLIST_SOURCE="$ROOT/Sources/Helper/LaunchDaemons/${HELPER_LABEL}.plist"
 
 cd "$ROOT"
 

@@ -15,7 +15,7 @@ let package = Package(
     targets: [
         .target(
             name: "ProxyHelperShared",
-            path: "Sources/ProxyHelperShared"
+            path: "Sources/Helper/Shared"
         ),
         .executableTarget(
             name: "ClashBar",
@@ -31,7 +31,7 @@ let package = Package(
         .executableTarget(
             name: "ClashBarProxyHelper",
             dependencies: ["ProxyHelperShared"],
-            path: "Sources/ClashBarProxyHelper"
+            path: "Sources/Helper/Daemon"
         )
     ]
 )
