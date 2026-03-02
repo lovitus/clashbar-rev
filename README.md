@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="Sources/ClashBar/Resources/Brand/clashbar-icon.png" width="96" alt="ClashBar Logo" />
+<img src="Sources/ClashBar/Resources/Brand/clashbar-icon.png" width="300" alt="ClashBar Logo" />
 
 # ClashBar
 
@@ -11,15 +11,14 @@
   <img alt="Swift" src="https://img.shields.io/badge/Swift-6.2-F05138?style=flat-square&logo=swift" />
   <img alt="Build" src="https://img.shields.io/badge/Build-SwiftPM-0A84FF?style=flat-square" />
   <img alt="i18n" src="https://img.shields.io/badge/i18n-zh--Hans%20%7C%20en-34C759?style=flat-square" />
+  <a href="https://t.me/clashbars" target="_blank" rel="noopener noreferrer">
+    <img alt="Telegram" src="https://img.shields.io/badge/Telegram-@clashbars-26A5E4?style=flat-square&logo=telegram&logoColor=white" />
+  </a>
 </p>
 
 </div>
 
-<table>
-  <tr>
-    <td colspan="2" align="center"><img src="./imgs/clashbar.png" alt="clashbar"></td>
-  </tr>
-</table>
+![ClashBar](./imgs/clashbar.png)
 
 ---
 
@@ -107,3 +106,7 @@ ClashBar 是一个原生 macOS 菜单栏代理客户端，基于 `mihomo` Core�
 ## 🙌 反馈与支持
 
 欢迎通过 Issue / PR 提交反馈（功能建议、文档修正、稳定性问题都欢迎）。 💬
+
+## ✨ Star 数
+
+[![Star History Chart](https://api.star-history.com/svg?repos=Sitoi/ClashBar&type=date&legend=top-left)](https://www.star-history.com/#Sitoi/ClashBar&type=date&legend=top-left)
