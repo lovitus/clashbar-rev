@@ -15,120 +15,72 @@
 
 </div>
 
----
-
-## 为什么是 ClashBar
-
-ClashBar 的目标是：在 macOS 菜单栏里，给你一个**启动即用、可打包分发、可维护扩展**的 mihomo 客户端。  
-它不是 Web 包壳，也不依赖 Xcode 工程文件，项目使用单一 SwiftPM 工程组织。
-
-适用场景：
-
-- 想要一个原生菜单栏代理管理器
-- 想在 Swift 代码里直接维护代理客户端
-- 想自己控制打包、helper、发布流程
+<table>
+  <tr>
+    <td colspan="2" align="center"><img src="./imgs/clashbar.png" alt="clashbar"></td>
+  </tr>
+</table>
 
 ---
 
-## 功能亮点
+## 👋 ClashBar 是什么
 
-### 核心运行与状态
-
-- 菜单栏实时显示运行状态与上下行速率
-- Core 生命周期控制：启动 / 停止 / 重启
-- 模式切换：`Rule` / `Global` / `Direct`
-
-### 配置管理
-
-- 配置文件切换（yml/yaml 自动扫描）
-- 导入本地配置 / 导入远程配置
-- 批量更新远程配置源
-- 新增：重载配置（刷新配置文件列表）
-- 在 Finder 中定位当前配置
-
-### 代理与规则运维
-
-- Provider 列表与单项更新
-- Proxy Group 节点切换与延迟测试
-- Rules / Connections / Logs 面板化查看与操作
-- 一键复制终端代理命令
-
-### 系统集成
-
-- 系统代理开关（Privileged Helper + XPC）
-- 开机启动（Launch at Login）
-- 多语言（简体中文 / English）
-- Keychain 存储控制密钥，日志内建敏感信息脱敏
+ClashBar 是一个原生 macOS 菜单栏代理客户端，基于 `mihomo` Core，专注「轻量、稳定、可观测」的日常代理管理体验。  
+你可以在菜单栏里完成配置切换、节点选择、规则刷新、连接排查和系统代理控制，不需要打开复杂主窗口。 ✨
 
 ---
 
-## 快速开始
+## ✨ 功能总览
 
-### 环境要求
-
-- macOS 14+
-- Xcode Command Line Tools
-- Swift 6.2+
-
-### 方式 A：本地调试（开发）
-
-```bash
-swift build
-swift run ClashBar
-```
-
-> `swift run` 适合 UI/业务逻辑开发调试。  
-> 系统代理 helper 相关能力请使用 `.app` 产物验证。
-
-### 方式 B：打包运行（推荐）
-
-```bash
-./Scripts/build.sh app
-```
-
-生成：`dist/ClashBar.app`
-
-如需 DMG：
-
-```bash
-./Scripts/build.sh dmg
-```
-
-或一键全流程：
-
-```bash
-./Scripts/build.sh all
-```
-
-### 首次使用建议路径
-
-1. 启动应用并打开菜单栏面板
-2. 启动 Core（Start/Restart）
-3. 选择或导入配置文件
-4. 按需开启系统代理
-5. 若提示权限，前往「系统设置 > 通用 > 登录项」批准后台项目
+| 模块         | 核心能力                                   | 你能做什么                     |
+| ------------ | ------------------------------------------ | ------------------------------ |
+| 🟢 Core 控制 | 启动 / 停止 / 重启                         | 快速恢复代理状态，减少断网等待 |
+| 🧩 配置管理  | 本地导入、远程导入、批量更新、重载配置     | 在多个订阅和配置文件间切换     |
+| 🚦 模式切换  | `Rule` / `Global` / `Direct`               | 按场景切换流量策略             |
+| 🌍 节点运维  | Proxy Group 切换、延迟测试、Provider 更新  | 选择更快更稳的线路             |
+| 📊 可观测性  | 实时速率、连接数、内存、活动连接、日志过滤 | 快速定位“慢/断/不通”的原因     |
+| 🔐 系统集成  | 系统代理开关、开机启动                     | 与 macOS 深度集成，更安全省心  |
+| 🌐 多语言    | 简体中文 / English                         | 团队或个人都能无障碍使用       |
 
 ---
 
-## 日常使用地图
+## 🚀 快速上手（用户版）
 
-- **Proxy**：流量、连接数、内存、配置入口、系统代理开关
-- **Rules**：规则与规则集统计、规则/Provider 刷新
-- **Activity**：活动连接过滤、关闭单连接/全部连接
-- **Logs**：级别过滤、关键词搜索、复制日志
-- **System**：语言、状态栏样式、allow-lan/ipv6/log-level、端口设置
+1. 打开 ClashBar，点击菜单栏图标进入主面板。 🖱️
+2. 在 `Proxy` 页面选择现有配置，或导入本地 / 远程配置。 📥
+3. 点击 `Start` 启动 Core，必要时使用 `Restart`。 ▶️
+4. 选择代理模式：`Rule` / `Global` / `Direct`。 🎛️
+5. 进入 Proxy Group 切换节点并做一次延迟测试。 📶
+6. 确认可用后开启系统代理，开始正常使用。 ✅
 
 ---
 
-## 运行目录与文件布局
+## 🗺️ 功能地图
 
-### 运行目录（自动创建）
+- 🧭 **Proxy**：实时速率、连接数、内存、配置入口、系统代理开关
+- 📚 **Rules**：规则统计、规则刷新、Provider 更新
+- 🌐 **Activity**：连接过滤、关闭单连接、关闭全部连接
+- 🪵 **Logs**：日志级别过滤、关键词搜索、日志复制
+- ⚙️ **System**：语言、状态栏样式、allow-lan/ipv6/log-level、端口设置
+
+---
+
+## 🎯 典型使用场景
+
+- 🏠 日常办公：按网络环境快速切换配置和节点，保持稳定在线。
+- 🧪 问题排查：结合 `Activity + Logs` 定位连接异常、规则命中异常。
+- 🔁 订阅维护：批量更新远程配置源后，一键重载并验证延迟。
+- 🛡️ 安全优先：敏感信息放 Keychain，日志输出自动脱敏。
+
+---
+
+## 📁 数据目录
 
 - `~/Library/Application Support/clashbar/config`
 - `~/Library/Application Support/clashbar/logs`
 - `~/Library/Application Support/clashbar/state`
 
-### 配置扫描规则
+配置扫描规则：
 
 - 仅识别 `.yaml` / `.yml`
 - 按文件名排序
@@ -136,14 +88,22 @@ swift run ClashBar
 
 ---
 
-## 安全与隐私
+## ❓ 常见问题
 
-- Secret 默认存储到 Keychain
-- 日志会脱敏常见敏感字段（token/secret/password/api_key 等）
-- Core 二进制在启动前执行基础安全校验（路径/权限/hash）
+- 为什么开启系统代理失败？  
+  请在 macOS 系统设置中批准 ClashBar 所需权限后重试。
+
+- 为什么切换节点后网络没有变化？  
+  建议先做延迟测试，再确认当前模式是否为 `Rule` / `Global`，必要时 `Restart` Core。
+
+- 为什么远程配置更新后看不到变化？  
+  先执行远程更新，再使用 `重载配置` 刷新列表并重新选择目标配置。
+
+- 为什么有些请求没有按预期走代理？  
+  到 `Rules` 查看规则命中情况，并结合 `Activity` 与 `Logs` 交叉排查。
 
 ---
 
-## 贡献
+## 🙌 反馈与支持
 
-欢迎提交 Issue / PR（功能改进、文档修正、稳定性优化都欢迎）。
+欢迎通过 Issue / PR 提交反馈（功能建议、文档修正、稳定性问题都欢迎）。 💬
