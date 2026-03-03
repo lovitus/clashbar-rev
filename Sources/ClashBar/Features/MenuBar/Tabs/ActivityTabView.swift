@@ -277,7 +277,9 @@ extension MenuBarRoot {
     }
 
     func activityChainsLine(parts: [String]) -> some View {
-        HStack(spacing: 2) {
+        let chainText = parts.joined(separator: " > ")
+
+        return HStack(spacing: 2) {
             Image(systemName: "point.3.connected.trianglepath.dotted")
                 .font(.system(size: 9, weight: .semibold))
                 .foregroundStyle(nativeSecondaryLabel)
@@ -291,26 +293,12 @@ extension MenuBarRoot {
                     .truncationMode(.middle)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 4) {
-                        ForEach(Array(parts.enumerated()), id: \.offset) { index, part in
-                            Text(part)
-                                .font(.system(size: 10, weight: .regular, design: .monospaced))
-                                .foregroundStyle(nativeSecondaryLabel)
-                                .lineLimit(1)
-                                .fixedSize(horizontal: true, vertical: false)
-
-                            if index < parts.count - 1 {
-                                Text(">")
-                                    .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                                    .foregroundStyle(nativeTertiaryLabel)
-                                    .lineLimit(1)
-                            }
-                        }
-                    }
+                Text(chainText)
+                    .font(.system(size: 10, weight: .regular, design: .monospaced))
+                    .foregroundStyle(nativeSecondaryLabel)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .scrollIndicators(.hidden)
             }
         }
         .frame(height: self.activityRowLineHeight, alignment: .leading)

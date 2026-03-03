@@ -138,7 +138,7 @@ struct MenuBarRoot: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .reportHeight { updateSectionHeight($0, target: .modeAndTab) }
 
-            ScrollView(.vertical) {
+            ScrollView(.vertical, showsIndicators: false) {
                 self.tabScrollContent(for: self.currentTab)
             }
             .scrollIndicators(.hidden)

@@ -190,7 +190,7 @@ final class AppState: ObservableObject {
 
         let up = self.compactMenuBarRate(max(0, self.traffic.up))
         let down = self.compactMenuBarRate(max(0, self.traffic.down))
-        return MenuBarSpeedLines(up: "↑\(up)", down: "↓\(down)")
+        return MenuBarSpeedLines(up: "\(up)↑", down: "\(down)↓")
     }
 
     var menuBarDisplay: MenuBarDisplay {

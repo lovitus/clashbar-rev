@@ -4,23 +4,22 @@ final class StatusItemContentView: NSView {
     // Keep a 1pt optical inset to stabilize status-item width across icon/text mode switches.
     private let statusItemHorizontalPadding: CGFloat = MenuBarLayoutTokens.opticalNudge
     private let iconSize: CGFloat = 24
-    private let brandIconRenderSize: CGFloat = 18
+    private let brandIconRenderSize: CGFloat = 24
+    private let symbolPointSize: CGFloat = 20
     private let iconTextSpacing: CGFloat = 1
     private let textContainerWidth: CGFloat = 42
     private let textLineHeight: CGFloat = 11
 
     private let iconView: NSImageView = {
         let imageView = NSImageView()
-        imageView.imageScaling = .scaleProportionallyDown
+        imageView.imageScaling = .scaleNone
         imageView.contentTintColor = NSColor.labelColor
         imageView.translatesAutoresizingMaskIntoConstraints = true
         return imageView
     }()
 
-    private let upLabel = StatusItemContentView.makeLineLabel(
-        color: NSColor.systemBlue.withAlphaComponent(0.92))
-    private let downLabel = StatusItemContentView.makeLineLabel(
-        color: NSColor.systemGreen.withAlphaComponent(0.92))
+    private let upLabel = StatusItemContentView.makeLineLabel()
+    private let downLabel = StatusItemContentView.makeLineLabel()
 
     private var currentDisplay: MenuBarDisplay?
     private lazy var brandStatusIconImage: NSImage? = Self.makeBrandStatusIconImage(size: brandIconRenderSize)
@@ -69,10 +68,10 @@ final class StatusItemContentView: NSView {
         let shouldShowIcon = display.mode != .speedOnly
         if shouldShowIcon, let brandIcon = brandStatusIconImage {
             self.iconView.image = brandIcon
-            self.iconView.contentTintColor = nil
+            self.iconView.contentTintColor = NSColor.labelColor
         } else if let symbolName = display.symbolName {
             let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: "ClashBar")
-            let config = NSImage.SymbolConfiguration(pointSize: 13, weight: .semibold)
+            let config = NSImage.SymbolConfiguration(pointSize: self.symbolPointSize, weight: .semibold)
             self.iconView.image = image?.withSymbolConfiguration(config)
             self.iconView.contentTintColor = NSColor.labelColor
         } else {
@@ -102,13 +101,13 @@ final class StatusItemContentView: NSView {
         super.layout()
 
         let totalHeight = bounds.height
-        let centerY = totalHeight / 2
-        var cursorX = self.statusItemHorizontalPadding
+        let centerY = floor(totalHeight / 2)
+        var cursorX = floor(self.statusItemHorizontalPadding)
 
         if self.iconView.isHidden == false {
             self.iconView.frame = CGRect(
-                x: cursorX,
-                y: centerY - self.iconSize / 2,
+                x: floor(cursorX),
+                y: floor(centerY - self.iconSize / 2),
                 width: self.iconSize,
                 height: self.iconSize)
             cursorX += self.iconSize + self.iconTextSpacing
@@ -123,26 +122,27 @@ final class StatusItemContentView: NSView {
         }
 
         let stackHeight = self.textLineHeight * 2
-        let stackOriginY = centerY - stackHeight / 2
+        let stackOriginY = floor(centerY - stackHeight / 2)
+        let textOriginX = floor(cursorX)
 
         self.upLabel.frame = CGRect(
-            x: cursorX,
-            y: stackOriginY + self.textLineHeight,
+            x: textOriginX,
+            y: floor(stackOriginY + self.textLineHeight),
             width: self.textContainerWidth,
             height: self.textLineHeight)
         self.downLabel.frame = CGRect(
-            x: cursorX,
+            x: textOriginX,
             y: stackOriginY,
             width: self.textContainerWidth,
             height: self.textLineHeight)
     }
 
-    private static func makeLineLabel(color: NSColor) -> NSTextField {
+    private static func makeLineLabel() -> NSTextField {
         let label = NSTextField(labelWithString: "")
-        label.font = .monospacedDigitSystemFont(ofSize: 9, weight: .semibold)
-        label.textColor = color
+        label.font = .monospacedDigitSystemFont(ofSize: 9, weight: .medium)
+        label.textColor = .labelColor
         label.alignment = .right
-        label.lineBreakMode = .byTruncatingTail
+        label.lineBreakMode = .byTruncatingHead
         label.maximumNumberOfLines = 2
         label.cell?.usesSingleLineMode = true
         label.translatesAutoresizingMaskIntoConstraints = true
@@ -152,7 +152,7 @@ final class StatusItemContentView: NSView {
     private static func makeBrandStatusIconImage(size: CGFloat) -> NSImage? {
         guard let base = BrandIcon.image?.copy() as? NSImage else { return nil }
         base.size = NSSize(width: size, height: size)
-        base.isTemplate = false
+        base.isTemplate = true
         return base
     }
 }

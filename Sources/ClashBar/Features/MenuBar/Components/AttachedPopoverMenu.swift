@@ -62,7 +62,7 @@ struct AttachedPopoverMenu<Label: View, Content: View>: View {
         }
 
         return AnyView(
-            ScrollView(.vertical) {
+            ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 0) {
                     self.content {
                         self.dismissPopover()
@@ -266,6 +266,10 @@ private struct SideAttachedPopoverHost: NSViewRepresentable {
                 let anchorView,
                 let hostWindow
             else { return }
+
+            // Keep attached panel appearance in sync with host window to avoid light surfaces in Dark Mode.
+            self.panel.appearance = hostWindow.effectiveAppearance
+            self.hostingController.view.appearance = hostWindow.effectiveAppearance
 
             let fitting = self.hostingController.view.fittingSize
             let anchorRectInWindow = anchorView.convert(anchorView.bounds, to: nil)
