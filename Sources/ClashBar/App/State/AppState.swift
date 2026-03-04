@@ -333,6 +333,9 @@ final class AppState: ObservableObject {
     var mihomoLogStore: AppLogStore?
     var didAttemptAutoStart = false
     var didCheckSystemProxyConsistencyOnLaunch = false
+    var lastCoreFailureAlertKey: String?
+    var lastCoreFailureAlertAt: Date?
+    let coreFailureAlertThrottleInterval: TimeInterval = 20
     var networkReachabilityStatus: NetworkReachabilityStatus = .unknown
     var shouldResumeCoreAfterNetworkRecovery = false
     var isNetworkReachabilityMonitoring = false
@@ -380,11 +383,19 @@ final class AppState: ObservableObject {
             }
             managedProcess.onTermination = { [weak self] code in
                 Task { @MainActor in
+                    let message = self?.tr("log.process.terminated", code) ?? ""
                     self?.statusText = "Failed"
                     self?.apiStatus = .failed
                     self?.resetTrafficPresentation()
-                    self?.appendLog(level: "error", message: self?.tr("log.process.terminated", code) ?? "")
+                    self?.appendLog(level: "error", message: message)
                     self?.cancelPolling()
+                    if self?.coreActionState == .idle, let self, !message.isEmpty {
+                        self.presentCoreFailureAlert(
+                            title: self.tr("app.core.alert.process_terminated.title"),
+                            message: message,
+                            dedupeKey: "core-process-terminated",
+                            style: .critical)
+                    }
                 }
             }
         }

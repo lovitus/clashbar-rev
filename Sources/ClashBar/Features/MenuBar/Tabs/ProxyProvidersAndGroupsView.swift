@@ -362,7 +362,6 @@ extension MenuBarRoot {
         return (name, current, delay)
     }
 
-    @ViewBuilder
     func proxyGroupLeadingIcon(_ iconURL: URL) -> some View {
         AsyncImage(url: iconURL) { phase in
             if case let .success(image) = phase {

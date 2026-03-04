@@ -205,6 +205,9 @@
 "app.stream.label.memory" = "Memory";
 "app.stream.label.connections" = "Connections";
 "app.stream.label.logs" = "Logs";
+"app.core.alert.start_failed.title" = "Core Start Failed";
+"app.core.alert.restart_failed.title" = "Core Restart Failed";
+"app.core.alert.process_terminated.title" = "Core Terminated Unexpectedly";
 
 "log.process.terminated" = "mihomo terminated with code %d";
 "log.working_dir_init_failed" = "Failed to initialize working directory: %@";

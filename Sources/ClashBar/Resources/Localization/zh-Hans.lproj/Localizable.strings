@@ -205,6 +205,9 @@
 "app.stream.label.memory" = "内存";
 "app.stream.label.connections" = "连接";
 "app.stream.label.logs" = "日志";
+"app.core.alert.start_failed.title" = "启动内核失败";
+"app.core.alert.restart_failed.title" = "重启内核失败";
+"app.core.alert.process_terminated.title" = "内核异常退出";
 
 "log.process.terminated" = "mihomo 已退出，退出码 %d";
 "log.working_dir_init_failed" = "初始化工作目录失败: %@";

@@ -11,8 +11,8 @@ extension Font {
     }
 }
 
-private extension Font.Weight {
-    var nsFontWeight: NSFont.Weight {
+extension Font.Weight {
+    fileprivate var nsFontWeight: NSFont.Weight {
         switch self {
         case .ultraLight:
             .ultraLight

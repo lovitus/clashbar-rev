@@ -25,6 +25,10 @@ extension AppState {
             guard let configPath = await resolveSelectedConfigPath() else {
                 let message = tr("log.start.no_config")
                 appendLog(level: "error", message: message)
+                self.presentCoreFailureAlert(
+                    title: self.tr("app.core.alert.start_failed.title"),
+                    message: message,
+                    dedupeKey: "core-start-failed")
                 if trigger == .auto {
                     startupErrorMessage = message
                     statusText = "Stopped"
@@ -68,6 +72,10 @@ extension AppState {
             preserveLocalSettingsOnNextSync = false
             let message = tr("log.start.failed", error.localizedDescription)
             appendLog(level: "error", message: message)
+            self.presentCoreFailureAlert(
+                title: self.tr("app.core.alert.start_failed.title"),
+                message: message,
+                dedupeKey: "core-start-failed")
             if trigger == .auto {
                 statusText = "Stopped"
                 apiStatus = .unknown
@@ -109,7 +117,12 @@ extension AppState {
         cancelProviderRefresh(reason: "restart requested")
         do {
             guard let configPath = await resolveSelectedConfigPath() else {
-                appendLog(level: "error", message: tr("log.start.no_config"))
+                let message = tr("log.start.no_config")
+                appendLog(level: "error", message: message)
+                self.presentCoreFailureAlert(
+                    title: self.tr("app.core.alert.restart_failed.title"),
+                    message: message,
+                    dedupeKey: "core-restart-failed")
                 return
             }
 
@@ -131,7 +144,12 @@ extension AppState {
                     refreshSystemProxyAfterBootstrap: true))
         } catch {
             preserveLocalSettingsOnNextSync = false
-            appendLog(level: "error", message: tr("log.restart.failed", error.localizedDescription))
+            let message = tr("log.restart.failed", error.localizedDescription)
+            appendLog(level: "error", message: message)
+            self.presentCoreFailureAlert(
+                title: self.tr("app.core.alert.restart_failed.title"),
+                message: message,
+                dedupeKey: "core-restart-failed")
         }
     }
 
@@ -209,6 +227,33 @@ extension AppState {
         alert.alertStyle = .critical
         alert.messageText = tr("app.config.validation_failed.title")
         alert.informativeText = tr("app.config.validation_failed.message", fileName, details)
+        alert.addButton(withTitle: tr("ui.action.ok"))
+        self.prepareModalWindowPresentation()
+        self.configureModalWindow(alert.window)
+        alert.runModal()
+    }
+
+    func presentCoreFailureAlert(
+        title: String,
+        message: String,
+        dedupeKey: String,
+        style: NSAlert.Style = .warning)
+    {
+        let now = Date()
+        if self.lastCoreFailureAlertKey == dedupeKey,
+           let lastAt = self.lastCoreFailureAlertAt,
+           now.timeIntervalSince(lastAt) < self.coreFailureAlertThrottleInterval
+        {
+            return
+        }
+
+        self.lastCoreFailureAlertKey = dedupeKey
+        self.lastCoreFailureAlertAt = now
+
+        let alert = NSAlert()
+        alert.alertStyle = style
+        alert.messageText = title
+        alert.informativeText = message
         alert.addButton(withTitle: tr("ui.action.ok"))
         self.prepareModalWindowPresentation()
         self.configureModalWindow(alert.window)
@@ -295,12 +340,11 @@ extension AppState {
         let capturedRecovery = CoreFeatureRecoveryState(
             systemProxyEnabled: runtimeRunningBeforeStop && self.isSystemProxyEnabled,
             tunEnabled: runtimeRunningBeforeStop && self.isTunEnabled)
-        let recovery: CoreFeatureRecoveryState
-        if trigger == .networkLoss, !capturedRecovery.shouldRecoverAnyFeature {
+        let recovery: CoreFeatureRecoveryState = if trigger == .networkLoss, !capturedRecovery.shouldRecoverAnyFeature {
             // Keep the pre-stop snapshot when network-loss stop races with transient runtime state changes.
-            recovery = fallbackRecovery
+            fallbackRecovery
         } else {
-            recovery = capturedRecovery
+            capturedRecovery
         }
 
         self.pendingCoreFeatureRecoveryState = recovery.shouldRecoverAnyFeature ? recovery : nil
