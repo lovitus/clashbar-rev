@@ -100,6 +100,7 @@ extension AppState {
         await self.prepareCoreFeatureRecoveryBeforeStop(
             trigger: trigger,
             fallbackRecovery: recoverySnapshotBeforeStop)
+        self.cancelDeferredEditableSettingsOverlaySync()
         cancelProviderRefresh(reason: "stop requested")
         processManager.stop()
         cancelPolling()
@@ -183,6 +184,7 @@ extension AppState {
     func shutdownForTermination() {
         shouldResumeCoreAfterNetworkRecovery = false
         stopNetworkReachabilityMonitoring(resetState: true)
+        self.cancelDeferredEditableSettingsOverlaySync()
         cancelProviderRefresh(reason: "quit requested")
         cancelPolling()
         if processManager.isRunning {
@@ -302,10 +304,9 @@ extension AppState {
         startPolling()
         await refreshFromAPI(includeSlowCalls: true)
 
-        await applyEditableSettingsOverlay(
+        await self.syncEditableSettingsOverlayForCoreBootstrap(
             settingsOverlay,
-            syncingKey: options.overlaySyncingKey,
-            successMessage: "")
+            syncingKey: options.overlaySyncingKey)
         await validateTunPermissionsOnStartup()
         enqueueProviderRefresh(trigger: options.providerTrigger)
 

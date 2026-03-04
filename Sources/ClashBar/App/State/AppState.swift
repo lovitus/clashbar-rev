@@ -293,6 +293,7 @@ final class AppState: ObservableObject {
     var providerRefreshTask: Task<Void, Never>?
     var networkAutoStopTask: Task<Void, Never>?
     var networkAutoStartTask: Task<Void, Never>?
+    var deferredEditableSettingsOverlayTask: Task<Void, Never>?
     var providerRefreshGeneration: Int = 0
     var lastTrafficSampleAt: Date?
     var modeSwitchInFlight = false
@@ -340,6 +341,7 @@ final class AppState: ObservableObject {
     var shouldResumeCoreAfterNetworkRecovery = false
     var isNetworkReachabilityMonitoring = false
     var pendingCoreFeatureRecoveryState: CoreFeatureRecoveryState?
+    var deferredEditableSettingsOverlay: (snapshot: EditableSettingsSnapshot, syncingKey: String)?
     var remoteConfigSources: [String: String] = [:]
     var externalControllerWarningKeys: Set<String> = []
     let streamJSONDecoder = JSONDecoder()
@@ -358,7 +360,7 @@ final class AppState: ObservableObject {
         mihomoLogStore: AppLogStore? = nil,
         startBackgroundRefresh: Bool = true)
     {
-        self.processManager = processManager ?? MihomoProcessManager()
+        self.processManager = processManager ?? MihomoProcessManager(workingDirectoryManager: workingDirectoryManager)
         self.workingDirectoryManager = workingDirectoryManager
         self.systemProxyService = systemProxyService
         self.tunPermissionService = tunPermissionService
@@ -451,6 +453,7 @@ final class AppState: ObservableObject {
     deinit {
         networkAutoStopTask?.cancel()
         networkAutoStartTask?.cancel()
+        deferredEditableSettingsOverlayTask?.cancel()
         mediumFrequencyTask?.cancel()
         lowFrequencyTask?.cancel()
         for task in streamReceiveTasks.values {

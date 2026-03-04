@@ -28,6 +28,8 @@ final class MihomoProcessManager: MihomoControlling, @unchecked Sendable {
     private var intentionalStop = false
     private let lock = NSLock()
     private let stateActor = ProcessStateActor()
+    private let fileManager: FileManager
+    private let workingDirectoryManager: WorkingDirectoryManager
 
     var onLog: ((String) -> Void)?
     var onTermination: ((Int32) -> Void)?
@@ -40,6 +42,14 @@ final class MihomoProcessManager: MihomoControlling, @unchecked Sendable {
         self.lock.withLock {
             self.process?.isRunning == true
         }
+    }
+
+    init(
+        workingDirectoryManager: WorkingDirectoryManager = WorkingDirectoryManager(),
+        fileManager: FileManager = .default)
+    {
+        self.workingDirectoryManager = workingDirectoryManager
+        self.fileManager = fileManager
     }
 
     deinit {
@@ -251,24 +261,95 @@ final class MihomoProcessManager: MihomoControlling, @unchecked Sendable {
     }
 
     private func resolveMihomoBinary() throws -> String {
-        let fm = FileManager.default
-        let resourceRoots = AppResourceBundleLocator.candidateResourceRoots()
-        for root in resourceRoots {
-            let candidates = [
-                root.appendingPathComponent("bin/mihomo").path,
-                root.appendingPathComponent("Resources/bin/mihomo").path,
-                root.appendingPathComponent("mihomo").path,
-            ]
-            for candidate in candidates where fm.isExecutableFile(atPath: candidate) {
-                try validateBinarySecurity(at: candidate)
-                return candidate
+        try self.workingDirectoryManager.bootstrapDirectories(fileManager: self.fileManager)
+
+        let managedBinaryPath = self.workingDirectoryManager.coreDirectoryURL
+            .appendingPathComponent("mihomo", isDirectory: false)
+            .path
+
+        if self.fileManager.fileExists(atPath: managedBinaryPath) {
+            try self.ensureExecutableIfNeeded(at: managedBinaryPath)
+            if self.fileManager.isExecutableFile(atPath: managedBinaryPath) {
+                try self.validateBinarySecurity(at: managedBinaryPath)
+                return managedBinaryPath
             }
         }
 
-        throw NSError(
-            domain: "ClashBar.Core",
-            code: 404,
-            userInfo: [NSLocalizedDescriptionKey: "mihomo binary not found in app resources"])
+        guard let bundledBinaryPath = self.firstBundledExecutableBinaryPath() else {
+            throw NSError(
+                domain: "ClashBar.Core",
+                code: 404,
+                userInfo: [NSLocalizedDescriptionKey: "mihomo binary not found in app resources"])
+        }
+
+        try self.validateBinarySecurity(at: bundledBinaryPath)
+        let migratedBinaryPath = try self.copyBundledBinaryToManagedCore(
+            bundledPath: bundledBinaryPath,
+            managedPath: managedBinaryPath)
+        try self.validateBinarySecurity(at: migratedBinaryPath)
+        return migratedBinaryPath
+    }
+
+    private func firstBundledExecutableBinaryPath() -> String? {
+        for candidate in self.bundledBinaryCandidates() where self.fileManager.isExecutableFile(atPath: candidate) {
+            return candidate
+        }
+        return nil
+    }
+
+    private func bundledBinaryCandidates() -> [String] {
+        let resourceRoots = AppResourceBundleLocator.candidateResourceRoots()
+        var candidates: [String] = []
+
+        for root in resourceRoots {
+            candidates.append(root.appendingPathComponent("bin/mihomo").path)
+            candidates.append(root.appendingPathComponent("Resources/bin/mihomo").path)
+            candidates.append(root.appendingPathComponent("mihomo").path)
+        }
+
+        var deduplicated: [String] = []
+        var seen = Set<String>()
+        for path in candidates {
+            let normalized = URL(fileURLWithPath: path).standardizedFileURL.path
+            if seen.insert(normalized).inserted {
+                deduplicated.append(normalized)
+            }
+        }
+        return deduplicated
+    }
+
+    private func copyBundledBinaryToManagedCore(bundledPath: String, managedPath: String) throws -> String {
+        if self.fileManager.fileExists(atPath: managedPath) {
+            try self.fileManager.removeItem(atPath: managedPath)
+        }
+
+        // Keep signed app bundle immutable: only copy core out to user-managed directory.
+        do {
+            try self.fileManager.copyItem(atPath: bundledPath, toPath: managedPath)
+            self.onLog?("[mihomo binary] copied bundled core to \(managedPath)")
+            try self.ensureExecutableIfNeeded(at: managedPath)
+            return managedPath
+        } catch {
+            throw NSError(
+                domain: "ClashBar.Core",
+                code: 500,
+                userInfo: [
+                    NSLocalizedDescriptionKey:
+                        "failed to migrate mihomo binary to \(managedPath): \(error.localizedDescription)",
+                ])
+        }
+    }
+
+    private func ensureExecutableIfNeeded(at path: String) throws {
+        guard self.fileManager.fileExists(atPath: path) else {
+            throw NSError(
+                domain: "ClashBar.Core",
+                code: 404,
+                userInfo: [NSLocalizedDescriptionKey: "mihomo binary not found at \(path)"])
+        }
+
+        guard !self.fileManager.isExecutableFile(atPath: path) else { return }
+        try self.fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: path)
     }
 
     private func validateBinarySecurity(at path: String) throws {
