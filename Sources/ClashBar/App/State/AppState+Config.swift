@@ -47,8 +47,26 @@ extension AppState {
     }
 
     func selectConfig() async {
+        let previousSelectedURL = configManager.selectedConfig
         let previousSelectedPath = configManager.selectedConfig?.path
         guard configManager.chooseConfigDirectory() != nil else { return }
+
+        let nextSelectedURL = configManager.selectedConfig
+        let previousCanonicalPath = previousSelectedURL?.standardizedFileURL.resolvingSymlinksInPath().path
+        let nextCanonicalPath = nextSelectedURL?.standardizedFileURL.resolvingSymlinksInPath().path
+
+        if processManager.isRunning,
+           let nextSelectedURL,
+           previousCanonicalPath != nextCanonicalPath,
+           !self.validateConfigBeforeCoreLaunch(configPath: nextSelectedURL.path)
+        {
+            if let previousSelectedURL {
+                configManager.selectConfig(previousSelectedURL)
+            }
+            _ = self.syncSelectedConfigSelection(configManager.selectedConfig)
+            syncConfigDisplayState()
+            return
+        }
 
         let nextSelectedPath = self.syncSelectedConfigSelection(configManager.selectedConfig)
         syncConfigDisplayState()
@@ -58,9 +76,25 @@ extension AppState {
     }
 
     func selectConfigFile(named fileName: String) async {
+        let previousSelectedURL = configManager.selectedConfig
         let previousSelectedPath = configManager.selectedConfig?.path
         guard let matched = configManager.availableConfigs.first(where: { $0.lastPathComponent == fileName }) else {
             appendLog(level: "error", message: tr("log.config.not_found", fileName))
+            return
+        }
+
+        let previousCanonicalPath = previousSelectedURL?.standardizedFileURL.resolvingSymlinksInPath().path
+        let targetCanonicalPath = matched.standardizedFileURL.resolvingSymlinksInPath().path
+
+        if processManager.isRunning,
+           previousCanonicalPath != targetCanonicalPath,
+           !self.validateConfigBeforeCoreLaunch(configPath: matched.path)
+        {
+            if let previousSelectedURL {
+                configManager.selectConfig(previousSelectedURL)
+            }
+            _ = self.syncSelectedConfigSelection(configManager.selectedConfig)
+            syncConfigDisplayState()
             return
         }
 
@@ -129,13 +163,17 @@ extension AppState {
 
         let urlText = input.urlString.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let remoteURL = URL(string: urlText), isSupportedRemoteConfigURL(remoteURL) else {
-            appendLog(level: "error", message: tr("log.config.remote.invalid_url", urlText))
+            let message = tr("log.config.remote.invalid_url", urlText)
+            appendLog(level: "error", message: message)
+            self.presentRemoteConfigImportResultAlert(success: false, message: message)
             return
         }
 
         let fallbackName = self.inferredRemoteConfigFileName(from: remoteURL)
         guard let fileName = normalizedConfigFileName(input.fileName, fallback: fallbackName) else {
-            appendLog(level: "error", message: tr("log.config.import.invalid_filename", input.fileName))
+            let message = tr("log.config.import.invalid_filename", input.fileName)
+            appendLog(level: "error", message: message)
+            self.presentRemoteConfigImportResultAlert(success: false, message: message)
             return
         }
 
@@ -151,15 +189,18 @@ extension AppState {
             try writeConfigData(data, to: targetURL)
 
             self.updateRemoteConfigSource(for: fileName, urlString: remoteURL.absoluteString)
-            appendLog(level: "info", message: tr("log.config.import_remote.success", fileName))
+            let message = tr("log.config.import_remote.success", fileName)
+            appendLog(level: "info", message: message)
 
             if isOverwrite, self.shouldAutoReloadCurrentConfig(updatedFileNames: [fileName]) {
                 await self.reloadConfig()
             }
+
+            self.presentRemoteConfigImportResultAlert(success: true, message: message)
         } catch {
-            appendLog(
-                level: "error",
-                message: tr("log.config.import_remote.failed", fileName, error.localizedDescription))
+            let message = tr("log.config.import_remote.failed", fileName, error.localizedDescription)
+            appendLog(level: "error", message: message)
+            self.presentRemoteConfigImportResultAlert(success: false, message: message)
         }
     }
 
@@ -292,6 +333,19 @@ extension AppState {
         self.prepareModalWindowPresentation()
         self.configureModalWindow(alert.window)
         return alert.runModal() == .alertFirstButtonReturn
+    }
+
+    func presentRemoteConfigImportResultAlert(success: Bool, message: String) {
+        let alert = NSAlert()
+        alert.alertStyle = success ? .informational : .warning
+        alert.messageText = success
+            ? tr("app.config.remote_import.alert.success.title")
+            : tr("app.config.remote_import.alert.failure.title")
+        alert.informativeText = message
+        alert.addButton(withTitle: tr("ui.action.ok"))
+        self.prepareModalWindowPresentation()
+        self.configureModalWindow(alert.window)
+        alert.runModal()
     }
 
     struct RemoteConfigImportInput {

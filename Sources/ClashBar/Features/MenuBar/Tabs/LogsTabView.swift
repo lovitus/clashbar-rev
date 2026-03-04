@@ -41,7 +41,7 @@ extension MenuBarRoot {
             self.logsSecondaryControlRow
             TextField(tr("ui.placeholder.search_logs"), text: $logSearchText)
                 .textFieldStyle(.roundedBorder)
-                .font(.system(size: 12, weight: .regular))
+                .font(.appSystem(size: 12, weight: .regular))
                 .foregroundStyle(nativePrimaryLabel)
         }
         .menuRowPadding(vertical: MenuBarLayoutTokens.vDense + 2)
@@ -91,7 +91,7 @@ extension MenuBarRoot {
     {
         Button(role: role, action: action) {
             Image(systemName: symbol)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.appSystem(size: 11, weight: .semibold))
                 .frame(width: 12, height: 12)
         }
         .buttonStyle(.bordered)
@@ -104,7 +104,7 @@ extension MenuBarRoot {
     var logsSourceFilterButtons: some View {
         HStack(spacing: MenuBarLayoutTokens.hMicro + 1) {
             Image(systemName: "line.3.horizontal.decrease.circle")
-                .font(.system(size: 10, weight: .semibold))
+                .font(.appSystem(size: 10, weight: .semibold))
                 .foregroundStyle(nativeTertiaryLabel)
 
             self.logFilterToggleButton(
@@ -127,7 +127,7 @@ extension MenuBarRoot {
     var logsLevelFilterButtons: some View {
         HStack(spacing: MenuBarLayoutTokens.hMicro + 1) {
             Image(systemName: "slider.horizontal.3")
-                .font(.system(size: 10, weight: .semibold))
+                .font(.appSystem(size: 10, weight: .semibold))
                 .foregroundStyle(nativeTertiaryLabel)
 
             self.logFilterToggleButton(
@@ -155,7 +155,7 @@ extension MenuBarRoot {
         if selected {
             Button(action: action) {
                 Text(title)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.appSystem(size: 11, weight: .medium))
                     .lineLimit(1)
             }
             .buttonStyle(.borderedProminent)
@@ -163,7 +163,7 @@ extension MenuBarRoot {
         } else {
             Button(action: action) {
                 Text(title)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.appSystem(size: 11, weight: .medium))
                     .lineLimit(1)
             }
             .buttonStyle(.bordered)
@@ -186,11 +186,11 @@ extension MenuBarRoot {
     var logsCountSummaryBadge: some View {
         HStack(spacing: MenuBarLayoutTokens.hMicro) {
             Text("\(self.filteredLogs.count)")
-                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                .font(.appMonospaced(size: 11, weight: .bold))
             Text("/")
-                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                .font(.appMonospaced(size: 10, weight: .medium))
             Text("\(appState.errorLogs.count)")
-                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                .font(.appMonospaced(size: 11, weight: .medium))
         }
         .foregroundStyle(nativeSecondaryLabel)
         .padding(.horizontal, 6)
@@ -260,40 +260,40 @@ extension MenuBarRoot {
                 .frame(width: 16, height: 16)
                 .overlay {
                     Image(systemName: symbol)
-                        .font(.system(size: 9, weight: .semibold))
+                        .font(.appSystem(size: 9, weight: .semibold))
                         .foregroundStyle(tone)
                 }
 
             VStack(alignment: .leading, spacing: MenuBarLayoutTokens.vDense) {
                 HStack(spacing: MenuBarLayoutTokens.hMicro + 1) {
                     Text("[\(sourceInfo.label)]")
-                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                        .font(.appMonospaced(size: 10, weight: .semibold))
                         .foregroundStyle(sourceInfo.color)
 
                     Text("[\(levelInfo.label)]")
-                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                        .font(.appMonospaced(size: 10, weight: .semibold))
                         .foregroundStyle(tone)
 
                     if let protocolTag = parsed.protocolTag {
                         Text(protocolTag)
-                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                            .font(.appMonospaced(size: 10, weight: .semibold))
                             .foregroundStyle(parsed.protocolColor)
                     }
 
                     Text(ValueFormatter.dateTime(log.timestamp))
-                        .font(.system(size: 10, weight: .regular, design: .monospaced))
+                        .font(.appMonospaced(size: 10, weight: .regular))
                         .foregroundStyle(nativeTertiaryLabel)
                         .lineLimit(1)
                 }
 
                 Text(parsed.mainText)
-                    .font(.system(size: 11, weight: .regular, design: .monospaced))
+                    .font(.appMonospaced(size: 11, weight: .regular))
                     .foregroundStyle(nativePrimaryLabel)
                     .fixedSize(horizontal: false, vertical: true)
 
                 if let detailText = parsed.detailText {
                     Text(detailText)
-                        .font(.system(size: 10, weight: .regular, design: .monospaced))
+                        .font(.appMonospaced(size: 10, weight: .regular))
                         .foregroundStyle(nativeSecondaryLabel)
                         .lineLimit(2)
                         .padding(.leading, MenuBarLayoutTokens.hDense)

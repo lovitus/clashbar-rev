@@ -57,11 +57,11 @@ extension MenuBarRoot {
                         .controlSize(.mini)
                 } else {
                     Image(systemName: symbol)
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.appSystem(size: 11, weight: .semibold))
                 }
 
                 Text(title)
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.appSystem(size: 10, weight: .semibold))
                     .lineLimit(1)
             }
             .foregroundStyle((selected || hovered) ? nativePrimaryLabel : nativeSecondaryLabel)

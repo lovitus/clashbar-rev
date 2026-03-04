@@ -34,7 +34,7 @@ extension MenuBarRoot {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 7) {
                         Text("ClashBar")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.appSystem(size: 16, weight: .semibold))
                             .foregroundStyle(nativePrimaryLabel)
 
                         HStack(spacing: MenuBarLayoutTokens.hMicro) {
@@ -42,7 +42,7 @@ extension MenuBarRoot {
                                 .fill(statusColor)
                                 .frame(width: 5, height: 5)
                             Text(runtimeBadgeText)
-                                .font(.system(size: 11, weight: .medium))
+                                .font(.appSystem(size: 11, weight: .medium))
                                 .foregroundStyle(nativeSecondaryLabel)
                         }
                         .padding(.horizontal, MenuBarLayoutTokens.hDense)
@@ -90,13 +90,13 @@ extension MenuBarRoot {
     func headerMetaLabel(symbol: String, text: String) -> some View {
         HStack(spacing: 4) {
             Image(systemName: symbol)
-                .font(.system(size: 10, weight: .medium))
+                .font(.appSystem(size: 10, weight: .medium))
                 .foregroundStyle(nativeTertiaryLabel)
             Text(text)
                 .lineLimit(1)
                 .truncationMode(.middle)
         }
-        .font(.system(size: 11, weight: .medium))
+        .font(.appSystem(size: 11, weight: .medium))
         .foregroundStyle(nativeSecondaryLabel)
     }
 
@@ -189,7 +189,7 @@ private struct TopHeaderIconActionButton: View {
             Task { await self.action() }
         } label: {
             Image(systemName: self.symbol)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.appSystem(size: 13, weight: .semibold))
                 .foregroundStyle(self.hovered ? self.tone : Color(nsColor: .secondaryLabelColor))
                 .frame(width: 20, height: 20)
         }

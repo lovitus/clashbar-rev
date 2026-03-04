@@ -197,7 +197,7 @@ extension MenuBarRoot {
                 VStack(alignment: .leading, spacing: MenuBarLayoutTokens.vDense + 2) {
                     HStack(spacing: MenuBarLayoutTokens.hDense) {
                         Text(tr("ui.settings.ports_auto_save_hint"))
-                            .font(.system(size: 11, weight: .regular))
+                            .font(.appSystem(size: 11, weight: .regular))
                             .foregroundStyle(nativeSecondaryLabel)
 
                         Spacer(minLength: 0)
@@ -207,7 +207,7 @@ extension MenuBarRoot {
                                 ProgressView()
                                     .controlSize(.mini)
                                 Text(tr("ui.settings.ports_auto_saving"))
-                                    .font(.system(size: 10, weight: .medium))
+                                    .font(.appSystem(size: 10, weight: .medium))
                                     .foregroundStyle(nativeSecondaryLabel)
                             }
                         }

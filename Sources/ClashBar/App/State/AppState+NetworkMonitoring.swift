@@ -128,6 +128,9 @@ extension AppState {
                 }
 
                 if self.isRuntimeRunning {
+                    if self.pendingCoreFeatureRecoveryState?.shouldRecoverAnyFeature == true {
+                        await self.restoreCoreFeaturesAfterStartupIfNeeded()
+                    }
                     self.shouldResumeCoreAfterNetworkRecovery = false
                     return
                 }

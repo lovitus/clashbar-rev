@@ -52,7 +52,7 @@ extension MenuBarRoot {
         VStack(alignment: .leading, spacing: MenuBarLayoutTokens.vDense + 2) {
             HStack(spacing: MenuBarLayoutTokens.hDense) {
                 Text(tr("ui.tab.activity"))
-                    .font(.system(size: 12, weight: .bold))
+                    .font(.appSystem(size: 12, weight: .bold))
                     .tracking(1.2)
                     .textCase(.uppercase)
                     .foregroundStyle(nativeTertiaryLabel)
@@ -76,7 +76,7 @@ extension MenuBarRoot {
 
             TextField(tr("ui.placeholder.filter_connection"), text: $networkFilterText)
                 .textFieldStyle(.roundedBorder)
-                .font(.system(size: 12, weight: .regular))
+                .font(.appSystem(size: 12, weight: .regular))
                 .foregroundStyle(nativePrimaryLabel)
 
             HStack(spacing: MenuBarLayoutTokens.hDense) {
@@ -116,7 +116,7 @@ extension MenuBarRoot {
             }
         } label: {
             Label(self.tr(self.networkTransportFilter.titleKey), systemImage: "line.3.horizontal.decrease.circle")
-                .font(.system(size: 11, weight: .medium))
+                .font(.appSystem(size: 11, weight: .medium))
                 .lineLimit(1)
         }
         .buttonStyle(.bordered)
@@ -139,7 +139,7 @@ extension MenuBarRoot {
             }
         } label: {
             Label(self.tr(self.networkSortOption.titleKey), systemImage: "arrow.up.arrow.down")
-                .font(.system(size: 11, weight: .medium))
+                .font(.appSystem(size: 11, weight: .medium))
                 .lineLimit(1)
         }
         .buttonStyle(.bordered)
@@ -150,11 +150,11 @@ extension MenuBarRoot {
     var networkCountSummaryBadge: some View {
         HStack(spacing: MenuBarLayoutTokens.hMicro) {
             Text("\(self.filteredConnections.count)")
-                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                .font(.appMonospaced(size: 11, weight: .bold))
             Text("/")
-                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                .font(.appMonospaced(size: 10, weight: .medium))
             Text("\(self.networkSourceConnections.count)")
-                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                .font(.appMonospaced(size: 11, weight: .medium))
         }
         .foregroundStyle(nativeSecondaryLabel)
         .padding(.horizontal, 6)
@@ -259,7 +259,7 @@ extension MenuBarRoot {
 
         return HStack(spacing: MenuBarLayoutTokens.hDense) {
             Image(systemName: visual.symbol)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.appSystem(size: 12, weight: .semibold))
                 .foregroundStyle(visual.color)
                 .frame(width: 16, alignment: .center)
 
@@ -272,7 +272,7 @@ extension MenuBarRoot {
 
                     HStack(spacing: ActivityLayout.topLineSpacing) {
                         Text(hostText)
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.appSystem(size: 12, weight: .semibold))
                             .foregroundStyle(nativePrimaryLabel)
                             .lineLimit(1)
                             .truncationMode(.tail)
@@ -335,7 +335,7 @@ extension MenuBarRoot {
                 Task { await appState.closeConnection(id: conn.id) }
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 8, weight: .semibold))
+                    .font(.appSystem(size: 8, weight: .semibold))
                     .frame(width: 10, height: 10)
             }
             .buttonStyle(.plain)
@@ -387,11 +387,11 @@ extension MenuBarRoot {
 
         return HStack(spacing: spacing) {
             Image(systemName: symbol)
-                .font(.system(size: 9, weight: .semibold))
+                .font(.appSystem(size: 9, weight: .semibold))
                 .foregroundStyle(symbolColor)
                 .frame(width: 10, alignment: .leading)
             Text(renderedText)
-                .font(.system(size: 10, weight: .regular, design: .monospaced))
+                .font(.appMonospaced(size: 10, weight: .regular))
                 .foregroundStyle(textColor)
                 .lineLimit(1)
                 .truncationMode(truncation)
@@ -402,7 +402,7 @@ extension MenuBarRoot {
 
     func activityTopBadge(text: String) -> some View {
         Text(text)
-            .font(.system(size: 9, weight: .semibold, design: .monospaced))
+            .font(.appMonospaced(size: 9, weight: .semibold))
             .foregroundStyle(nativeSecondaryLabel)
             .lineLimit(1)
             .truncationMode(.tail)
@@ -414,7 +414,7 @@ extension MenuBarRoot {
 
     func activityTopPayload(text: String) -> some View {
         Text(text)
-            .font(.system(size: 9, weight: .medium, design: .monospaced))
+            .font(.appMonospaced(size: 9, weight: .medium))
             .foregroundStyle(nativeSecondaryLabel)
             .lineLimit(1)
             .truncationMode(.middle)
@@ -428,12 +428,12 @@ extension MenuBarRoot {
 
         return HStack(spacing: 2) {
             Image(systemName: "point.3.connected.trianglepath.dotted")
-                .font(.system(size: 9, weight: .semibold))
+                .font(.appSystem(size: 9, weight: .semibold))
                 .foregroundStyle(nativeSecondaryLabel)
                 .frame(width: 10, alignment: .leading)
 
             Text(displayText)
-                .font(.system(size: 10, weight: .regular, design: .monospaced))
+                .font(.appMonospaced(size: 10, weight: .regular))
                 .foregroundStyle(nativeSecondaryLabel)
                 .lineLimit(1)
                 .truncationMode(.middle)

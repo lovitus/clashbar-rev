@@ -4,10 +4,10 @@ extension MenuBarRoot {
     func settingsCardHeader(_ title: String, symbol: String) -> some View {
         HStack(spacing: MenuBarLayoutTokens.hDense) {
             Image(systemName: symbol)
-                .font(.system(size: 10, weight: .semibold))
+                .font(.appSystem(size: 10, weight: .semibold))
                 .foregroundStyle(nativeTertiaryLabel)
             Text(title)
-                .font(.system(size: 12, weight: .bold))
+                .font(.appSystem(size: 12, weight: .bold))
                 .foregroundStyle(nativeTertiaryLabel)
                 .tracking(0.8)
                 .textCase(.uppercase)
@@ -17,19 +17,17 @@ extension MenuBarRoot {
     }
 
     var settingsDivider: some View {
-        Rectangle()
-            .fill(nativeSeparator)
-            .frame(height: MenuBarLayoutTokens.hairline)
+        EmptyView()
     }
 
     func settingsRowLabel(symbol: String, title: String) -> some View {
         HStack(spacing: MenuBarLayoutTokens.hDense) {
             Image(systemName: symbol)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.appSystem(size: 11, weight: .semibold))
                 .foregroundStyle(nativeTertiaryLabel)
                 .frame(width: 14, alignment: .center)
             Text(title)
-                .font(.system(size: 12, weight: .medium))
+                .font(.appSystem(size: 12, weight: .medium))
                 .foregroundStyle(nativePrimaryLabel)
                 .lineLimit(1)
                 .truncationMode(.tail)
@@ -70,10 +68,10 @@ extension MenuBarRoot {
                         .lineLimit(1)
                         .truncationMode(.tail)
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.appSystem(size: 10, weight: .semibold))
                         .foregroundStyle(nativeTertiaryLabel)
                 }
-                .font(.system(size: 11, weight: .medium))
+                .font(.appSystem(size: 11, weight: .medium))
                 .frame(maxWidth: .infinity, alignment: .trailing)
             } content: { dismiss in
                 options(dismiss)
@@ -94,7 +92,7 @@ extension MenuBarRoot {
 
             TextField(tr("ui.placeholder.port"), text: text)
                 .textFieldStyle(.roundedBorder)
-                .font(.system(size: 12, weight: .regular, design: .monospaced))
+                .font(.appMonospaced(size: 12, weight: .regular))
                 .foregroundStyle(nativePrimaryLabel)
                 .multilineTextAlignment(.trailing)
                 .frame(width: settingsPortFieldWidth, alignment: .trailing)
@@ -123,11 +121,11 @@ extension MenuBarRoot {
     func settingsFeedbackBanner(text: String, color: Color, symbol: String) -> some View {
         HStack(spacing: MenuBarLayoutTokens.hDense) {
             Image(systemName: symbol)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.appSystem(size: 11, weight: .semibold))
                 .foregroundStyle(color)
 
             Text(text)
-                .font(.system(size: 11, weight: .medium))
+                .font(.appSystem(size: 11, weight: .medium))
                 .foregroundStyle(nativePrimaryLabel)
                 .lineLimit(2)
 

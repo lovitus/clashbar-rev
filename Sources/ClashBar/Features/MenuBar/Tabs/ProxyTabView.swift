@@ -76,10 +76,10 @@ extension MenuBarRoot {
     {
         HStack(spacing: MenuBarLayoutTokens.hMicro + 1) {
             Image(systemName: symbol)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.appSystem(size: 11, weight: .semibold))
                 .foregroundStyle(color)
             Text(value)
-                .font(.system(size: 12, weight: .regular, design: .monospaced))
+                .font(.appMonospaced(size: 12, weight: .regular))
                 .foregroundStyle(nativeSecondaryLabel)
                 .lineLimit(1)
                 .minimumScaleFactor(0.80)
@@ -93,12 +93,12 @@ extension MenuBarRoot {
     {
         HStack(spacing: MenuBarLayoutTokens.hMicro) {
             Text(value)
-                .font(.system(size: 12, weight: .regular, design: .monospaced))
+                .font(.appMonospaced(size: 12, weight: .regular))
                 .foregroundStyle(nativeSecondaryLabel)
                 .lineLimit(1)
                 .minimumScaleFactor(0.80)
             Image(systemName: symbol)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.appSystem(size: 11, weight: .semibold))
                 .foregroundStyle(color)
         }
     }
@@ -109,16 +109,16 @@ extension MenuBarRoot {
                 HStack(spacing: MenuBarLayoutTokens.hDense) {
                     self.quickIcon(symbol: "doc.text", foreground: nativePurple, background: nativePurple.opacity(0.14))
                     Text(tr("ui.quick.switch_config"))
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.appSystem(size: 13, weight: .medium))
                         .foregroundStyle(nativePrimaryLabel)
                     Spacer(minLength: 0)
                     Text(appState.selectedConfigName)
-                        .font(.system(size: 12, weight: .regular))
+                        .font(.appSystem(size: 12, weight: .regular))
                         .lineLimit(1)
                         .truncationMode(.middle)
                         .foregroundStyle(nativeSecondaryLabel)
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.appSystem(size: 11, weight: .medium))
                         .foregroundStyle(nativeTertiaryLabel)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -162,7 +162,7 @@ extension MenuBarRoot {
             HStack(spacing: MenuBarLayoutTokens.hDense) {
                 self.quickIcon(symbol: "network", foreground: nativeInfo, background: nativeInfo.opacity(0.14))
                 Text(tr("ui.quick.system_proxy"))
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.appSystem(size: 13, weight: .medium))
                     .foregroundStyle(nativePrimaryLabel)
                 Spacer(minLength: 0)
                 Toggle(
@@ -187,7 +187,7 @@ extension MenuBarRoot {
                     foreground: nativePositive,
                     background: nativePositive.opacity(0.14))
                 Text(tr("ui.quick.tun_mode"))
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.appSystem(size: 13, weight: .medium))
                     .foregroundStyle(nativePrimaryLabel)
                 Spacer(minLength: 0)
                 Toggle(
@@ -215,11 +215,11 @@ extension MenuBarRoot {
                         foreground: nativeWarning,
                         background: nativeWarning.opacity(0.14))
                     Text(tr("ui.quick.copy_terminal"))
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.appSystem(size: 13, weight: .medium))
                         .foregroundStyle(nativePrimaryLabel)
                     Spacer(minLength: 0)
                     Image(systemName: "doc.on.doc")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.appSystem(size: 13, weight: .medium))
                         .foregroundStyle(hoveringCopyRow ? nativeSecondaryLabel : nativeTertiaryLabel.opacity(0.6))
                 }
                 .menuRowPadding()
@@ -231,10 +231,7 @@ extension MenuBarRoot {
     }
 
     var quickRowsDivider: some View {
-        Rectangle()
-            .fill(nativeSeparator)
-            .frame(height: MenuBarLayoutTokens.hairline)
-            .padding(.horizontal, MenuBarLayoutTokens.hRow)
+        EmptyView()
     }
 
     func quickIcon(symbol: String, foreground: Color, background: Color) -> some View {
@@ -243,7 +240,7 @@ extension MenuBarRoot {
             .frame(width: 20, height: 20)
             .overlay {
                 Image(systemName: symbol)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.appSystem(size: 13, weight: .semibold))
                     .foregroundStyle(foreground)
             }
     }

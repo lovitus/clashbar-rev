@@ -34,6 +34,7 @@
 "ui.action.import" = "Import";
 "ui.action.overwrite" = "Overwrite";
 "ui.action.cancel" = "Cancel";
+"ui.action.ok" = "OK";
 "ui.action.flush_fakeip_cache" = "Flush FakeIP Cache";
 "ui.action.flush_dns_cache" = "Flush DNS Cache";
 "ui.action.enable_tun" = "Enable TUN Mode";
@@ -131,7 +132,7 @@
 "ui.language.en" = "English";
 
 "ui.footer.core_mihomo" = "MIHOMO %@";
-"ui.footer.version" = "V %@";
+"ui.footer.version" = "v%@";
 
 "ui.common.na" = "-";
 "ui.common.unknown" = "--";
@@ -182,6 +183,11 @@
 "app.config.remote_import.prompt" = "Enter the remote config URL and target file name.";
 "app.config.import.overwrite.title" = "Config already exists: %@";
 "app.config.import.overwrite.message" = "Do you want to overwrite the existing config file?";
+"app.config.remote_import.alert.success.title" = "Remote Config Imported";
+"app.config.remote_import.alert.failure.title" = "Remote Config Import Failed";
+"app.config.validation_failed.title" = "Configuration Validation Failed";
+"app.config.validation_failed.message" = "Cannot start core because the selected config file failed mihomo -t validation.\n\nFile: %@\n\nDetails:\n%@";
+"app.config.validation_failed.startup" = "Config validation failed before startup: %@";
 
 "app.provider_refresh.cancelled_reason" = "Providers update cancelled (%@)";
 "app.provider_refresh.cancelled" = "Providers update cancelled";
@@ -199,6 +205,9 @@
 "app.stream.label.memory" = "Memory";
 "app.stream.label.connections" = "Connections";
 "app.stream.label.logs" = "Logs";
+"app.core.alert.start_failed.title" = "Core Start Failed";
+"app.core.alert.restart_failed.title" = "Core Restart Failed";
+"app.core.alert.process_terminated.title" = "Core Terminated Unexpectedly";
 
 "log.process.terminated" = "mihomo terminated with code %d";
 "log.working_dir_init_failed" = "Failed to initialize working directory: %@";
@@ -221,6 +230,7 @@
 "log.config.remote.update_item_failed" = "Remote config update failed (%@): %@";
 "log.config.remote.update_summary" = "Remote config update completed: %d succeeded, %d failed";
 "log.config.show_in_finder.failed" = "Failed to open config directory in Finder: %@";
+"log.config.validate_failed" = "Config validation failed (%@): %@";
 "log.system_proxy.toggled" = "System proxy %@";
 "log.system_proxy.enabled" = "enabled";
 "log.system_proxy.disabled" = "disabled";

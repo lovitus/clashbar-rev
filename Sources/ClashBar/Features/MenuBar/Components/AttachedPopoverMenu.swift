@@ -108,11 +108,11 @@ struct AttachedPopoverMenuItem: View {
         } label: {
             HStack(spacing: MenuBarLayoutTokens.hDense) {
                 Image(systemName: "checkmark")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.appSystem(size: 10, weight: .semibold))
                     .opacity(self.selected ? 1 : 0)
                     .frame(width: 12, alignment: .center)
                 Text(self.title)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.appSystem(size: 12, weight: .medium))
                     .lineLimit(1)
                     .truncationMode(.middle)
                 Spacer(minLength: 0)

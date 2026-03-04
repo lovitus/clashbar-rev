@@ -34,6 +34,7 @@
 "ui.action.import" = "导入";
 "ui.action.overwrite" = "覆盖";
 "ui.action.cancel" = "取消";
+"ui.action.ok" = "确定";
 "ui.action.flush_fakeip_cache" = "清理 FakeIP 缓存";
 "ui.action.flush_dns_cache" = "清理 DNS 缓存";
 "ui.action.enable_tun" = "开启 TUN 模式";
@@ -131,7 +132,7 @@
 "ui.language.en" = "English";
 
 "ui.footer.core_mihomo" = "MIHOMO %@";
-"ui.footer.version" = "V %@";
+"ui.footer.version" = "v%@";
 
 "ui.common.na" = "-";
 "ui.common.unknown" = "--";
@@ -182,6 +183,11 @@
 "app.config.remote_import.prompt" = "请输入远程配置地址与保存文件名";
 "app.config.import.overwrite.title" = "配置已存在：%@";
 "app.config.import.overwrite.message" = "是否覆盖现有配置文件？";
+"app.config.remote_import.alert.success.title" = "远程配置导入成功";
+"app.config.remote_import.alert.failure.title" = "远程配置导入失败";
+"app.config.validation_failed.title" = "配置校验失败";
+"app.config.validation_failed.message" = "选中的配置文件未通过 mihomo -t 校验，无法启动内核。\n\n文件：%@\n\n详情：\n%@";
+"app.config.validation_failed.startup" = "启动前配置校验失败：%@";
 
 "app.provider_refresh.cancelled_reason" = "Providers 更新已取消 (%@)";
 "app.provider_refresh.cancelled" = "Providers 更新已取消";
@@ -199,6 +205,9 @@
 "app.stream.label.memory" = "内存";
 "app.stream.label.connections" = "连接";
 "app.stream.label.logs" = "日志";
+"app.core.alert.start_failed.title" = "启动内核失败";
+"app.core.alert.restart_failed.title" = "重启内核失败";
+"app.core.alert.process_terminated.title" = "内核异常退出";
 
 "log.process.terminated" = "mihomo 已退出，退出码 %d";
 "log.working_dir_init_failed" = "初始化工作目录失败: %@";
@@ -221,6 +230,7 @@
 "log.config.remote.update_item_failed" = "远程配置更新失败（%@）: %@";
 "log.config.remote.update_summary" = "远程配置更新完成：成功 %d，失败 %d";
 "log.config.show_in_finder.failed" = "在访达中打开配置目录失败: %@";
+"log.config.validate_failed" = "配置校验失败（%@）: %@";
 "log.system_proxy.toggled" = "系统代理%@";
 "log.system_proxy.enabled" = "已开启";
 "log.system_proxy.disabled" = "已关闭";

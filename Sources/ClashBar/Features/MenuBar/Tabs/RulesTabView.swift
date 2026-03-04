@@ -26,15 +26,15 @@ extension MenuBarRoot {
             HStack(spacing: 0) {
                 Color.clear.frame(width: 24)
                 Text(tr("ui.rules.column.target_type"))
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.appSystem(size: 11, weight: .medium))
                     .foregroundStyle(nativeTertiaryLabel)
                     .frame(width: 120, alignment: .leading)
                 Text(tr("ui.rules.column.policy"))
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.appSystem(size: 11, weight: .medium))
                     .foregroundStyle(nativeTertiaryLabel)
                     .frame(width: 90, alignment: .leading)
                 Text(tr("ui.rules.column.stats"))
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.appSystem(size: 11, weight: .medium))
                     .foregroundStyle(nativeTertiaryLabel)
                     .frame(maxWidth: .infinity, alignment: .trailing)
             }
@@ -73,10 +73,10 @@ extension MenuBarRoot {
     func rulesStatChip(title: String, value: String) -> some View {
         HStack(spacing: 5) {
             Text(title.uppercased())
-                .font(.system(size: 11, weight: .semibold))
+                .font(.appSystem(size: 11, weight: .semibold))
                 .foregroundStyle(nativeTertiaryLabel)
             Text(value)
-                .font(.system(size: 12, weight: .bold))
+                .font(.appSystem(size: 12, weight: .bold))
                 .foregroundStyle(nativePrimaryLabel)
         }
         .padding(.horizontal, MenuBarLayoutTokens.hDense)
@@ -94,7 +94,7 @@ extension MenuBarRoot {
                         .controlSize(.small)
                 } else {
                     Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.appSystem(size: 11, weight: .semibold))
                 }
             }
             .frame(width: 12, height: 12)
@@ -123,18 +123,18 @@ extension MenuBarRoot {
 
         return HStack(spacing: 0) {
             Image(systemName: iconSpec.symbol)
-                .font(.system(size: 14, weight: .medium))
+                .font(.appSystem(size: 14, weight: .medium))
                 .foregroundStyle(iconSpec.color)
                 .frame(width: 24, alignment: .leading)
 
             VStack(alignment: .leading, spacing: 1.5) {
                 Text(targetText)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.appSystem(size: 13, weight: .medium))
                     .foregroundStyle(nativePrimaryLabel)
                     .lineLimit(1)
                     .truncationMode(.tail)
                 Text(typeText)
-                    .font(.system(size: 11, weight: .regular))
+                    .font(.appSystem(size: 11, weight: .regular))
                     .foregroundStyle(nativeTertiaryLabel)
                     .lineLimit(1)
             }
@@ -144,11 +144,11 @@ extension MenuBarRoot {
             HStack(spacing: MenuBarLayoutTokens.hMicro) {
                 if let symbol = badge.symbol {
                     Image(systemName: symbol)
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.appSystem(size: 10, weight: .semibold))
                         .foregroundStyle(badge.color)
                 }
                 Text(policyText)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.appSystem(size: 11, weight: .medium))
                     .foregroundStyle(badge.color)
                     .lineLimit(1)
                     .truncationMode(.tail)
@@ -162,11 +162,11 @@ extension MenuBarRoot {
 
             VStack(alignment: .trailing, spacing: 1.5) {
                 Text("\(stats.count)")
-                    .font(.system(size: 12, weight: .regular, design: .monospaced))
+                    .font(.appMonospaced(size: 12, weight: .regular))
                     .foregroundStyle(stats.hasProvider ? nativeSecondaryLabel : nativeTertiaryLabel)
                 if let updatedText = stats.updatedText {
                     Text(updatedText)
-                        .font(.system(size: 10, weight: .regular))
+                        .font(.appSystem(size: 10, weight: .regular))
                         .foregroundStyle(nativeTertiaryLabel)
                         .lineLimit(1)
                 }
