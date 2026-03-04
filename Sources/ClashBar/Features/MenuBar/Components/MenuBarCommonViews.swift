@@ -108,11 +108,6 @@ extension MenuBarRoot {
         let gitHubSymbol = "chevron.left.forwardslash.chevron.right"
 
         return VStack(spacing: 0) {
-            Rectangle()
-                .fill(self.nativeSeparator)
-                .frame(height: MenuBarLayoutTokens.hairline)
-                .padding(.bottom, MenuBarLayoutTokens.vDense)
-
             HStack(spacing: MenuBarLayoutTokens.hDense) {
                 self.footerInfo(
                     tr("ui.footer.core_mihomo", appState.version),

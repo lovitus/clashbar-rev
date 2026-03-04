@@ -1,6 +1,24 @@
 import Darwin
 import Foundation
 
+enum MihomoConfigValidationError: LocalizedError {
+    case launchFailed(String)
+    case failed(exitCode: Int32, details: String)
+
+    var errorDescription: String? {
+        switch self {
+        case let .launchFailed(message):
+            return message
+        case let .failed(exitCode, details):
+            let normalizedDetails = details.trimmingCharacters(in: .whitespacesAndNewlines)
+            if normalizedDetails.isEmpty {
+                return "mihomo -t exited with code \(exitCode)."
+            }
+            return normalizedDetails
+        }
+    }
+}
+
 /// Process callbacks run on system-managed threads. Shared mutable state is guarded by `lock`.
 final class MihomoProcessManager: MihomoControlling, @unchecked Sendable {
     private(set) var status: CoreLifecycleStatus = .stopped
@@ -26,6 +44,46 @@ final class MihomoProcessManager: MihomoControlling, @unchecked Sendable {
 
     deinit {
         stop()
+    }
+
+    func validateConfig(configPath: String) throws {
+        let binary = try resolveMihomoBinary()
+
+        let configFileURL = URL(fileURLWithPath: configPath).standardizedFileURL.resolvingSymlinksInPath()
+        let configDirectoryURL = configFileURL.deletingLastPathComponent()
+        let workingDirectoryURL: URL = if configDirectoryURL.lastPathComponent == "config" {
+            configDirectoryURL.deletingLastPathComponent()
+        } else {
+            configDirectoryURL
+        }
+
+        let proc = Process()
+        proc.executableURL = URL(fileURLWithPath: binary)
+        proc.currentDirectoryURL = workingDirectoryURL
+        proc.arguments = ["-d", workingDirectoryURL.path, "-f", configPath, "-t"]
+
+        let outputPipe = Pipe()
+        proc.standardOutput = outputPipe
+        proc.standardError = outputPipe
+
+        do {
+            try proc.run()
+        } catch {
+            throw MihomoConfigValidationError.launchFailed("Failed to run mihomo -t: \(error.localizedDescription)")
+        }
+
+        let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
+        proc.waitUntilExit()
+        let outputText = String(data: outputData, encoding: .utf8)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+        guard proc.terminationStatus == 0 else {
+            throw MihomoConfigValidationError.failed(exitCode: proc.terminationStatus, details: outputText)
+        }
+
+        if !outputText.isEmpty {
+            self.onLog?("[mihomo config test] \(outputText)")
+        }
     }
 
     @discardableResult

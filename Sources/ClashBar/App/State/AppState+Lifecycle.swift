@@ -37,6 +37,20 @@ extension AppState {
                 configPath: configPath,
                 overlay: settingsOverlay)
 
+            guard self.validateConfigBeforeCoreLaunch(configPath: configPath) else {
+                preserveLocalSettingsOnNextSync = false
+                if trigger == .auto {
+                    let fileName = URL(fileURLWithPath: configPath).lastPathComponent
+                    startupErrorMessage = tr("app.config.validation_failed.startup", fileName)
+                    statusText = "Stopped"
+                    apiStatus = .unknown
+                } else {
+                    statusText = "Failed"
+                    apiStatus = .failed
+                }
+                return
+            }
+
             let launchController = applyExternalControllerFromSelectedConfigFile(configPath: configPath)
             statusText = "Starting"
             _ = try processManager.start(configPath: configPath, controller: launchController)
@@ -70,9 +84,14 @@ extension AppState {
         if trigger == .manual {
             shouldResumeCoreAfterNetworkRecovery = false
         }
+        let recoverySnapshotBeforeStop = CoreFeatureRecoveryState(
+            systemProxyEnabled: self.isSystemProxyEnabled,
+            tunEnabled: self.isTunEnabled)
         coreActionState = .stopping
         defer { coreActionState = .idle }
-        await self.prepareCoreFeatureRecoveryBeforeStop()
+        await self.prepareCoreFeatureRecoveryBeforeStop(
+            trigger: trigger,
+            fallbackRecovery: recoverySnapshotBeforeStop)
         cancelProviderRefresh(reason: "stop requested")
         processManager.stop()
         cancelPolling()
@@ -91,6 +110,11 @@ extension AppState {
         do {
             guard let configPath = await resolveSelectedConfigPath() else {
                 appendLog(level: "error", message: tr("log.start.no_config"))
+                return
+            }
+
+            guard self.validateConfigBeforeCoreLaunch(configPath: configPath) else {
+                preserveLocalSettingsOnNextSync = false
                 return
             }
 
@@ -164,6 +188,33 @@ extension AppState {
         return CoreMode(rawValue: raw.lowercased())
     }
 
+    @discardableResult
+    func validateConfigBeforeCoreLaunch(configPath: String) -> Bool {
+        do {
+            try processManager.validateConfig(configPath: configPath)
+            return true
+        } catch {
+            let fileName = URL(fileURLWithPath: configPath).lastPathComponent
+            let detailsRaw = error.localizedDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+            let details = detailsRaw.isEmpty ? tr("ui.common.unknown") : detailsRaw
+
+            appendLog(level: "error", message: tr("log.config.validate_failed", fileName, details))
+            self.presentConfigValidationFailedAlert(fileName: fileName, details: details)
+            return false
+        }
+    }
+
+    private func presentConfigValidationFailedAlert(fileName: String, details: String) {
+        let alert = NSAlert()
+        alert.alertStyle = .critical
+        alert.messageText = tr("app.config.validation_failed.title")
+        alert.informativeText = tr("app.config.validation_failed.message", fileName, details)
+        alert.addButton(withTitle: tr("ui.action.ok"))
+        self.prepareModalWindowPresentation()
+        self.configureModalWindow(alert.window)
+        alert.runModal()
+    }
+
     func restartCoreIfNeededForConfigSwitch(previousPath: String?, nextPath: String?) async {
         guard let nextPath else { return }
         guard previousPath != nextPath else { return }
@@ -224,7 +275,7 @@ extension AppState {
 
         defaults.set(configPath, forKey: lastSuccessfulConfigPathKey)
         startupErrorMessage = nil
-        await self.restoreCoreFeaturesAfterStartupIfNeeded(startedWithTunEnabled: settingsOverlay.tunEnabled)
+        await self.restoreCoreFeaturesAfterStartupIfNeeded()
         enforceNetworkManagedCorePolicyIfNeeded()
     }
 
@@ -236,11 +287,21 @@ extension AppState {
         return overlay.withTunEnabled(true)
     }
 
-    private func prepareCoreFeatureRecoveryBeforeStop() async {
+    private func prepareCoreFeatureRecoveryBeforeStop(
+        trigger: StopTrigger,
+        fallbackRecovery: CoreFeatureRecoveryState) async
+    {
         let runtimeRunningBeforeStop = self.isRuntimeRunning
-        let recovery = CoreFeatureRecoveryState(
+        let capturedRecovery = CoreFeatureRecoveryState(
             systemProxyEnabled: runtimeRunningBeforeStop && self.isSystemProxyEnabled,
             tunEnabled: runtimeRunningBeforeStop && self.isTunEnabled)
+        let recovery: CoreFeatureRecoveryState
+        if trigger == .networkLoss, !capturedRecovery.shouldRecoverAnyFeature {
+            // Keep the pre-stop snapshot when network-loss stop races with transient runtime state changes.
+            recovery = fallbackRecovery
+        } else {
+            recovery = capturedRecovery
+        }
 
         self.pendingCoreFeatureRecoveryState = recovery.shouldRecoverAnyFeature ? recovery : nil
 
@@ -267,7 +328,7 @@ extension AppState {
         }
     }
 
-    private func restoreCoreFeaturesAfterStartupIfNeeded(startedWithTunEnabled: Bool) async {
+    func restoreCoreFeaturesAfterStartupIfNeeded() async {
         guard let recovery = self.pendingCoreFeatureRecoveryState else { return }
         guard recovery.shouldRecoverAnyFeature else {
             self.pendingCoreFeatureRecoveryState = nil
@@ -282,12 +343,19 @@ extension AppState {
         var remainingSystemProxyRecovery = recovery.systemProxyEnabled
         var remainingTunRecovery = recovery.tunEnabled
 
-        if recovery.tunEnabled, startedWithTunEnabled {
-            if !self.isTunEnabled {
-                self.isTunEnabled = true
+        if recovery.tunEnabled {
+            do {
+                let runtimeConfig = try await self.fetchRuntimeConfigSnapshot()
+                if runtimeConfig.tunEnabled == true {
+                    if !self.isTunEnabled {
+                        self.isTunEnabled = true
+                    }
+                    remainingTunRecovery = false
+                    self.appendLog(level: "info", message: self.tr("log.tun.toggled", self.tr("log.tun.enabled")))
+                }
+            } catch {
+                // Keep pending state when runtime config is temporarily unavailable.
             }
-            remainingTunRecovery = false
-            self.appendLog(level: "info", message: self.tr("log.tun.toggled", self.tr("log.tun.enabled")))
         }
 
         if recovery.systemProxyEnabled {
