@@ -112,16 +112,15 @@ extension MenuBarRoot {
                 self.footerInfo(
                     tr("ui.footer.core_mihomo", appState.version),
                     url: mihomoRepositoryURL,
-                    iconSystemName: mihomoSymbol,
-                    alignment: .leading)
-
-                Spacer(minLength: 0)
+                    iconSystemName: mihomoSymbol)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .layoutPriority(1)
 
                 self.footerInfo(
                     tr("ui.footer.version", self.appVersionText),
                     url: clashBarRepositoryURL,
-                    iconSystemName: gitHubSymbol,
-                    alignment: .trailing)
+                    iconSystemName: gitHubSymbol)
+                    .fixedSize(horizontal: true, vertical: false)
             }
             .padding(.horizontal, MenuBarLayoutTokens.hRow)
             .padding(.vertical, MenuBarLayoutTokens.vDense + 2)
@@ -140,18 +139,18 @@ extension MenuBarRoot {
     }
 
     @ViewBuilder
-    func footerInfo(_ text: String, url: URL?, iconSystemName: String? = nil, alignment: Alignment) -> some View {
+    func footerInfo(_ text: String, url: URL?, iconSystemName: String? = nil) -> some View {
         if let url {
             Link(destination: url) {
-                self.footerInfoLabel(text, iconSystemName: iconSystemName, alignment: alignment)
+                self.footerInfoLabel(text, iconSystemName: iconSystemName)
             }
             .buttonStyle(.plain)
         } else {
-            self.footerInfoLabel(text, iconSystemName: iconSystemName, alignment: alignment)
+            self.footerInfoLabel(text, iconSystemName: iconSystemName)
         }
     }
 
-    func footerInfoLabel(_ text: String, iconSystemName: String?, alignment: Alignment) -> some View {
+    func footerInfoLabel(_ text: String, iconSystemName: String?) -> some View {
         HStack(spacing: 4) {
             if let iconSystemName {
                 Image(systemName: iconSystemName)
@@ -164,8 +163,10 @@ extension MenuBarRoot {
                 .foregroundStyle(self.nativeSecondaryLabel)
                 .lineLimit(1)
                 .truncationMode(.middle)
+                .minimumScaleFactor(0.85)
+                .allowsTightening(true)
         }
-        .frame(maxWidth: .infinity, alignment: alignment)
+        .help(text)
     }
 
     var statusColor: Color {

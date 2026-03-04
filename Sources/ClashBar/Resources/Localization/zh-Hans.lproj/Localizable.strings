@@ -56,10 +56,10 @@
 "ui.quick.copy_terminal" = "复制终端命令";
 "ui.quick.reload_config_list" = "重载配置";
 "ui.quick.import_local_config" = "导入本地配置文件";
-"ui.quick.import_remote_config" = "导入远程配置文件";
-"ui.quick.update_remote_configs" = "更新远程配置文件";
+"ui.quick.import_remote_config" = "导入订阅链接";
+"ui.quick.update_remote_configs" = "更新订阅链接";
 "ui.quick.show_in_finder" = "在访达中显示";
-"ui.quick.remote.url_label" = "远程地址";
+"ui.quick.remote.url_label" = "订阅链接";
 "ui.quick.remote.url_placeholder" = "https://example.com/config.yaml";
 "ui.quick.remote.filename_label" = "文件名";
 "ui.quick.remote.filename_placeholder" = "留空则自动推断";
@@ -102,7 +102,7 @@
 
 "ui.settings.auto_start_core" = "自动启动内核";
 "ui.settings.auto_core_network_recovery" = "断网停核并在恢复后启动";
-"ui.settings.launch_at_login" = "登录时启动 ClashBar";
+"ui.settings.launch_at_login" = "开机自启";
 "ui.settings.menu_bar_style" = "状态栏样式";
 "ui.settings.language" = "界面语言";
 "ui.settings.appearance" = "外观模式";
@@ -138,7 +138,7 @@
 "ui.common.unknown" = "--";
 "ui.common.timeout" = "超时";
 "ui.common.testing" = "测试中...";
-"ui.common.latency_ms" = "%d ms";
+"ui.common.latency_ms" = "%dms";
 
 "app.runtime.starting" = "启动中";
 "app.runtime.running" = "运行中";
@@ -180,11 +180,11 @@
 "app.tun.error.config_not_selected" = "未选择配置文件。";
 "app.tun.error.runtime_state_mismatch" = "重启内核后 TUN 状态未生效。";
 "app.tun.error.patch_failed" = "应用 TUN 运行时配置失败: %@";
-"app.config.remote_import.prompt" = "请输入远程配置地址与保存文件名";
+"app.config.remote_import.prompt" = "请输入订阅链接与保存文件名";
 "app.config.import.overwrite.title" = "配置已存在：%@";
 "app.config.import.overwrite.message" = "是否覆盖现有配置文件？";
-"app.config.remote_import.alert.success.title" = "远程配置导入成功";
-"app.config.remote_import.alert.failure.title" = "远程配置导入失败";
+"app.config.remote_import.alert.success.title" = "订阅导入成功";
+"app.config.remote_import.alert.failure.title" = "订阅导入失败";
 "app.config.validation_failed.title" = "配置校验失败";
 "app.config.validation_failed.message" = "选中的配置文件未通过 mihomo -t 校验，无法启动内核。\n\n文件：%@\n\n详情：\n%@";
 "app.config.validation_failed.startup" = "启动前配置校验失败：%@";
@@ -223,12 +223,12 @@
 "log.config.import.invalid_filename" = "配置文件名不合法: %@";
 "log.config.import_local.success" = "已导入本地配置：%@";
 "log.config.import_local.failed" = "导入本地配置失败（%@）: %@";
-"log.config.import_remote.success" = "已导入远程配置：%@";
-"log.config.import_remote.failed" = "导入远程配置失败（%@）: %@";
-"log.config.remote.invalid_url" = "远程配置地址不合法: %@";
-"log.config.remote.no_sources" = "没有可更新的远程配置来源";
-"log.config.remote.update_item_failed" = "远程配置更新失败（%@）: %@";
-"log.config.remote.update_summary" = "远程配置更新完成：成功 %d，失败 %d";
+"log.config.import_remote.success" = "已导入订阅：%@";
+"log.config.import_remote.failed" = "导入订阅失败（%@）: %@";
+"log.config.remote.invalid_url" = "订阅链接不合法: %@";
+"log.config.remote.no_sources" = "没有可更新的订阅来源";
+"log.config.remote.update_item_failed" = "订阅更新失败（%@）: %@";
+"log.config.remote.update_summary" = "订阅更新完成：成功 %d，失败 %d";
 "log.config.show_in_finder.failed" = "在访达中打开配置目录失败: %@";
 "log.config.validate_failed" = "配置校验失败（%@）: %@";
 "log.system_proxy.toggled" = "系统代理%@";

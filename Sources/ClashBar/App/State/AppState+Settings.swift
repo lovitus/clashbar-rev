@@ -122,7 +122,7 @@ extension AppState {
     func applyPendingConfigSwitchSettingsOverlayIfNeeded() async {
         guard let overlay = pendingConfigSwitchOverlaySettings else { return }
         pendingConfigSwitchOverlaySettings = nil
-        await self.applyEditableSettingsOverlay(
+        _ = await self.applyEditableSettingsOverlay(
             overlay,
             syncingKey: "config-switch-overlay",
             successMessage: tr("app.settings.overlay_success"))
@@ -132,16 +132,38 @@ extension AppState {
         guard let overlay = pendingAppLaunchOverlaySettings else { return }
         guard apiStatus == .healthy else { return }
         pendingAppLaunchOverlaySettings = nil
-        await self.applyEditableSettingsOverlay(
+        _ = await self.applyEditableSettingsOverlay(
             overlay,
             syncingKey: "app-launch-overlay",
             successMessage: "")
     }
 
+    func syncEditableSettingsOverlayForCoreBootstrap(
+        _ overlay: EditableSettingsSnapshot,
+        syncingKey: String) async
+    {
+        self.deferredEditableSettingsOverlay = (snapshot: overlay, syncingKey: syncingKey)
+
+        if await self.applyDeferredEditableSettingsOverlayIfPossible() {
+            self.deferredEditableSettingsOverlayTask?.cancel()
+            self.deferredEditableSettingsOverlayTask = nil
+            return
+        }
+
+        self.scheduleDeferredEditableSettingsOverlaySync()
+    }
+
+    func cancelDeferredEditableSettingsOverlaySync() {
+        self.deferredEditableSettingsOverlayTask?.cancel()
+        self.deferredEditableSettingsOverlayTask = nil
+        self.deferredEditableSettingsOverlay = nil
+    }
+
+    @discardableResult
     func applyEditableSettingsOverlay(
         _ overlay: EditableSettingsSnapshot,
         syncingKey: String,
-        successMessage: String) async
+        successMessage: String) async -> Bool
     {
         let fallback = lastSyncedEditableSettings
         let resolvedLogLevel = overlay.logLevel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -151,14 +173,15 @@ extension AppState {
         guard ConfigLogLevel(rawValue: resolvedLogLevel) != nil else {
             settingsErrorMessage = tr("app.settings.error.overlay_invalid_log_level", resolvedLogLevel)
             settingsSavedMessage = nil
-            return
+            return false
         }
 
         let resolvedPortFields = self.resolvedOverlayPortFields(overlay: overlay, fallback: fallback)
         guard let portBody = validatedPortPatchBody(
             fields: resolvedPortFields,
             errorMessageKey: "app.settings.error.overlay_port_range",
-            skipEmptyValues: true) else { return }
+            skipEmptyValues: true)
+        else { return false }
 
         var body: [String: ConfigPatchValue] = [
             "allow-lan": .bool(overlay.allowLan),
@@ -171,7 +194,7 @@ extension AppState {
             body[key] = value
         }
 
-        await self.patchConfigBody(body, syncingKey: syncingKey, successMessage: successMessage)
+        return await self.patchConfigBody(body, syncingKey: syncingKey, successMessage: successMessage)
     }
 
     func effectiveMixedPort() -> Int {
@@ -214,13 +237,14 @@ extension AppState {
     }
 
     func patchSingleConfig(_ key: String, value: ConfigPatchValue) async {
-        await self.patchConfigBody(
+        _ = await self.patchConfigBody(
             [key: value],
             syncingKey: key,
             successMessage: tr("app.settings.saved.single_key", key))
     }
 
-    func patchConfigBody(_ body: [String: ConfigPatchValue], syncingKey: String, successMessage: String) async {
+    @discardableResult
+    func patchConfigBody(_ body: [String: ConfigPatchValue], syncingKey: String, successMessage: String) async -> Bool {
         self.cancelProxyPortsAutoSave()
         settingsFeedbackClearTask?.cancel()
         settingsFeedbackClearTask = nil
@@ -244,10 +268,69 @@ extension AppState {
             await self.syncSystemProxyPortIfNeeded(
                 shouldSync: shouldSyncSystemProxyPort,
                 previousPorts: previousSystemProxyPorts)
+            return true
         } catch {
-            settingsErrorMessage = tr("app.settings.error.save_failed", syncingKey, error.localizedDescription)
+            let message = tr("app.settings.error.save_failed", syncingKey, error.localizedDescription)
+            if self.isOverlaySyncingKey(syncingKey) {
+                appendLog(level: "error", message: message)
+            } else {
+                settingsErrorMessage = message
+            }
             settingsSavedMessage = nil
             await refreshFromAPI(includeSlowCalls: false)
+            return false
+        }
+    }
+
+    private func isOverlaySyncingKey(_ syncingKey: String) -> Bool {
+        syncingKey.hasSuffix("-overlay")
+    }
+
+    private func scheduleDeferredEditableSettingsOverlaySync() {
+        self.deferredEditableSettingsOverlayTask?.cancel()
+        self.deferredEditableSettingsOverlayTask = Task { [weak self] in
+            guard let self else { return }
+
+            for _ in 0..<120 {
+                if Task.isCancelled { return }
+                guard self.isRuntimeRunning else { return }
+                if await self.applyDeferredEditableSettingsOverlayIfPossible() {
+                    self.deferredEditableSettingsOverlayTask = nil
+                    return
+                }
+
+                do {
+                    try await Task.sleep(nanoseconds: 250_000_000)
+                } catch {
+                    return
+                }
+            }
+
+            self.deferredEditableSettingsOverlayTask = nil
+        }
+    }
+
+    private func applyDeferredEditableSettingsOverlayIfPossible() async -> Bool {
+        guard let deferred = self.deferredEditableSettingsOverlay else { return true }
+        guard await self.isCoreAPIReachableForOverlaySync() else { return false }
+
+        let applied = await self.applyEditableSettingsOverlay(
+            deferred.snapshot,
+            syncingKey: deferred.syncingKey,
+            successMessage: "")
+        if applied {
+            self.deferredEditableSettingsOverlay = nil
+        }
+        return applied
+    }
+
+    private func isCoreAPIReachableForOverlaySync() async -> Bool {
+        do {
+            let client = try self.clientOrThrow()
+            let _: VersionInfo = try await client.request(.version)
+            return true
+        } catch {
+            return false
         }
     }
 
