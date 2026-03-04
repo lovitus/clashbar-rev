@@ -44,7 +44,6 @@ extension MenuBarRoot {
         let hovered = hoveredProxyProviderName == name
 
         return AttachedPopoverMenu(
-            width: 292,
             onWillPresent: {
                 Task { await appState.ensureProviderNodesLoaded(provider: name) }
             },
@@ -162,6 +161,7 @@ extension MenuBarRoot {
                     ProxyGroupPopoverNodeItem(
                         title: node,
                         delayText: appState.providerNodeDelayText(provider: name, node: node),
+                        delayValue: appState.providerNodeLatencies[name]?[node],
                         delayColor: latencyColor(appState.providerNodeLatencies[name]?[node]),
                         isTesting: appState.providerNodeTesting.contains(nodeKey),
                         selected: false)
@@ -241,7 +241,7 @@ extension MenuBarRoot {
         let rowVerticalPadding: CGFloat = 1
         let hovered = hoveredProxyGroupName == group.name
 
-        return AttachedPopoverMenu(width: 272) {
+        return AttachedPopoverMenu {
             GeometryReader { geo in
                 let columns = self.proxyGroupMainColumnWidths(
                     totalWidth: geo.size.width,
@@ -309,16 +309,6 @@ extension MenuBarRoot {
 
                 Spacer(minLength: 0)
 
-                Text(currentNode)
-                    .font(.appSystem(size: 11, weight: .medium))
-                    .foregroundStyle(nativeSecondaryLabel)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .padding(.horizontal, 4)
-                    .padding(.vertical, 1)
-                    .background(nativeBadgeCapsule())
-                    .frame(maxWidth: 116, alignment: .trailing)
-
                 Text("\(nodeCount)")
                     .font(.appMonospaced(size: 10, weight: .medium))
                     .foregroundStyle(nativeSecondaryLabel)
@@ -338,6 +328,7 @@ extension MenuBarRoot {
                 ProxyGroupPopoverNodeItem(
                     title: node,
                     delayText: appState.delayText(group: group.name, node: node),
+                    delayValue: appState.delayValue(group: group.name, node: node),
                     delayColor: latencyColor(appState.delayValue(group: group.name, node: node)),
                     isTesting: false,
                     selected: node == group.now)
@@ -460,6 +451,7 @@ extension MenuBarRoot {
 private struct ProxyGroupPopoverNodeItem: View {
     let title: String
     let delayText: String
+    let delayValue: Int?
     let delayColor: Color
     let isTesting: Bool
     let selected: Bool
@@ -488,11 +480,7 @@ private struct ProxyGroupPopoverNodeItem: View {
                 if self.isTesting {
                     RotatingRefreshDelayIndicator()
                 } else {
-                    Text(self.delayText)
-                        .font(.appMonospaced(size: 10, weight: .regular))
-                        .foregroundStyle(self.delayColor.opacity(self.selected ? 1 : 0.85))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.85)
+                    self.delayMetricView
                 }
             }
             .frame(height: 20)
@@ -514,6 +502,33 @@ private struct ProxyGroupPopoverNodeItem: View {
             return Color(nsColor: .selectedContentBackgroundColor).opacity(0.22)
         }
         return .clear
+    }
+
+    @ViewBuilder
+    var delayMetricView: some View {
+        if let delayValue {
+            let isTimeout = delayValue == 0
+            let foreground: Color = isTimeout ? Color(nsColor: .secondaryLabelColor) : .white
+            let background: Color = isTimeout
+                ? Color(nsColor: .quaternaryLabelColor).opacity(0.48)
+                : self.delayColor.opacity(self.selected ? 1 : 0.94)
+
+            Text(self.delayText)
+                .font(.appMonospaced(size: 10, weight: .semibold))
+                .foregroundStyle(foreground)
+                .lineLimit(1)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 1.5)
+                .background(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(background))
+        } else {
+            Text(self.delayText)
+                .font(.appMonospaced(size: 10, weight: .regular))
+                .foregroundStyle(self.delayColor.opacity(self.selected ? 1 : 0.85))
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+        }
     }
 }
 

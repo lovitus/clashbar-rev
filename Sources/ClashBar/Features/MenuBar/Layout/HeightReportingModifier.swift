@@ -10,7 +10,7 @@ struct HeightReportingModifier: ViewModifier {
                     .onAppear {
                         self.onChange(geometry.size.height)
                     }
-                    .onChange(of: geometry.size.height) { _, newHeight in
+                    .onChange(of: geometry.size.height) { newHeight in
                         self.onChange(newHeight)
                     }
             }

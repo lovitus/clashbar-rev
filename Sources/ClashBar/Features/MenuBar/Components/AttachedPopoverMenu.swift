@@ -277,8 +277,8 @@ private struct SideAttachedPopoverHost: NSViewRepresentable {
             let visibleFrame = hostWindow.screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? .zero
             guard visibleFrame != .zero else { return }
 
-            let contentWidth = max(fitting.width, anchorRectOnScreen.width)
-            let panelWidth = min(max(80, contentWidth), visibleFrame.width - 8)
+            let contentWidth = fitting.width
+            let panelWidth = min(max(1, contentWidth), visibleFrame.width - 8)
 
             let contentHeight: CGFloat = if let maxHeight {
                 min(fitting.height, maxHeight + 16)
@@ -289,7 +289,7 @@ private struct SideAttachedPopoverHost: NSViewRepresentable {
 
             let rightAvailable = max(0, visibleFrame.maxX - hostWindow.frame.maxX)
             let leftAvailable = max(0, hostWindow.frame.minX - visibleFrame.minX)
-            let minimumUsableWidth = min(panelWidth, CGFloat(180))
+            let minimumUsableWidth = panelWidth
 
             let showRight: Bool = if rightAvailable >= minimumUsableWidth {
                 true
@@ -301,7 +301,7 @@ private struct SideAttachedPopoverHost: NSViewRepresentable {
             self.attachmentSide = showRight ? .right : .left
 
             let sideAvailable = showRight ? rightAvailable : leftAvailable
-            let resolvedPanelWidth = max(80, min(panelWidth, sideAvailable))
+            let resolvedPanelWidth = max(1, min(panelWidth, sideAvailable))
             let panelSize = NSSize(width: resolvedPanelWidth, height: panelHeight)
 
             let rawOriginX = showRight

@@ -96,7 +96,7 @@ extension MenuBarRoot {
                 .foregroundStyle(nativePrimaryLabel)
                 .multilineTextAlignment(.trailing)
                 .frame(width: settingsPortFieldWidth, alignment: .trailing)
-                .onChange(of: text.wrappedValue) { _, _ in
+                .onChange(of: text.wrappedValue) { _ in
                     appState.scheduleProxyPortsAutoSaveIfNeeded()
                 }
                 .onSubmit {
