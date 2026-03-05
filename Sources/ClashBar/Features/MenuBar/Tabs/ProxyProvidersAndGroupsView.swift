@@ -189,11 +189,14 @@ extension MenuBarRoot {
             : (symbol == "arrow.clockwise" ? "arrow.triangle.2.circlepath" : symbol)
         let label = symbol == "gauge" ? tr("ui.action.test_latency") : tr("ui.action.refresh")
 
-        return BorderlessAsyncIconActionButton(
+        return self.compactAsyncIconButton(
             symbol: icon,
             label: label,
             tint: tone.opacity(0.96),
             isLoading: isLoading,
+            size: 16,
+            fontSize: 10.5,
+            hierarchicalSymbol: true,
             action: action)
     }
 
@@ -405,11 +408,14 @@ extension MenuBarRoot {
         isLoading: Bool = false,
         action: @escaping () async -> Void) -> some View
     {
-        BorderlessAsyncIconActionButton(
+        self.compactAsyncIconButton(
             symbol: "gauge.with.dots.needle.50percent",
             label: tr("ui.action.test_latency"),
             tint: nativeTeal.opacity(0.96),
             isLoading: isLoading,
+            size: 16,
+            fontSize: 10.5,
+            hierarchicalSymbol: true,
             action: action)
     }
 
@@ -565,39 +571,5 @@ private struct LatencyLoadingIndicator: View {
             .background(
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
                     .fill(Color(nsColor: .quaternaryLabelColor).opacity(0.24)))
-    }
-}
-
-private struct BorderlessAsyncIconActionButton: View {
-    let symbol: String
-    let label: String
-    let tint: Color
-    let isLoading: Bool
-    let action: () async -> Void
-
-    @State private var hovered = false
-
-    var body: some View {
-        Button {
-            Task { await self.action() }
-        } label: {
-            ZStack {
-                Image(systemName: self.symbol)
-                    .font(.appSystem(size: 10.5, weight: .semibold))
-                    .foregroundStyle(self.hovered ? self.tint : Color(nsColor: .secondaryLabelColor))
-                    .symbolRenderingMode(.hierarchical)
-                    .opacity(self.isLoading ? 0 : 1)
-
-                ProgressView()
-                    .controlSize(.mini)
-                    .opacity(self.isLoading ? 1 : 0)
-            }
-            .frame(width: 16, height: 16)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.borderless)
-        .accessibilityLabel(self.label)
-        .disabled(self.isLoading)
-        .onHover { self.hovered = $0 }
     }
 }

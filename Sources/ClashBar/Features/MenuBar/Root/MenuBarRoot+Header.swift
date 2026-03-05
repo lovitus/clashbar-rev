@@ -160,6 +160,7 @@ extension MenuBarRoot {
     func compactTopIcon(
         _ symbol: String,
         label: String,
+        role: ButtonRole? = nil,
         warning: Bool = false,
         toneOverride: Color? = nil,
         isLoading: Bool = false,
@@ -177,42 +178,12 @@ extension MenuBarRoot {
             nativeSecondaryLabel
         }
 
-        return TopHeaderIconActionButton(
+        return self.compactAsyncIconButton(
             symbol: symbol,
-            tone: tone.opacity(0.94),
+            label: label,
+            tint: tone.opacity(0.94),
+            role: role,
             isLoading: isLoading,
             action: action)
-            .accessibilityLabel(label)
-    }
-}
-
-private struct TopHeaderIconActionButton: View {
-    let symbol: String
-    let tone: Color
-    let isLoading: Bool
-    let action: () async -> Void
-
-    @State private var hovered = false
-
-    var body: some View {
-        Button {
-            Task { await self.action() }
-        } label: {
-            ZStack {
-                Image(systemName: self.symbol)
-                    .font(.appSystem(size: 13, weight: .semibold))
-                    .foregroundStyle(self.hovered ? self.tone : Color(nsColor: .secondaryLabelColor))
-                    .opacity(self.isLoading ? 0 : 1)
-
-                ProgressView()
-                    .controlSize(.mini)
-                    .opacity(self.isLoading ? 1 : 0)
-            }
-            .frame(width: 20, height: 20)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.borderless)
-        .disabled(self.isLoading)
-        .onHover { self.hovered = $0 }
     }
 }

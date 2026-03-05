@@ -6,7 +6,7 @@ extension MenuBarRoot {
         let logs = self.filteredLogs
 
         return VStack(alignment: .leading, spacing: MenuBarLayoutTokens.sectionGap) {
-            self.logsControlCard
+            self.logsControlCard(filteredCount: logs.count)
 
             if logs.isEmpty {
                 emptyCard(tr("ui.empty.logs"))
@@ -28,14 +28,14 @@ extension MenuBarRoot {
         }
     }
 
-    var logsControlCard: some View {
+    func logsControlCard(filteredCount: Int) -> some View {
         VStack(alignment: .leading, spacing: MenuBarLayoutTokens.vDense + 2) {
             HStack(spacing: MenuBarLayoutTokens.hDense) {
                 self.logsSourceFilterButtons
 
                 Spacer(minLength: 0)
 
-                self.logsCountSummaryBadge
+                self.logsCountSummaryBadge(filteredCount: filteredCount)
             }
             self.logsSecondaryControlRow
             TextField(tr("ui.placeholder.search_logs"), text: $logSearchText)
@@ -74,6 +74,7 @@ extension MenuBarRoot {
             self.compactTopIcon(
                 "trash",
                 label: tr("ui.action.clear_all_logs"),
+                role: .destructive,
                 warning: true)
             {
                 appState.clearAllLogs()
@@ -166,9 +167,9 @@ extension MenuBarRoot {
         Set(self.logSelectableLevels)
     }
 
-    var logsCountSummaryBadge: some View {
+    func logsCountSummaryBadge(filteredCount: Int) -> some View {
         HStack(spacing: MenuBarLayoutTokens.hMicro) {
-            Text("\(self.filteredLogs.count)")
+            Text("\(filteredCount)")
                 .font(.appMonospaced(size: 11, weight: .bold))
             Text("/")
                 .font(.appMonospaced(size: 10, weight: .medium))
@@ -205,12 +206,13 @@ extension MenuBarRoot {
     }
 
     var filteredLogs: [AppErrorLogEntry] {
+        let trimmedKeyword = self.trimmedLogKeyword
         let logs = Array(appState.errorLogs.prefix(120))
         return logs.filter { log in
             guard selectedLogSources.contains(log.source) else { return false }
-            guard self.trimmedLogKeyword.isEmpty || self.logSearchTextContent(for: log)
-                .localizedStandardContains(self.trimmedLogKeyword) else { return false }
-            return selectedLogLevels.contains(self.logLevelPresentation(self.normalizedLogLevel(log.level)).filter)
+            guard trimmedKeyword.isEmpty || self.logSearchTextContent(for: log)
+                .localizedStandardContains(trimmedKeyword) else { return false }
+            return selectedLogLevels.contains(self.logLevelFilter(self.normalizedLogLevel(log.level)))
         }
     }
 
@@ -329,25 +331,37 @@ extension MenuBarRoot {
     func logLevelPresentation(_ normalizedLevel: String)
         -> (filter: LogLevelFilter, label: String, color: Color, symbol: String)
     {
-        switch normalizedLevel {
-        case "ERROR":
-            (
-                .error,
+        let filter = self.logLevelFilter(normalizedLevel)
+        switch filter {
+        case .error:
+            return (
+                LogLevelFilter.error,
                 tr("ui.log_filter.error"),
                 nativeCritical.opacity(0.92),
                 "exclamationmark.octagon.fill")
-        case "WARNING":
-            (
-                .warning,
+        case .warning:
+            return (
+                LogLevelFilter.warning,
                 tr("ui.log_filter.warning"),
                 nativeWarning.opacity(0.92),
                 "exclamationmark.triangle.fill")
-        default:
-            (
-                .info,
+        case .all, .info:
+            return (
+                LogLevelFilter.info,
                 tr("ui.log_filter.info"),
                 nativeAccent.opacity(0.9),
                 "info.circle.fill")
+        }
+    }
+
+    func logLevelFilter(_ normalizedLevel: String) -> LogLevelFilter {
+        switch normalizedLevel {
+        case "ERROR":
+            .error
+        case "WARNING":
+            .warning
+        default:
+            .info
         }
     }
 

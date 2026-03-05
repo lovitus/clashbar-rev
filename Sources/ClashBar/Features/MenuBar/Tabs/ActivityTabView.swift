@@ -257,7 +257,9 @@ extension MenuBarRoot {
         let downText = ValueFormatter.bytesCompactNoSpace(conn.download ?? 0)
         let parsedRule = self.parseConnectionRule(conn.rule)
         let ruleTypeText = self.connectionRuleTypeText(conn.rule, fallback: parsedRule?.type)
-        let rulePayloadText = self.trimmedNonEmpty(conn.rulePayload) ?? self.trimmedNonEmpty(parsedRule?.payload) ?? "--"
+        let rulePayloadText = self.trimmedNonEmpty(conn.rulePayload)
+            ?? self.trimmedNonEmpty(parsedRule?.payload)
+            ?? "--"
         let chainParts = self.connectionChainsParts(conn.chains)
 
         return HStack(alignment: .center, spacing: MenuBarLayoutTokens.hDense) {
