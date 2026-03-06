@@ -66,6 +66,13 @@ extension MenuBarRoot {
                     symbol: "slider.horizontal.3")
                 settingsDivider
                 settingsToggleRow(
+                    tr("ui.settings.launch_at_login"),
+                    symbol: "person.crop.circle.badge.checkmark",
+                    isOn: Binding(
+                        get: { appState.launchAtLoginEnabled },
+                        set: { appState.applyLaunchAtLogin($0) }))
+                settingsDivider
+                settingsToggleRow(
                     tr("ui.settings.auto_start_core"),
                     symbol: "power.circle",
                     isOn: Binding(
@@ -80,11 +87,25 @@ extension MenuBarRoot {
                         set: { appState.autoManageCoreOnNetworkChangeEnabled = $0 }))
                 settingsDivider
                 settingsToggleRow(
-                    tr("ui.settings.launch_at_login"),
-                    symbol: "person.crop.circle.badge.checkmark",
+                    tr("ui.settings.allow_lan"),
+                    symbol: "network",
                     isOn: Binding(
-                        get: { appState.launchAtLoginEnabled },
-                        set: { appState.applyLaunchAtLogin($0) }))
+                        get: { appState.settingsAllowLan },
+                        set: { value in Task { await appState.applySettingAllowLan(value) } }))
+                settingsDivider
+                settingsToggleRow(
+                    tr("ui.settings.ipv6"),
+                    symbol: "globe",
+                    isOn: Binding(
+                        get: { appState.settingsIPv6 },
+                        set: { value in Task { await appState.applySettingIPv6(value) } }))
+                settingsDivider
+                settingsToggleRow(
+                    tr("ui.settings.unified_delay"),
+                    symbol: "gauge.with.dots.needle.50percent",
+                    isOn: Binding(
+                        get: { appState.settingsUnifiedDelay },
+                        set: { value in Task { await appState.applySettingUnifiedDelay(value) } }))
                 settingsDivider
                 settingsMenuRow(
                     tr("ui.settings.menu_bar_style"),
@@ -139,35 +160,6 @@ extension MenuBarRoot {
                         }
                     }
                 }
-                settingsDivider
-                settingsToggleRow(
-                    tr("ui.settings.allow_lan"),
-                    symbol: "network",
-                    isOn: Binding(
-                        get: { appState.settingsAllowLan },
-                        set: { value in Task { await appState.applySettingAllowLan(value) } }))
-                settingsDivider
-                settingsToggleRow(
-                    tr("ui.settings.ipv6"),
-                    symbol: "globe",
-                    isOn: Binding(
-                        get: { appState.settingsIPv6 },
-                        set: { value in Task { await appState.applySettingIPv6(value) } }))
-                settingsDivider
-                settingsToggleRow(
-                    tr("ui.settings.unified_delay"),
-                    symbol: "gauge.with.dots.needle.50percent",
-                    isOn: Binding(
-                        get: { appState.settingsUnifiedDelay },
-                        set: { value in Task { await appState.applySettingUnifiedDelay(value) } }))
-                settingsDivider
-                settingsToggleRow(
-                    tr("ui.settings.tun_mode"),
-                    symbol: "shield.lefthalf.filled",
-                    isOn: Binding(
-                        get: { appState.isTunEnabled },
-                        set: { value in Task { await appState.applySettingTunMode(value) } }))
-                    .disabled(!appState.isTunToggleEnabled)
                 settingsDivider
                 settingsMenuRow(
                     tr("ui.settings.log_level"),
