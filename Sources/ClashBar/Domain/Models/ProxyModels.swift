@@ -148,7 +148,6 @@ struct ConfigSnapshot: Codable, Equatable {
     let mode: String?
     let logLevel: String?
     let ipv6: Bool?
-    let unifiedDelay: Bool?
     let tcpConcurrent: Bool?
     let port: Int?
     let socksPort: Int?
@@ -167,7 +166,6 @@ struct ConfigSnapshot: Codable, Equatable {
         case mode
         case logLevel = "log-level"
         case ipv6
-        case unifiedDelay = "unified-delay"
         case tcpConcurrent = "tcp-concurrent"
         case port
         case socksPort = "socks-port"

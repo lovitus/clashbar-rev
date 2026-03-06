@@ -58,7 +58,6 @@ extension MenuBarRoot {
         let editableCoreToggleItems: [(setting: AppState.EditableCoreSetting, titleKey: String, symbol: String)] = [
             (.allowLan, "ui.settings.allow_lan", "network"),
             (.ipv6, "ui.settings.ipv6", "globe"),
-            (.unifiedDelay, "ui.settings.unified_delay", "gauge.with.dots.needle.50percent"),
             (.tcpConcurrent, "ui.settings.tcp_concurrent", "point.3.connected.trianglepath.dotted"),
         ]
         let maintenanceActions: [(titleKey: String, symbol: String, action: @MainActor () async -> Void)] = [

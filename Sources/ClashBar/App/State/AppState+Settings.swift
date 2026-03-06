@@ -5,7 +5,6 @@ extension AppState {
     enum EditableCoreSetting: String, CaseIterable, Identifiable {
         case allowLan = "allow-lan"
         case ipv6 = "ipv6"
-        case unifiedDelay = "unified-delay"
         case tcpConcurrent = "tcp-concurrent"
         case logLevel = "log-level"
 
@@ -24,8 +23,6 @@ extension AppState {
             \.settingsAllowLan
         case .ipv6:
             \.settingsIPv6
-        case .unifiedDelay:
-            \.settingsUnifiedDelay
         case .tcpConcurrent:
             \.settingsTCPConcurrent
         case .logLevel:
@@ -37,7 +34,7 @@ extension AppState {
         switch setting {
         case .logLevel:
             \.settingsLogLevel
-        case .allowLan, .ipv6, .unifiedDelay, .tcpConcurrent:
+        case .allowLan, .ipv6, .tcpConcurrent:
             nil
         }
     }
@@ -148,7 +145,6 @@ extension AppState {
             fields: [
                 (\.settingsAllowLan, \.allowLan),
                 (\.settingsIPv6, \.ipv6),
-                (\.settingsUnifiedDelay, \.unifiedDelay),
                 (\.settingsTCPConcurrent, \.tcpConcurrent),
                 (\.isTunEnabled, \.tunEnabled),
             ])
@@ -174,7 +170,6 @@ extension AppState {
         EditableSettingsSnapshot(
             allowLan: settingsAllowLan,
             ipv6: settingsIPv6,
-            unifiedDelay: settingsUnifiedDelay,
             tcpConcurrent: settingsTCPConcurrent,
             tunEnabled: isTunEnabled,
             logLevel: settingsLogLevel,
@@ -252,7 +247,6 @@ extension AppState {
         var body: [String: ConfigPatchValue] = [
             "allow-lan": .bool(overlay.allowLan),
             "ipv6": .bool(overlay.ipv6),
-            "unified-delay": .bool(overlay.unifiedDelay),
             "tcp-concurrent": .bool(overlay.tcpConcurrent),
             "tun": .object(["enable": .bool(overlay.tunEnabled)]),
             "log-level": .string(resolvedLogLevel),
@@ -279,7 +273,6 @@ extension AppState {
         suppressSettingsPersistence = true
         settingsAllowLan = snapshot.allowLan
         settingsIPv6 = snapshot.ipv6
-        settingsUnifiedDelay = snapshot.unifiedDelay
         settingsTCPConcurrent = snapshot.tcpConcurrent
         isTunEnabled = snapshot.tunEnabled
         settingsLogLevel = snapshot.logLevel

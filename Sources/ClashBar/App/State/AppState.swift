@@ -90,10 +90,6 @@ final class AppState: ObservableObject {
         didSet { persistEditableSettingsSnapshot() }
     }
 
-    @Published var settingsUnifiedDelay: Bool = false {
-        didSet { persistEditableSettingsSnapshot() }
-    }
-
     @Published var settingsTCPConcurrent: Bool = false {
         didSet { persistEditableSettingsSnapshot() }
     }
