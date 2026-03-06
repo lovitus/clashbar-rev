@@ -1,4 +1,3 @@
-import AppKit
 import SwiftUI
 
 extension MenuBarRoot {
@@ -85,9 +84,8 @@ extension MenuBarRoot {
             }
         }
         .buttonStyle(.plain)
-        .onHover { isHovering in
-            hoveredMode = isHovering ? mode : (hoveredMode == mode ? nil : hoveredMode)
-        }
+        .onHover { hoveredMode = self.nextHovered(
+            current: hoveredMode, target: mode, isHovering: $0) }
     }
 
     var topTabs: some View {

@@ -163,7 +163,6 @@ final class StatusItemController: NSObject {
     private func makePopoverRootView() -> AnyView {
         AnyView(
             MenuBarRoot()
-                .progressViewStyle(HiddenProgressViewStyle())
                 .environmentObject(self.appState)
                 .environmentObject(self.popoverLayoutModel))
     }

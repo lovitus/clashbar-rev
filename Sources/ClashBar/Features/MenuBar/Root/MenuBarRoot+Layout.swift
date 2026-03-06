@@ -2,7 +2,7 @@ import SwiftUI
 
 extension MenuBarRoot {
     var panelVerticalPadding: CGFloat {
-        MenuBarLayoutTokens.hPage * 2
+        0
     }
 
     var clampedPreferredPanelHeight: CGFloat {
@@ -95,35 +95,5 @@ extension MenuBarRoot {
         guard abs(popoverLayoutModel.preferredPanelHeight - clampedHeight) > 0.5 else { return }
 
         popoverLayoutModel.preferredPanelHeight = clampedHeight
-    }
-
-    func menuPanelTabHint(for tab: RootTab) -> MenuPanelTabHint {
-        switch tab {
-        case .proxy:
-            .proxy
-        case .rules:
-            .rules
-        case .activity:
-            .activity
-        case .logs:
-            .logs
-        case .system:
-            .system
-        }
-    }
-
-    func rootTab(for hint: MenuPanelTabHint) -> RootTab {
-        switch hint {
-        case .proxy:
-            .proxy
-        case .rules:
-            .rules
-        case .activity:
-            .activity
-        case .logs:
-            .logs
-        case .system:
-            .system
-        }
     }
 }

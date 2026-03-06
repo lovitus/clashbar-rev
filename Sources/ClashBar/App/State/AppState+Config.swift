@@ -303,8 +303,16 @@ extension AppState {
     }
 
     func reloadConfig() async {
-        await runNoResponseAction(tr("log.action_name.reload_config")) {
+        let actionName = tr("log.action_name.reload_config")
+        let expectedTunEnabled = isTunEnabled
+
+        do {
+            ensureAPIClient()
             try await self.clientOrThrow().requestNoResponse(.putConfigs(force: false))
+            try await self.restoreTunAfterConfigReloadIfNeeded(expectedEnabled: expectedTunEnabled)
+            appendLog(level: "info", message: tr("log.action.success", actionName))
+        } catch {
+            appendLog(level: "error", message: tr("log.action.failed", actionName, error.localizedDescription))
         }
     }
 
@@ -477,6 +485,12 @@ extension AppState {
         let trimmed = rawVersion.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, trimmed != "-" else { return nil }
         return trimmed
+    }
+
+    private func restoreTunAfterConfigReloadIfNeeded(expectedEnabled: Bool) async throws {
+        guard isRuntimeRunning else { return }
+        try await self.patchTunConfig(enable: expectedEnabled)
+        try await self.verifyTunRuntimeState(expectedEnabled: expectedEnabled)
     }
 
     private func updateRemoteConfigSource(for fileName: String, urlString: String?) {

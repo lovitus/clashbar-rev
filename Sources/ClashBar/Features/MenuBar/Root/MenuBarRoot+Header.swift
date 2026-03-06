@@ -1,4 +1,3 @@
-import Foundation
 import SwiftUI
 
 extension MenuBarRoot {
@@ -140,8 +139,7 @@ extension MenuBarRoot {
             URLQueryItem(name: "port", value: "\(endpoint.port)"),
             URLQueryItem(name: "http", value: endpoint.useHTTP ? "true" : "false"),
         ]
-        let trimmedSecret = secret?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        if !trimmedSecret.isEmpty {
+        if let trimmedSecret = secret.trimmedNonEmpty {
             items.append(URLQueryItem(name: "secret", value: trimmedSecret))
         }
         query.queryItems = items
@@ -151,7 +149,7 @@ extension MenuBarRoot {
     }
 
     func parseControllerEndpoint(_ raw: String) -> (host: String, port: Int, useHTTP: Bool)? {
-        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = raw.trimmed
         guard !trimmed.isEmpty else { return nil }
 
         let normalized = trimmed.contains("://") ? trimmed : "http://\(trimmed)"

@@ -74,14 +74,6 @@ enum AppAppearanceMode: String, CaseIterable, Identifiable {
     }
 }
 
-enum MenuPanelTabHint: Equatable {
-    case proxy
-    case rules
-    case activity
-    case logs
-    case system
-}
-
 struct DataAcquisitionPolicy: Equatable {
     let enableTrafficStream: Bool
     let enableMemoryStream: Bool

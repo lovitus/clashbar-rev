@@ -69,7 +69,7 @@ extension AppState {
             return
         }
 
-        let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalized = value.trimmed
         if setting == .logLevel, ConfigLogLevel(rawValue: normalized) == nil {
             settingsErrorMessage = tr("app.settings.error.invalid_log_level", value)
             settingsSavedMessage = nil
@@ -227,7 +227,7 @@ extension AppState {
         successMessage: String) async -> Bool
     {
         let fallback = lastSyncedEditableSettings
-        let resolvedLogLevel = overlay.logLevel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let resolvedLogLevel = overlay.logLevel.trimmed.isEmpty
             ? (fallback?.logLevel ?? ConfigLogLevel.info.rawValue)
             : overlay.logLevel
 
@@ -248,9 +248,13 @@ extension AppState {
             "allow-lan": .bool(overlay.allowLan),
             "ipv6": .bool(overlay.ipv6),
             "tcp-concurrent": .bool(overlay.tcpConcurrent),
-            "tun": .object(["enable": .bool(overlay.tunEnabled)]),
             "log-level": .string(resolvedLogLevel),
         ]
+        let tunBody = await self.tunOverlayPatchBody(enabled: overlay.tunEnabled)
+        body["tun"] = .object(tunBody)
+        if overlay.tunEnabled {
+            body["dns"] = .object(["enable": .bool(true)])
+        }
         for (key, value) in portBody {
             body[key] = value
         }
@@ -262,7 +266,7 @@ extension AppState {
         if mixedPort > 0 {
             return mixedPort
         }
-        let trimmed = settingsMixedPort.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = settingsMixedPort.trimmed
         if let value = Int(trimmed), (1...65535).contains(value) {
             return value
         }
@@ -387,8 +391,7 @@ extension AppState {
     }
 
     func scheduleSettingsFeedbackAutoClearIfNeeded(message: String) {
-        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
+        guard message.trimmedNonEmpty != nil else { return }
 
         settingsFeedbackClearTask?.cancel()
         settingsFeedbackClearTask = Task { [weak self] in
@@ -460,7 +463,7 @@ extension AppState {
     }
 
     private func validatedPort(_ textValue: String, key: String, errorMessageKey: String) -> Int? {
-        let trimmed = textValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = textValue.trimmed
         guard let intValue = Int(trimmed), (0...65535).contains(intValue) else {
             settingsErrorMessage = tr(errorMessageKey, key)
             settingsSavedMessage = nil
@@ -493,9 +496,18 @@ extension AppState {
     }
 
     private func resolvedOverlayPortValue(_ overlayValue: String, fallback: String) -> String {
-        let overlayTrimmed = overlayValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard overlayTrimmed.isEmpty else { return overlayTrimmed }
-        return fallback.trimmingCharacters(in: .whitespacesAndNewlines)
+        overlayValue.trimmedNonEmpty ?? fallback.trimmed
+    }
+
+    private func tunOverlayPatchBody(enabled: Bool) async -> [String: ConfigPatchValue] {
+        var tunBody: [String: ConfigPatchValue] = ["enable": .bool(enabled)]
+        if enabled {
+            let hasConfiguredStack = await self.selectedConfigDeclaresTunStack()
+            if !hasConfiguredStack {
+                tunBody["stack"] = .string("mixed")
+            }
+        }
+        return tunBody
     }
 
     private func validatedPortPatchBody(
@@ -505,7 +517,7 @@ extension AppState {
     {
         var body: [String: ConfigPatchValue] = [:]
         for field in fields {
-            let trimmedValue = field.value.trimmingCharacters(in: .whitespacesAndNewlines)
+            let trimmedValue = field.value.trimmed
             if skipEmptyValues, trimmedValue.isEmpty {
                 continue
             }

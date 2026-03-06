@@ -74,7 +74,7 @@ final class AppState: ObservableObject {
     @Published var uiLanguage: AppLanguage = .zhHans
     @Published var appearanceMode: AppAppearanceMode = .system
     @Published var isPanelPresented: Bool = false
-    @Published var activeMenuTab: MenuPanelTabHint = .proxy
+    @Published var activeMenuTab: RootTab = .proxy
     @Published var launchAtLoginEnabled: Bool = false
     @Published var launchAtLoginErrorMessage: String?
     @Published private(set) var menuBarDisplaySnapshot = MenuBarDisplay(
@@ -290,7 +290,6 @@ final class AppState: ObservableObject {
     let workingDirectoryManager: WorkingDirectoryManager
     let systemProxyService: SystemProxyService
     let tunPermissionService: TunPermissionService
-    let tunConfigFileService: TunConfigFileService
     let configImportService: ConfigImportService
     let appLaunchService: AppLaunchService
     let networkReachabilityMonitor: NetworkReachabilityMonitor
@@ -313,10 +312,12 @@ final class AppState: ObservableObject {
     var deferredEditableSettingsOverlayTask: Task<Void, Never>?
     var configDirectoryMonitorTask: Task<Void, Never>?
     var trafficDecodeTask: Task<Void, Never>?
+    var mihomoLogFlushTask: Task<Void, Never>?
     var providerRefreshGeneration: Int = 0
     var lastTrafficSampleAt: Date?
     var lastTrafficDecodeAt: Date = .distantPast
     var pendingTrafficPayload: Data?
+    var pendingMihomoLogs: [AppErrorLogEntry] = []
     var modeSwitchInFlight = false
     var activatedTabRefreshGeneration: Int = 0
     var configFileSignatureSnapshot: [String: String] = [:]
@@ -337,8 +338,10 @@ final class AppState: ObservableObject {
     let appearanceModeKey = "clashbar.ui.appearance.mode"
     let maxLogEntries = 200
     let hiddenPanelMaxInMemoryLogEntries = 20
+    let maxBufferedMihomoLogEntries = 40
     let maxRetainedConnections = 300
     let historyMaxPoints = 60
+    let mihomoLogFlushIntervalNanoseconds: UInt64 = 150_000_000
     let foregroundMediumFrequencyIntervalNanoseconds: UInt64 = 4_000_000_000
     let backgroundMediumFrequencyIntervalNanoseconds: UInt64 = 12_000_000_000
     let foregroundLowFrequencyPrimaryTabsIntervalNanoseconds: UInt64 = 20_000_000_000
@@ -378,7 +381,6 @@ final class AppState: ObservableObject {
         workingDirectoryManager: WorkingDirectoryManager = WorkingDirectoryManager(),
         systemProxyService: SystemProxyService = SystemProxyService(),
         tunPermissionService: TunPermissionService = TunPermissionService(),
-        tunConfigFileService: TunConfigFileService = TunConfigFileService(),
         configImportService: ConfigImportService = ConfigImportService(),
         appLaunchService: AppLaunchService = AppLaunchService(),
         networkReachabilityMonitor: NetworkReachabilityMonitor = NetworkReachabilityMonitor(),
@@ -390,7 +392,6 @@ final class AppState: ObservableObject {
         self.workingDirectoryManager = workingDirectoryManager
         self.systemProxyService = systemProxyService
         self.tunPermissionService = tunPermissionService
-        self.tunConfigFileService = tunConfigFileService
         self.configImportService = configImportService
         self.appLaunchService = appLaunchService
         self.networkReachabilityMonitor = networkReachabilityMonitor
@@ -484,6 +485,7 @@ final class AppState: ObservableObject {
         deferredEditableSettingsOverlayTask?.cancel()
         configDirectoryMonitorTask?.cancel()
         trafficDecodeTask?.cancel()
+        mihomoLogFlushTask?.cancel()
         mediumFrequencyTask?.cancel()
         lowFrequencyTask?.cancel()
         for task in streamReceiveTasks.values {

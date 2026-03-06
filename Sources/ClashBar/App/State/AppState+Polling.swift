@@ -95,7 +95,7 @@ extension AppState {
         self.scheduleRefreshForActivatedTab(activeMenuTab)
     }
 
-    func setActiveMenuTab(_ tab: MenuPanelTabHint) {
+    func setActiveMenuTab(_ tab: RootTab) {
         let changed = activeMenuTab != tab
         activeMenuTab = tab
         self.updateDataAcquisitionPolicy()
@@ -104,7 +104,7 @@ extension AppState {
         self.scheduleRefreshForActivatedTab(tab)
     }
 
-    private func scheduleRefreshForActivatedTab(_ tab: MenuPanelTabHint) {
+    private func scheduleRefreshForActivatedTab(_ tab: RootTab) {
         activatedTabRefreshGeneration += 1
         let generation = activatedTabRefreshGeneration
         Task { [weak self] in
@@ -115,7 +115,7 @@ extension AppState {
 
     private func desiredDataAcquisitionPolicy(
         panelPresented: Bool,
-        activeTab: MenuPanelTabHint) -> DataAcquisitionPolicy
+        activeTab: RootTab) -> DataAcquisitionPolicy
     {
         let trafficEnabled = panelPresented || self.statusBarDisplayMode != .iconOnly
 
@@ -169,7 +169,7 @@ extension AppState {
         self.applyStreamPolicy(policy)
     }
 
-    func refreshForActivatedTab(_ tab: MenuPanelTabHint, generation: Int? = nil) async {
+    func refreshForActivatedTab(_ tab: RootTab, generation: Int? = nil) async {
         guard processManager.isRunning else { return }
 
         func shouldContinueRefresh() -> Bool {

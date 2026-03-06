@@ -426,15 +426,19 @@ extension AppState {
         if recovery.tunEnabled {
             do {
                 let runtimeConfig = try await self.fetchRuntimeConfigSnapshot()
-                if runtimeConfig.tunEnabled == true {
-                    if !self.isTunEnabled {
-                        self.isTunEnabled = true
-                    }
+                if runtimeConfig.tunEnabled != true {
+                    try await self.patchTunConfig(enable: true)
+                    try await self.verifyTunRuntimeState(expectedEnabled: true)
+                }
+
+                if self.isTunEnabled {
                     remainingTunRecovery = false
                     self.appendLog(level: "info", message: self.tr("log.tun.toggled", self.tr("log.tun.enabled")))
                 }
             } catch {
-                // Keep pending state when runtime config is temporarily unavailable.
+                self.appendLog(
+                    level: "error",
+                    message: self.tr("log.tun.toggle_failed", self.tunErrorMessage(error)))
             }
         }
 

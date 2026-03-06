@@ -91,15 +91,6 @@ extension AppState {
             }
         }
 
-        if let fileError = error as? TunConfigFileServiceError {
-            switch fileError {
-            case .configPathEmpty, .configNotFound, .unableToReadConfig:
-                return tr("app.tun.error.config_unavailable")
-            case let .unableToWriteConfig(message):
-                return tr("app.tun.error.config_write_failed", message)
-            }
-        }
-
         if let tunModeError = error as? TunModeError {
             switch tunModeError {
             case .runtimeStateMismatch:
@@ -154,7 +145,7 @@ extension AppState {
     }
 
     func verifyTunRuntimeState(expectedEnabled: Bool) async throws {
-        let maxAttempts = 15
+        let maxAttempts = 32
         for _ in 0..<maxAttempts {
             do {
                 let config = try await fetchRuntimeConfigSnapshot()
@@ -173,9 +164,13 @@ extension AppState {
 
     func patchTunConfig(enable: Bool) async throws {
         let client = try clientOrThrow()
-        var body: [String: JSONValue] = [
-            "tun": .object(["enable": .bool(enable)]),
-        ]
+        var tunBody: [String: JSONValue] = ["enable": .bool(enable)]
+
+        if enable, await !self.selectedConfigDeclaresTunStack() {
+            tunBody["stack"] = .string("mixed")
+        }
+
+        var body: [String: JSONValue] = ["tun": .object(tunBody)]
         if enable {
             body["dns"] = .object(["enable": .bool(true)])
         }
@@ -206,7 +201,7 @@ extension AppState {
         }
     }
 
-    private func selectedConfigDeclaresTunStack() async -> Bool {
+    func selectedConfigDeclaresTunStack() async -> Bool {
         guard
             let configPath = await resolveSelectedConfigPath(),
             let raw = try? String(contentsOfFile: configPath, encoding: .utf8)
