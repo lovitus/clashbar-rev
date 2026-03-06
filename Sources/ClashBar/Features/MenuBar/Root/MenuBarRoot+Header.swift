@@ -56,7 +56,10 @@ extension MenuBarRoot {
                     HStack(spacing: 6) {
                         self.headerControllerLink(
                             symbol: "network",
-                            text: appState.controller)
+                            text: appState.externalControllerDisplay)
+                        if appState.isExternalControllerWildcardIPv4 {
+                            self.headerControllerWarningIcon
+                        }
                     }
                 }
             }
@@ -118,6 +121,14 @@ extension MenuBarRoot {
         } else {
             self.headerMetaLabel(symbol: symbol, text: text)
         }
+    }
+
+    var headerControllerWarningIcon: some View {
+        Image(systemName: "exclamationmark.triangle.fill")
+            .font(.appSystem(size: 10, weight: .semibold))
+            .foregroundStyle(nativeWarning)
+            .help("external-controller is 0.0.0.0 and can be accessed from your LAN.")
+            .accessibilityLabel("Warning: external-controller is bound to 0.0.0.0")
     }
 
     func makeMetaCubeXDSetupURL(controller: String, secret: String?) -> URL? {

@@ -2,6 +2,12 @@ import AppKit
 import Combine
 import SwiftUI
 
+private struct StatusItemRenderKey: Equatable {
+    let mode: StatusBarDisplayMode
+    let symbolName: String?
+    let speedLines: MenuBarSpeedLines?
+}
+
 @MainActor
 final class PopoverLayoutModel: ObservableObject {
     @Published var maxPanelHeight: CGFloat
@@ -40,11 +46,17 @@ final class StatusItemController: NSObject {
     private var changeCancellable: AnyCancellable?
     private var layoutCancellable: AnyCancellable?
     private var refreshWorkItem: DispatchWorkItem?
-    private var lastRenderedDisplay: MenuBarDisplay?
+    private var pendingDisplay: MenuBarDisplay?
+    private var pendingRenderKey: StatusItemRenderKey?
+    private var lastDisplayRefreshAt: Date = .distantPast
+    private var lastRenderedKey: StatusItemRenderKey?
     private var globalEventMonitor: Any?
     private var screenParametersObserver: Any?
     private var lockedPanelOriginX: CGFloat?
     private var popoverHostingController: NSHostingController<AnyView>?
+
+    private let iconOnlyRefreshInterval: TimeInterval = 0.12
+    private let speedDisplayRefreshInterval: TimeInterval = 0.35
 
     init(appState: AppState) {
         self.appState = appState
@@ -73,6 +85,8 @@ final class StatusItemController: NSObject {
 
     func shutdown() {
         self.refreshWorkItem?.cancel()
+        self.pendingDisplay = nil
+        self.pendingRenderKey = nil
         self.changeCancellable?.cancel()
         self.layoutCancellable?.cancel()
         self.stopGlobalMonitor()
@@ -178,25 +192,88 @@ final class StatusItemController: NSObject {
     }
 
     private func scheduleRefresh(display: MenuBarDisplay) {
-        self.refreshWorkItem?.cancel()
-
-        let work = DispatchWorkItem { [weak self] in
-            self?.refreshDisplay(display)
-        }
-        self.refreshWorkItem = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.10, execute: work)
+        let renderKey = self.renderKey(for: display)
+        guard renderKey != self.lastRenderedKey else { return }
+        self.pendingDisplay = display
+        self.pendingRenderKey = renderKey
+        self.flushScheduledRefreshIfNeeded()
     }
 
     private func refreshDisplayNow() {
-        self.refreshDisplay(self.appState.menuBarDisplaySnapshot)
+        self.refreshWorkItem?.cancel()
+        self.refreshWorkItem = nil
+        self.pendingDisplay = nil
+        self.pendingRenderKey = nil
+        let display = self.appState.menuBarDisplaySnapshot
+        self.refreshDisplay(display, renderKey: self.renderKey(for: display))
+        self.lastDisplayRefreshAt = Date()
     }
 
-    private func refreshDisplay(_ display: MenuBarDisplay) {
-        guard display != self.lastRenderedDisplay else { return }
+    private func refreshDisplay(_ display: MenuBarDisplay, renderKey: StatusItemRenderKey) {
+        guard renderKey != self.lastRenderedKey else { return }
 
         self.statusContentView.apply(display: display)
-        self.statusItem.length = self.statusContentView.requiredWidth
-        self.lastRenderedDisplay = display
+        let requiredWidth = self.statusContentView.requiredWidth
+        if abs(self.statusItem.length - requiredWidth) > 0.5 {
+            self.statusItem.length = requiredWidth
+        }
+        self.lastRenderedKey = renderKey
+    }
+
+    private func flushScheduledRefreshIfNeeded() {
+        guard let pendingDisplay, let pendingRenderKey else { return }
+
+        let refreshInterval = self.refreshInterval(for: pendingDisplay)
+        let elapsed = Date().timeIntervalSince(self.lastDisplayRefreshAt)
+
+        if elapsed >= refreshInterval {
+            self.refreshWorkItem?.cancel()
+            self.refreshWorkItem = nil
+            self.pendingDisplay = nil
+            self.pendingRenderKey = nil
+            self.refreshDisplay(pendingDisplay, renderKey: pendingRenderKey)
+            self.lastDisplayRefreshAt = Date()
+            return
+        }
+
+        guard self.refreshWorkItem == nil else { return }
+        let remainingDelay = max(0.01, refreshInterval - elapsed)
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.refreshWorkItem = nil
+            guard let nextDisplay = self.pendingDisplay, let nextRenderKey = self.pendingRenderKey else { return }
+            self.pendingDisplay = nil
+            self.pendingRenderKey = nil
+            self.refreshDisplay(nextDisplay, renderKey: nextRenderKey)
+            self.lastDisplayRefreshAt = Date()
+            self.flushScheduledRefreshIfNeeded()
+        }
+        self.refreshWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + remainingDelay, execute: work)
+    }
+
+    private func refreshInterval(for display: MenuBarDisplay) -> TimeInterval {
+        switch display.mode {
+        case .iconOnly:
+            self.iconOnlyRefreshInterval
+        case .iconAndSpeed, .speedOnly:
+            self.speedDisplayRefreshInterval
+        }
+    }
+
+    private func renderKey(for display: MenuBarDisplay) -> StatusItemRenderKey {
+        let shouldTrackSymbol = !self.statusContentView.usesBrandIcon
+        let symbolName = shouldTrackSymbol ? display.symbolName : nil
+        switch display.mode {
+        case .iconOnly:
+            // Keep icon-only status item visually stable regardless of runtime state symbol changes.
+            return StatusItemRenderKey(mode: .iconOnly, symbolName: symbolName, speedLines: nil)
+        case .iconAndSpeed:
+            // In icon+speed mode, icon stays fixed; only speed text drives refresh.
+            return StatusItemRenderKey(mode: .iconAndSpeed, symbolName: symbolName, speedLines: display.speedLines)
+        case .speedOnly:
+            return StatusItemRenderKey(mode: .speedOnly, symbolName: nil, speedLines: display.speedLines)
+        }
     }
 
     private func startGlobalMonitor() {

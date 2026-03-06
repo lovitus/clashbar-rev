@@ -10,6 +10,7 @@ final class AppState: ObservableObject {
 
     @Published var version: String = "-"
     @Published var controller: String = "127.0.0.1:9090"
+    @Published var externalControllerDisplay: String = "127.0.0.1:9090"
     @Published var controllerUIURL: String = "http://127.0.0.1:9090/ui"
     @Published var controllerSecret: String?
 
@@ -158,6 +159,13 @@ final class AppState: ObservableObject {
         case .failed: tr("app.runtime.failed")
         case .stopped: tr("app.runtime.stopped")
         }
+    }
+
+    var isExternalControllerWildcardIPv4: Bool {
+        guard let host = self.controllerHost(from: self.externalControllerDisplay) else {
+            return false
+        }
+        return host.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "0.0.0.0"
     }
 
     // DRY: unify "running" checks across AppState and extensions.

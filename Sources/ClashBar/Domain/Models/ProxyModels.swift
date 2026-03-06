@@ -141,6 +141,7 @@ private struct ProxyDelayHistoryEntry: Decodable, Equatable {
 struct ConfigSnapshot: Codable, Equatable {
     struct TunConfig: Codable, Equatable {
         let enable: Bool?
+        let stack: String?
     }
 
     let allowLan: Bool?

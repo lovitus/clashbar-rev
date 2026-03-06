@@ -37,9 +37,7 @@ extension AppState {
                 return
             }
 
-            settingsOverlay = try await prepareTunOverlayForCoreStartup(
-                configPath: configPath,
-                overlay: settingsOverlay)
+            settingsOverlay = try await prepareTunOverlayForCoreStartup(settingsOverlay)
 
             guard self.validateConfigBeforeCoreLaunch(configPath: configPath) else {
                 preserveLocalSettingsOnNextSync = false
@@ -309,6 +307,7 @@ extension AppState {
             settingsOverlay,
             syncingKey: options.overlaySyncingKey)
         await validateTunPermissionsOnStartup()
+        await ensureTunMixedStackOnStartupIfNeeded()
         enqueueProviderRefresh(trigger: options.providerTrigger)
 
         if options.refreshProxyGroupsAfterBootstrap {

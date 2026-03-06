@@ -24,6 +24,10 @@ final class StatusItemContentView: NSView {
     private var currentDisplay: MenuBarDisplay?
     private lazy var brandStatusIconImage: NSImage? = Self.makeBrandStatusIconImage(size: brandIconRenderSize)
 
+    var usesBrandIcon: Bool {
+        self.brandStatusIconImage != nil
+    }
+
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = false
@@ -61,21 +65,39 @@ final class StatusItemContentView: NSView {
     }
 
     func apply(display: MenuBarDisplay) {
+        let previousMode = self.currentDisplay?.mode
+        let previousSymbolName = self.currentDisplay?.symbolName
+        let previousIconHidden = self.iconView.isHidden
+        let previousUpHidden = self.upLabel.isHidden
+        let previousDownHidden = self.downLabel.isHidden
+
         self.currentDisplay = display
-        self.upLabel.stringValue = display.speedLines?.up ?? ""
-        self.downLabel.stringValue = display.speedLines?.down ?? ""
+        let upLine = display.speedLines?.up ?? ""
+        if self.upLabel.stringValue != upLine {
+            self.upLabel.stringValue = upLine
+        }
+        let downLine = display.speedLines?.down ?? ""
+        if self.downLabel.stringValue != downLine {
+            self.downLabel.stringValue = downLine
+        }
 
         let shouldShowIcon = display.mode != .speedOnly
         if shouldShowIcon, let brandIcon = brandStatusIconImage {
-            self.iconView.image = brandIcon
-            self.iconView.contentTintColor = NSColor.labelColor
+            if self.iconView.image !== brandIcon {
+                self.iconView.image = brandIcon
+            }
+            // Avoid per-frame tint recomposition for custom PNG icon snapshots.
+            self.iconView.contentTintColor = nil
         } else if let symbolName = display.symbolName {
-            let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: "ClashBar")
-            let config = NSImage.SymbolConfiguration(pointSize: self.symbolPointSize, weight: .semibold)
-            self.iconView.image = image?.withSymbolConfiguration(config)
+            if self.iconView.image == nil || previousSymbolName != symbolName || self.currentDisplay?.mode != previousMode {
+                let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: "ClashBar")
+                let config = NSImage.SymbolConfiguration(pointSize: self.symbolPointSize, weight: .semibold)
+                self.iconView.image = image?.withSymbolConfiguration(config)
+            }
             self.iconView.contentTintColor = NSColor.labelColor
         } else {
             self.iconView.image = nil
+            self.iconView.contentTintColor = nil
         }
 
         switch display.mode {
@@ -93,8 +115,17 @@ final class StatusItemContentView: NSView {
             self.downLabel.isHidden = false
         }
 
-        needsLayout = true
-        invalidateIntrinsicContentSize()
+        let modeChanged = previousMode != display.mode
+        let visibilityChanged = previousIconHidden != self.iconView.isHidden ||
+            previousUpHidden != self.upLabel.isHidden ||
+            previousDownHidden != self.downLabel.isHidden
+
+        if modeChanged || visibilityChanged {
+            self.needsLayout = true
+        }
+        if modeChanged {
+            self.invalidateIntrinsicContentSize()
+        }
     }
 
     override func layout() {
@@ -150,9 +181,20 @@ final class StatusItemContentView: NSView {
     }
 
     private static func makeBrandStatusIconImage(size: CGFloat) -> NSImage? {
-        guard let base = BrandIcon.image?.copy() as? NSImage else { return nil }
-        base.size = NSSize(width: size, height: size)
-        base.isTemplate = true
-        return base
+        guard let source = BrandIcon.image else { return nil }
+        let targetSize = NSSize(width: size, height: size)
+        let rendered = NSImage(size: targetSize)
+        rendered.lockFocus()
+        NSGraphicsContext.current?.imageInterpolation = .high
+        source.draw(
+            in: NSRect(origin: .zero, size: targetSize),
+            from: .zero,
+            operation: .copy,
+            fraction: 1.0,
+            respectFlipped: true,
+            hints: [.interpolation: NSImageInterpolation.high])
+        rendered.unlockFocus()
+        rendered.isTemplate = false
+        return rendered
     }
 }
