@@ -391,16 +391,25 @@ final class MihomoProcessManager: MihomoControlling, @unchecked Sendable {
             }
         }
 
-        guard let bundledBinaryPath = self.firstBundledExecutableBinaryPath() else {
+        if let bundledBinaryPath = self.firstBundledExecutableBinaryPath() {
+            try self.validateBinarySecurity(at: bundledBinaryPath)
+            let migratedBinaryPath = try self.copyBundledBinaryToManagedCore(
+                bundledPath: bundledBinaryPath,
+                managedPath: managedBinaryPath)
+            try self.validateBinarySecurity(at: migratedBinaryPath)
+            return migratedBinaryPath
+        }
+
+        guard let bundledCompressedBinaryPath = self.firstBundledCompressedBinaryPath() else {
             throw NSError(
                 domain: "ClashBar.Core",
                 code: 404,
                 userInfo: [NSLocalizedDescriptionKey: "mihomo binary not found in app resources"])
         }
 
-        try self.validateBinarySecurity(at: bundledBinaryPath)
-        let migratedBinaryPath = try self.copyBundledBinaryToManagedCore(
-            bundledPath: bundledBinaryPath,
+        try self.validateBinarySecurity(at: bundledCompressedBinaryPath)
+        let migratedBinaryPath = try self.decompressBundledBinaryToManagedCore(
+            compressedPath: bundledCompressedBinaryPath,
             managedPath: managedBinaryPath)
         try self.validateBinarySecurity(at: migratedBinaryPath)
         return migratedBinaryPath
@@ -408,6 +417,13 @@ final class MihomoProcessManager: MihomoControlling, @unchecked Sendable {
 
     private func firstBundledExecutableBinaryPath() -> String? {
         for candidate in self.bundledBinaryCandidates() where self.fileManager.isExecutableFile(atPath: candidate) {
+            return candidate
+        }
+        return nil
+    }
+
+    private func firstBundledCompressedBinaryPath() -> String? {
+        for candidate in self.bundledCompressedBinaryCandidates() where self.fileManager.fileExists(atPath: candidate) {
             return candidate
         }
         return nil
@@ -421,6 +437,27 @@ final class MihomoProcessManager: MihomoControlling, @unchecked Sendable {
             candidates.append(root.appendingPathComponent("bin/mihomo").path)
             candidates.append(root.appendingPathComponent("Resources/bin/mihomo").path)
             candidates.append(root.appendingPathComponent("mihomo").path)
+        }
+
+        var deduplicated: [String] = []
+        var seen = Set<String>()
+        for path in candidates {
+            let normalized = URL(fileURLWithPath: path).standardizedFileURL.path
+            if seen.insert(normalized).inserted {
+                deduplicated.append(normalized)
+            }
+        }
+        return deduplicated
+    }
+
+    private func bundledCompressedBinaryCandidates() -> [String] {
+        let resourceRoots = AppResourceBundleLocator.candidateResourceRoots()
+        var candidates: [String] = []
+
+        for root in resourceRoots {
+            candidates.append(root.appendingPathComponent("bin/mihomo.gz").path)
+            candidates.append(root.appendingPathComponent("Resources/bin/mihomo.gz").path)
+            candidates.append(root.appendingPathComponent("mihomo.gz").path)
         }
 
         var deduplicated: [String] = []
@@ -452,6 +489,64 @@ final class MihomoProcessManager: MihomoControlling, @unchecked Sendable {
                 userInfo: [
                     NSLocalizedDescriptionKey:
                         "failed to migrate mihomo binary to \(managedPath): \(error.localizedDescription)",
+                ])
+        }
+    }
+
+    private func decompressBundledBinaryToManagedCore(compressedPath: String, managedPath: String) throws -> String {
+        let temporaryPath = managedPath + ".tmp"
+        if self.fileManager.fileExists(atPath: temporaryPath) {
+            try self.fileManager.removeItem(atPath: temporaryPath)
+        }
+        if self.fileManager.fileExists(atPath: managedPath) {
+            try self.fileManager.removeItem(atPath: managedPath)
+        }
+
+        self.fileManager.createFile(atPath: temporaryPath, contents: nil)
+        let outputURL = URL(fileURLWithPath: temporaryPath)
+        let outputHandle = try FileHandle(forWritingTo: outputURL)
+        let errorPipe = Pipe()
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/gunzip")
+        process.arguments = ["-c", compressedPath]
+        process.standardOutput = outputHandle
+        process.standardError = errorPipe
+
+        do {
+            try process.run()
+            process.waitUntilExit()
+            try outputHandle.close()
+
+            guard process.terminationStatus == 0 else {
+                let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
+                let errorText = String(data: errorData, encoding: .utf8)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines) ?? "unknown error"
+                try? self.fileManager.removeItem(atPath: temporaryPath)
+                throw NSError(
+                    domain: "ClashBar.Core",
+                    code: 500,
+                    userInfo: [
+                        NSLocalizedDescriptionKey:
+                            "failed to decompress bundled mihomo binary from \(compressedPath): \(errorText)",
+                    ])
+            }
+
+            try self.fileManager.moveItem(atPath: temporaryPath, toPath: managedPath)
+            self.onLog?("[mihomo binary] decompressed bundled core to \(managedPath)")
+            try self.ensureExecutableIfNeeded(at: managedPath)
+            return managedPath
+        } catch {
+            try? outputHandle.close()
+            try? self.fileManager.removeItem(atPath: temporaryPath)
+            if let error = error as NSError?, error.domain == "ClashBar.Core" {
+                throw error
+            }
+            throw NSError(
+                domain: "ClashBar.Core",
+                code: 500,
+                userInfo: [
+                    NSLocalizedDescriptionKey:
+                        "failed to migrate compressed mihomo binary to \(managedPath): \(error.localizedDescription)",
                 ])
         }
     }

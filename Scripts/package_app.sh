@@ -62,15 +62,16 @@ resolve_build_artifact() {
 }
 
 resolve_mihomo_install_path() {
+  local filename="${1:-mihomo}"
   local bundle_dir="$APP/Contents/Resources/ClashBar_ClashBar.bundle"
   local resources_dir="$APP/Contents/Resources"
   local candidates=(
-    "$bundle_dir/mihomo"
-    "$bundle_dir/bin/mihomo"
-    "$bundle_dir/Resources/bin/mihomo"
-    "$resources_dir/bin/mihomo"
-    "$resources_dir/Resources/bin/mihomo"
-    "$resources_dir/mihomo"
+    "$bundle_dir/$filename"
+    "$bundle_dir/bin/$filename"
+    "$bundle_dir/Resources/bin/$filename"
+    "$resources_dir/bin/$filename"
+    "$resources_dir/Resources/bin/$filename"
+    "$resources_dir/$filename"
   )
   local path=""
 
@@ -88,7 +89,24 @@ resolve_mihomo_install_path() {
     fi
   done
 
-  echo "$bundle_dir/mihomo"
+  echo "$bundle_dir/$filename"
+}
+
+remove_bundled_mihomo_raw_candidates() {
+  local path=""
+
+  while IFS= read -r path; do
+    [ -n "$path" ] || continue
+    if [ -f "$path" ]; then
+      rm -f "$path"
+    fi
+  done < <(printf '%s\n' \
+    "$(resolve_mihomo_install_path "mihomo")" \
+    "$APP/Contents/Resources/ClashBar_ClashBar.bundle/bin/mihomo" \
+    "$APP/Contents/Resources/ClashBar_ClashBar.bundle/Resources/bin/mihomo" \
+    "$APP/Contents/Resources/bin/mihomo" \
+    "$APP/Contents/Resources/Resources/bin/mihomo" \
+    "$APP/Contents/Resources/mihomo" | awk '!seen[$0]++')
 }
 
 BIN="$(resolve_build_artifact "$BIN_CANDIDATE" file "$BIN_PATTERN")"
@@ -126,16 +144,27 @@ rm -rf "$APP/Contents/Resources/ClashBar_ClashBar.bundle"
 cp -R "$RESOURCE_BUNDLE" "$APP/Contents/Resources/ClashBar_ClashBar.bundle"
 
 if [ -f "$PREPROCESSED_MIHOMO_PATH" ]; then
-  MIHOMO_INSTALL_PATH="$(resolve_mihomo_install_path)"
+  MIHOMO_SOURCE_PATH="$PREPROCESSED_MIHOMO_PATH"
+elif [ -f "$(resolve_mihomo_install_path "mihomo")" ]; then
+  MIHOMO_SOURCE_PATH="$(resolve_mihomo_install_path "mihomo")"
+else
+  MIHOMO_SOURCE_PATH=""
+fi
+
+if [ -n "$MIHOMO_SOURCE_PATH" ]; then
+  MIHOMO_INSTALL_PATH="$(resolve_mihomo_install_path "mihomo.gz")"
   mkdir -p "$(dirname "$MIHOMO_INSTALL_PATH")"
-  install -m 755 "$PREPROCESSED_MIHOMO_PATH" "$MIHOMO_INSTALL_PATH"
-  echo "Bundled mihomo binary: $MIHOMO_INSTALL_PATH"
+  remove_bundled_mihomo_raw_candidates
+  rm -f "$MIHOMO_INSTALL_PATH"
+  gzip -c "$MIHOMO_SOURCE_PATH" > "$MIHOMO_INSTALL_PATH"
+  chmod 644 "$MIHOMO_INSTALL_PATH"
+  echo "Bundled compressed mihomo payload: $MIHOMO_INSTALL_PATH"
 elif [ "$REQUIRE_MIHOMO_BINARY" = "1" ]; then
   echo "Missing preprocessed mihomo binary: $PREPROCESSED_MIHOMO_PATH" >&2
   echo "Run ./Scripts/preprocess.sh (or ./Scripts/build.sh app/all) before packaging." >&2
   exit 1
 else
-  echo "Warning: preprocessed mihomo binary not found, using bundled resource as-is."
+  echo "Warning: preprocessed mihomo binary not found, and no bundled mihomo resource was available."
 fi
 
 cp "$HELPER_BIN" "$APP/Contents/Library/HelperTools/$HELPER_LABEL"

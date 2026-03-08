@@ -389,7 +389,10 @@ extension MenuBarRoot {
             Image(systemName: symbol)
                 .font(.appSystem(size: 10, weight: .semibold))
                 .foregroundStyle(nativeTertiaryLabel)
-                .frame(width: 14, alignment: .center)
+                .frame(
+                    width: MenuBarLayoutTokens.rowLeadingIconColumnWidth,
+                    height: MenuBarLayoutTokens.rowLeadingIconSize,
+                    alignment: .center)
 
             Text(title)
                 .font(.appSystem(size: 12, weight: .bold))

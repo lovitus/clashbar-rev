@@ -57,7 +57,7 @@
 "ui.quick.system_proxy" = "系统代理";
 "ui.quick.tun_mode" = "TUN 模式";
 "ui.quick.copy_terminal" = "复制终端命令";
-"ui.quick.reload_config_list" = "重载配置";
+"ui.quick.reload_config_list" = "重载配置文件";
 "ui.quick.import_local_config" = "导入本地配置";
 "ui.quick.import_remote_config" = "导入订阅链接";
 "ui.quick.update_remote_configs" = "更新订阅链接";
