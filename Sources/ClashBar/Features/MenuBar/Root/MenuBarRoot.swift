@@ -124,7 +124,6 @@ struct MenuBarRoot: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var popoverLayoutModel: PopoverLayoutModel
     @Environment(\.colorScheme) var colorScheme
-    @Environment(\.panelMeasurementMode) var panelMeasurementMode
 
     @State var currentTab: RootTab = .proxy
     @State var switchingMode: CoreMode?
@@ -151,7 +150,7 @@ struct MenuBarRoot: View {
     @AppStorage("clashbar.proxy.group.hide_hidden") var hideHiddenProxyGroups: Bool = true
 
     var contentWidth: CGFloat {
-        MenuBarLayoutTokens.panelWidth - (MenuBarLayoutTokens.hPage * 2)
+        MenuBarLayoutTokens.panelWidth - (MenuBarLayoutTokens.space8 * 2)
     }
 
     var language: AppLanguage {
@@ -182,11 +181,6 @@ struct MenuBarRoot: View {
             Spacer(minLength: 0)
         }
         .frame(width: MenuBarLayoutTokens.panelWidth, alignment: .topLeading)
-        .overlay(alignment: .topLeading) {
-            if !self.panelMeasurementMode {
-                self.currentTabMeasurementLayer
-            }
-        }
     }
 
     var panelContent: some View {
@@ -202,21 +196,21 @@ struct MenuBarRoot: View {
             ScrollView(.vertical) {
                 self.tabContent(for: self.currentTab)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .reportHeight { updateCurrentTabContentHeight($0, for: self.currentTab) }
             }
             .scrollIndicators(.hidden)
             .frame(maxWidth: .infinity, alignment: .topLeading)
             .frame(height: tabScrollAreaHeight, alignment: .top)
 
             footerBar
-                .padding(.top, MenuBarLayoutTokens.sectionGap)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .reportHeight { updateSectionHeight($0, target: .footer) }
         }
         .frame(width: self.contentWidth, alignment: .topLeading)
-        .padding(.horizontal, MenuBarLayoutTokens.hPage)
+        .padding(.horizontal, MenuBarLayoutTokens.space8)
         .frame(width: MenuBarLayoutTokens.panelWidth, height: resolvedPanelHeight, alignment: .topLeading)
         .background(self.panelBackground)
-        .clipShape(RoundedRectangle(cornerRadius: MenuBarLayoutTokens.panelCornerRadius, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: MenuBarLayoutTokens.cornerRadius, style: .continuous))
         .onAppear {
             self.setCurrentTabWithoutAnimation(self.appState.activeMenuTab)
             self.appState.setActiveMenuTab(self.currentTab)
@@ -279,31 +273,22 @@ struct MenuBarRoot: View {
 
     func tabContent(for tab: RootTab) -> some View {
         self.tabBody(for: tab)
-            .padding(.top, MenuBarLayoutTokens.vDense)
+            .padding(.top, MenuBarLayoutTokens.space2)
             .fixedSize(horizontal: false, vertical: true)
     }
 
-    var currentTabMeasurementLayer: some View {
-        let measuredTab = self.currentTab
-
-        return self.tabContent(for: measuredTab)
-            .frame(width: self.contentWidth, alignment: .topLeading)
-            .reportHeight { updateCurrentTabContentHeight($0, for: measuredTab) }
-            .hidden()
-            .allowsHitTesting(false)
-            .accessibilityHidden(true)
-            .environment(\.panelMeasurementMode, true)
-            .id(measuredTab)
-    }
-
     var panelBackground: some View {
-        RoundedRectangle(cornerRadius: MenuBarLayoutTokens.panelCornerRadius, style: .continuous)
+        RoundedRectangle(cornerRadius: MenuBarLayoutTokens.cornerRadius, style: .continuous)
             .fill(.regularMaterial)
             .overlay {
-                RoundedRectangle(cornerRadius: MenuBarLayoutTokens.panelCornerRadius, style: .continuous)
-                    .stroke(nativeSeparator, lineWidth: 0.8)
+                RoundedRectangle(cornerRadius: MenuBarLayoutTokens.cornerRadius, style: .continuous)
+                    .stroke(nativeSeparator, lineWidth: MenuBarLayoutTokens.stroke)
             }
-            .shadow(color: Color(nsColor: .shadowColor).opacity(0.28), radius: 18, x: 0, y: 10)
+            .shadow(
+                color: Color(nsColor: .shadowColor).opacity(MenuBarLayoutTokens.Shadow.standard.opacity),
+                radius: MenuBarLayoutTokens.Shadow.standard.radius,
+                x: MenuBarLayoutTokens.Shadow.standard.x,
+                y: MenuBarLayoutTokens.Shadow.standard.y)
     }
 
     func refreshDerivedData(for tab: RootTab) {
