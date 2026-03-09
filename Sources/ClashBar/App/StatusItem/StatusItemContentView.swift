@@ -283,7 +283,7 @@ final class StatusItemContentView: NSView {
             operation: .copy,
             fraction: 1.0,
             respectFlipped: true,
-            hints: [.interpolation: NSImageInterpolation.high])
+            hints: nil)
         context.cgContext.setBlendMode(.sourceIn)
         context.cgContext.setFillColor((color.usingColorSpace(.deviceRGB) ?? color).cgColor)
         context.cgContext.fill(CGRect(origin: .zero, size: pointSize))
