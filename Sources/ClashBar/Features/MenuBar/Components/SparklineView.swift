@@ -1,5 +1,6 @@
 import SwiftUI
 
+// swiftlint:disable:next type_name
 private typealias T = MenuBarLayoutTokens
 
 struct TrafficSparklineView: View {

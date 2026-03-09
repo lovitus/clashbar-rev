@@ -408,11 +408,12 @@ final class StatusItemController: NSObject {
 
         let placement = anchorContext.menuBarDropdownPlacement(
             panelSize: panelSize,
-            horizontalPadding: self.panelHorizontalPadding,
-            verticalSpacing: self.panelTopSpacing,
-            screenPadding: self.popoverScreenPadding,
-            lockedOriginX: self.lockedPanelOriginX,
-            preserveHorizontalPosition: preserveHorizontalPosition)
+            options: MenuBarDropdownPlacementOptions(
+                horizontalPadding: self.panelHorizontalPadding,
+                verticalSpacing: self.panelTopSpacing,
+                screenPadding: self.popoverScreenPadding,
+                lockedOriginX: self.lockedPanelOriginX,
+                preserveHorizontalPosition: preserveHorizontalPosition))
 
         self.lockedPanelOriginX = placement.lockedOriginX
 

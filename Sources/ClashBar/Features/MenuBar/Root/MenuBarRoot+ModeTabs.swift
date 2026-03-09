@@ -74,12 +74,15 @@ extension MenuBarRoot {
                     .fill(
                         selected
                             ? nativeAccent.opacity(MenuBarLayoutTokens.Opacity.tint)
-                            : (hovered ? Color(nsColor: .selectedContentBackgroundColor).opacity(MenuBarLayoutTokens.Opacity.tint) : .clear)))
+                            :
+                            (hovered ? Color(nsColor: .selectedContentBackgroundColor)
+                                .opacity(MenuBarLayoutTokens.Opacity.tint) : .clear)))
             .overlay {
                 if selected || hovered {
                     RoundedRectangle(cornerRadius: MenuBarLayoutTokens.cornerRadius, style: .continuous)
                         .stroke(
-                            selected ? nativeAccent.opacity(MenuBarLayoutTokens.Opacity.tint) : nativeControlBorder.opacity(MenuBarLayoutTokens.Theme.Dark.borderEmphasis),
+                            selected ? nativeAccent.opacity(MenuBarLayoutTokens.Opacity.tint) : nativeControlBorder
+                                .opacity(MenuBarLayoutTokens.Theme.Dark.borderEmphasis),
                             lineWidth: MenuBarLayoutTokens.stroke)
                 }
             }
@@ -116,18 +119,16 @@ private struct EqualWidthSegmentedControl: NSViewRepresentable {
             target: context.coordinator,
             action: #selector(Coordinator.segmentChanged(_:)))
         control.segmentDistribution = .fillEqually
-        control.selectedSegment = selectedIndex
+        control.selectedSegment = self.selectedIndex
         return control
     }
 
     func updateNSView(_ control: NSSegmentedControl, context: Context) {
-        for (i, label) in labels.enumerated() {
-            if control.label(forSegment: i) != label {
-                control.setLabel(label, forSegment: i)
-            }
+        for (index, label) in self.labels.enumerated() where control.label(forSegment: index) != label {
+            control.setLabel(label, forSegment: index)
         }
-        if control.selectedSegment != selectedIndex {
-            control.selectedSegment = selectedIndex
+        if control.selectedSegment != self.selectedIndex {
+            control.selectedSegment = self.selectedIndex
         }
     }
 
@@ -144,8 +145,8 @@ private struct EqualWidthSegmentedControl: NSViewRepresentable {
 
         @MainActor @objc func segmentChanged(_ sender: NSSegmentedControl) {
             let index = sender.selectedSegment
-            guard index >= 0, index < parent.labels.count else { return }
-            parent.selectedIndex = index
+            guard index >= 0, index < self.parent.labels.count else { return }
+            self.parent.selectedIndex = index
         }
     }
 }

@@ -238,21 +238,24 @@ struct MenuBarRoot: View {
             connections: self.appState.connections,
             keyword: self.networkFilterText,
             transport: self.networkTransportFilter,
-            sort: self.networkSortOption)) { _ in
+            sort: self.networkSortOption))
+        { _ in
             self.refreshActivityDerivedDataIfVisible()
         }
         .onChange(of: LogsRefreshToken(
-            logs: self.appState.errorLogs,
-            sources: self.selectedLogSources,
-            levels: self.selectedLogLevels,
-            keyword: self.logSearchText)) { _ in
+                logs: self.appState.errorLogs,
+                sources: self.selectedLogSources,
+                levels: self.selectedLogLevels,
+                keyword: self.logSearchText))
+        { _ in
             self.refreshLogsDerivedDataIfVisible()
-        }
-        .onChange(of: RulesRefreshToken(
-            items: self.appState.ruleItems,
-            providers: self.appState.ruleProviders)) { _ in
-            self.refreshRulesDerivedDataIfVisible()
-        }
+            }
+            .onChange(of: RulesRefreshToken(
+                    items: self.appState.ruleItems,
+                    providers: self.appState.ruleProviders))
+            { _ in
+                self.refreshRulesDerivedDataIfVisible()
+                }
     }
 
     @ViewBuilder

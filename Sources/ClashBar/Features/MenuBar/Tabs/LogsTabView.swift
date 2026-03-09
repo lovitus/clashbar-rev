@@ -1,5 +1,6 @@
 import SwiftUI
 
+// swiftlint:disable:next type_name
 private typealias T = MenuBarLayoutTokens
 
 extension MenuBarRoot {
@@ -213,11 +214,10 @@ extension MenuBarRoot {
         let isShowingAllSources = self.selectedLogSources == self.allLogSourceSelection
         let isShowingAllLevels = self.selectedLogLevels == self.allLogLevelSelection
 
-        let nextLogs: [AppErrorLogEntry]
-        if trimmedKeyword.isEmpty && isShowingAllSources && isShowingAllLevels {
-            nextLogs = Array(source)
+        let nextLogs: [AppErrorLogEntry] = if trimmedKeyword.isEmpty, isShowingAllSources, isShowingAllLevels {
+            Array(source)
         } else {
-            nextLogs = source.filter { log in
+            source.filter { log in
                 guard self.selectedLogSources.contains(log.source) else { return false }
                 guard trimmedKeyword.isEmpty || self.logSearchTextContent(for: log)
                     .localizedStandardContains(trimmedKeyword) else { return false }

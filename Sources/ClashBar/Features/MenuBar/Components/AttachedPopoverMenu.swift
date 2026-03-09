@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 
+// swiftlint:disable:next type_name
 private typealias T = MenuBarLayoutTokens
 
 struct AttachedPopoverMenu<Label: View, Content: View>: View {

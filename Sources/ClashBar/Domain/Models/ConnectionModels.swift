@@ -24,7 +24,9 @@ struct ConnectionsSnapshot: Decodable, Equatable {
         }
 
         var retained: [ConnectionSummary] = []
-        retained.reserveCapacity(min(Self.retainedConnectionLimit, connectionsContainer.count ?? Self.retainedConnectionLimit))
+        retained.reserveCapacity(min(
+            Self.retainedConnectionLimit,
+            connectionsContainer.count ?? Self.retainedConnectionLimit))
 
         var totalCount = 0
         while !connectionsContainer.isAtEnd {

@@ -9,7 +9,9 @@ extension MenuBarRoot {
                         .fill(nativeControlFill.opacity(MenuBarLayoutTokens.Opacity.solid))
                         .overlay {
                             RoundedRectangle(cornerRadius: MenuBarLayoutTokens.cornerRadius, style: .continuous)
-                                .stroke(nativeControlBorder.opacity(MenuBarLayoutTokens.Opacity.solid), lineWidth: MenuBarLayoutTokens.stroke)
+                                .stroke(
+                                    nativeControlBorder.opacity(MenuBarLayoutTokens.Opacity.solid),
+                                    lineWidth: MenuBarLayoutTokens.stroke)
                         }
 
                     if let brandImage = BrandIcon.image {
@@ -48,7 +50,9 @@ extension MenuBarRoot {
                         .padding(.vertical, MenuBarLayoutTokens.space2)
                         .background(nativeControlFill.opacity(MenuBarLayoutTokens.Opacity.solid), in: Capsule())
                         .overlay {
-                            Capsule().stroke(nativeControlBorder.opacity(MenuBarLayoutTokens.Theme.Dark.borderEmphasis), lineWidth: MenuBarLayoutTokens.stroke)
+                            Capsule().stroke(
+                                nativeControlBorder.opacity(MenuBarLayoutTokens.Theme.Dark.borderEmphasis),
+                                lineWidth: MenuBarLayoutTokens.stroke)
                         }
                     }
 

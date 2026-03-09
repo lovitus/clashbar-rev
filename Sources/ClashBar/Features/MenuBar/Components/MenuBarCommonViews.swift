@@ -1,5 +1,6 @@
 import SwiftUI
 
+// swiftlint:disable:next type_name
 private typealias T = MenuBarLayoutTokens
 
 struct SeparatedForEach<Element: Equatable, ID: Hashable, RowContent: View>: View {
@@ -143,15 +144,18 @@ extension MenuBarRoot {
     }
 
     var nativeSecondaryLabel: Color {
-        Color(nsColor: .labelColor).opacity(self.isDarkAppearance ? T.Theme.Dark.labelSecondary : T.Theme.Light.labelSecondary)
+        Color(nsColor: .labelColor)
+            .opacity(self.isDarkAppearance ? T.Theme.Dark.labelSecondary : T.Theme.Light.labelSecondary)
     }
 
     var nativeTertiaryLabel: Color {
-        Color(nsColor: .labelColor).opacity(self.isDarkAppearance ? T.Theme.Dark.labelTertiary : T.Theme.Light.labelTertiary)
+        Color(nsColor: .labelColor)
+            .opacity(self.isDarkAppearance ? T.Theme.Dark.labelTertiary : T.Theme.Light.labelTertiary)
     }
 
     var nativeSeparator: Color {
-        Color(nsColor: .separatorColor).opacity(self.isDarkAppearance ? T.Theme.Dark.separator : T.Theme.Light.separator)
+        Color(nsColor: .separatorColor)
+            .opacity(self.isDarkAppearance ? T.Theme.Dark.separator : T.Theme.Light.separator)
     }
 
     var nativeControlFill: Color {
@@ -160,18 +164,23 @@ extension MenuBarRoot {
     }
 
     var nativeControlBorder: Color {
-        Color(nsColor: .separatorColor).opacity(self.isDarkAppearance ? T.Theme.Dark.controlBorder : T.Theme.Light.controlBorder)
+        Color(nsColor: .separatorColor)
+            .opacity(self.isDarkAppearance ? T.Theme.Dark.controlBorder : T.Theme.Light.controlBorder)
     }
 
     var nativeHoverFill: Color {
-        Color(nsColor: .selectedContentBackgroundColor).opacity(self.isDarkAppearance ? T.Theme.Dark.hoverFill : T.Theme.Light.hoverFill)
+        Color(nsColor: .selectedContentBackgroundColor)
+            .opacity(self.isDarkAppearance ? T.Theme.Dark.hoverFill : T.Theme.Light.hoverFill)
     }
 
     var nativeBadgeFill: Color {
         Color(nsColor: .quaternaryLabelColor).opacity(MenuBarLayoutTokens.Opacity.tint)
     }
 
-    func nativeHoverRowBackground(_ hovered: Bool, cornerRadius: CGFloat = MenuBarLayoutTokens.cornerRadius) -> some View {
+    func nativeHoverRowBackground(
+        _ hovered: Bool,
+        cornerRadius: CGFloat = MenuBarLayoutTokens.cornerRadius) -> some View
+    {
         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
             .fill(hovered ? self.nativeHoverFill : .clear)
     }
@@ -218,7 +227,9 @@ extension MenuBarRoot {
             .fill(self.nativeControlFill.opacity(0.86))
             .overlay {
                 RoundedRectangle(cornerRadius: MenuBarLayoutTokens.cornerRadius, style: .continuous)
-                    .stroke(self.nativeControlBorder.opacity(MenuBarLayoutTokens.Opacity.solid), lineWidth: MenuBarLayoutTokens.stroke)
+                    .stroke(
+                        self.nativeControlBorder.opacity(MenuBarLayoutTokens.Opacity.solid),
+                        lineWidth: MenuBarLayoutTokens.stroke)
             }
             .shadow(
                 color: Color(nsColor: .shadowColor).opacity(MenuBarLayoutTokens.Shadow.standard.opacity),

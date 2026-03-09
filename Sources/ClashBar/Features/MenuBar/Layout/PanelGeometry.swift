@@ -11,6 +11,14 @@ struct PanelPlacement: Equatable {
     let attachmentSide: PanelAttachmentSide?
 }
 
+struct MenuBarDropdownPlacementOptions {
+    let horizontalPadding: CGFloat
+    let verticalSpacing: CGFloat
+    let screenPadding: CGFloat
+    let lockedOriginX: CGFloat?
+    let preserveHorizontalPosition: Bool
+}
+
 struct PanelAnchorContext {
     let visibleFrame: CGRect
     let anchorFrameOnScreen: CGRect
@@ -51,22 +59,18 @@ struct PanelAnchorContext {
 
     func menuBarDropdownPlacement(
         panelSize: CGSize,
-        horizontalPadding: CGFloat,
-        verticalSpacing: CGFloat,
-        screenPadding: CGFloat,
-        lockedOriginX: CGFloat?,
-        preserveHorizontalPosition: Bool)
+        options: MenuBarDropdownPlacementOptions)
         -> PanelPlacement
     {
-        let minX = self.visibleFrame.minX + horizontalPadding
-        let maxX = self.visibleFrame.maxX - horizontalPadding - panelSize.width
+        let minX = self.visibleFrame.minX + options.horizontalPadding
+        let maxX = self.visibleFrame.maxX - options.horizontalPadding - panelSize.width
 
         let centeredX = self.anchorFrameOnScreen.midX - panelSize.width / 2
-        let stableX = preserveHorizontalPosition ? (lockedOriginX ?? centeredX) : centeredX
+        let stableX = options.preserveHorizontalPosition ? (options.lockedOriginX ?? centeredX) : centeredX
         let clampedX = min(max(stableX, minX), maxX)
 
-        let anchorTopY = self.statusBarBottomY - verticalSpacing
-        let minY = self.visibleFrame.minY + screenPadding
+        let anchorTopY = self.statusBarBottomY - options.verticalSpacing
+        let minY = self.visibleFrame.minY + options.screenPadding
         let clampedY = max(minY, anchorTopY - panelSize.height)
 
         return PanelPlacement(

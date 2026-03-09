@@ -8,7 +8,7 @@ extension AppState {
     }
 
     func shouldDeferAutoStartForMissingManagedCore() -> Bool {
-        !bundlesMihomoCore && !hasInstalledManagedMihomoCore()
+        !bundlesMihomoCore && !self.hasInstalledManagedMihomoCore()
     }
 
     func coreErrorMessage(_ error: Error) -> String {
@@ -23,7 +23,7 @@ extension AppState {
     }
 
     func presentInitialNoCoreSetupGuideIfNeeded() {
-        guard shouldPresentInitialNoCoreSetupGuide() else { return }
+        guard self.shouldPresentInitialNoCoreSetupGuide() else { return }
         guard !didPresentInitialNoCoreSetupGuide else { return }
 
         didPresentInitialNoCoreSetupGuide = true
@@ -44,7 +44,7 @@ extension AppState {
     }
 
     func shouldPresentInitialNoCoreSetupGuide() -> Bool {
-        guard shouldDeferAutoStartForMissingManagedCore() else { return false }
+        guard self.shouldDeferAutoStartForMissingManagedCore() else { return false }
         guard !defaults.bool(forKey: initialNoCoreSetupGuideShownKey) else { return false }
         return true
     }
