@@ -28,130 +28,119 @@ extension MenuBarRoot {
     func proxyProviderRow(name: String, detail: ProviderDetail?) -> some View {
         let nodeCount = detail?.proxies?.count ?? 0
         let updatedText = ValueFormatter.relativeTime(from: detail?.updatedAt, language: language)
-        let expireText = ValueFormatter.daysUntilExpiryShort(from: detail?.subscriptionInfo?.expire, language: language)
+        let expireSeconds = detail?.subscriptionInfo?.expire
+        let expireText = ValueFormatter.daysUntilExpiryShort(from: expireSeconds, language: language)
+        let expireColor: Color = expireSeconds == 0 ? nativeSecondaryLabel : nativeWarning
         let upload = detail?.subscriptionInfo?.upload
         let download = detail?.subscriptionInfo?.download
         let total = detail?.subscriptionInfo?.total
-        let remaining = ValueFormatter.subscriptionRemaining(total: total, upload: upload, download: download)
-        let remainingRatio = ValueFormatter.subscriptionRemainingRatio(total: total, upload: upload, download: download)
-        let quotaTextColumnWidth: CGFloat = 124
+        let usedRatio: Double? = {
+            guard let total, total > 0, let upload, let download else { return nil }
+            let used = upload + download
+            return min(max(Double(used) / Double(total), 0), 1)
+        }()
         let rowHorizontalPadding = T.space4
-        let hovered = hoveredProxyProviderName == name
+        let isUpdating = appState.providerUpdating.contains(name)
+        // Fixed width for update time — ensures vertical alignment across rows
+        let updateTimeWidth: CGFloat = 44
 
-        return AttachedPopoverMenu(
-            onWillPresent: {
-                Task { await appState.ensureProviderNodesLoaded(provider: name) }
-            },
-            label: {
-                VStack(alignment: .leading, spacing: T.space2) {
-                    HStack(spacing: T.space6) {
-                        RoundedRectangle(cornerRadius: T.cornerRadius, style: .continuous)
-                            .fill(nativeTeal.opacity(T.Opacity.tint))
-                            .frame(
-                                width: T.rowLeadingIcon,
-                                height: T.rowLeadingIcon)
-                            .overlay {
-                                Image(systemName: "shippingbox.fill")
-                                    .font(.app(size: T.FontSize.caption, weight: .semibold))
-                                    .foregroundStyle(nativeTeal.opacity(T.Opacity.solid))
-                            }
+        let hasSubscription = detail?.subscriptionInfo != nil
 
+        return VStack(alignment: .leading, spacing: T.space6) {
+            // Row 1: icon | name + node badge | time (fixed) | refresh btn
+            HStack(alignment: .center, spacing: T.space6) {
+                RoundedRectangle(cornerRadius: T.cornerRadius, style: .continuous)
+                    .fill(nativeTeal.opacity(T.Opacity.tint))
+                    .frame(width: T.rowLeadingIcon, height: T.rowLeadingIcon)
+                    .overlay {
+                        Image(systemName: "shippingbox.fill")
+                            .font(.app(size: T.FontSize.caption, weight: .semibold))
+                            .foregroundStyle(nativeTeal.opacity(T.Opacity.solid))
+                    }
+
+                HStack(alignment: .center, spacing: T.space4) {
+                    HStack(alignment: .center, spacing: T.space4) {
                         Text(name)
                             .font(.app(size: T.FontSize.body, weight: .semibold))
                             .foregroundStyle(nativePrimaryLabel)
                             .lineLimit(1)
+                            .layoutPriority(1)
 
-                        if detail?.subscriptionInfo != nil {
-                            Text(expireText)
-                                .font(.app(size: T.FontSize.caption, weight: .regular))
-                                .foregroundStyle(nativeSecondaryLabel)
-                                .padding(.horizontal, T.space2)
-                                .padding(.vertical, T.space2)
-                                .background(nativeBadgeCapsule())
-                        }
-
-                        Spacer(minLength: 0)
-
-                        Text(updatedText)
-                            .font(.app(size: T.FontSize.caption, weight: .regular))
-                            .foregroundStyle(nativeTertiaryLabel)
-
-                        self.providerActionButton(
-                            .healthcheck,
-                            isLoading: appState.providerBatchTesting.contains(name))
-                        {
-                            await appState.testAllProxyProviderNodes(provider: name)
-                        }
-
-                        self.providerActionButton(
-                            .refresh,
-                            isLoading: appState.providerUpdating.contains(name))
-                        {
-                            await appState.updateProxyProvider(name: name)
-                        }
-
-                        Image(systemName: "chevron.right")
+                        Text("\(nodeCount)")
                             .font(.app(size: T.FontSize.caption, weight: .semibold))
-                            .foregroundStyle(nativeTertiaryLabel)
-                            .frame(width: T.space8, alignment: .trailing)
+                            .foregroundStyle(nativeTeal.opacity(T.Opacity.solid))
+                            .padding(.horizontal, T.space4)
+                            .padding(.vertical, T.space2)
+                            .background(Capsule().fill(nativeTeal.opacity(T.Opacity.tint)))
+                            .fixedSize()
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
-                    if let remaining, let total, let remainingRatio {
-                        let quotaText =
-                            "\(ValueFormatter.bytesCompactNoSpace(remaining)) / " +
-                            "\(ValueFormatter.bytesCompactNoSpace(total))"
-                        HStack(spacing: T.space6) {
+                    Text(updatedText)
+                        .font(.app(size: T.FontSize.caption, weight: .regular))
+                        .foregroundStyle(nativeTertiaryLabel)
+                        .lineLimit(1)
+                        .frame(width: updateTimeWidth, alignment: .trailing)
+                }
+                .frame(maxWidth: .infinity)
+
+                Button {
+                    Task { await appState.updateProxyProvider(name: name) }
+                } label: {
+                    ZStack {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                            .font(.app(size: T.FontSize.caption, weight: .semibold))
+                            .symbolRenderingMode(.hierarchical)
+                            .foregroundStyle(nativeSecondaryLabel)
+                            .opacity(isUpdating ? 0 : 1)
+                        ProgressView()
+                            .scaleEffect(0.5)
+                            .opacity(isUpdating ? 1 : 0)
+                    }
+                    .frame(width: T.rowLeadingIcon, height: T.rowLeadingIcon)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(tr("ui.action.refresh"))
+            }
+
+            // Row 2 (subscription only): indented to align with Row 1 center content
+            if hasSubscription {
+                VStack(alignment: .leading, spacing: T.space2) {
+                    HStack(spacing: 0) {
+                        Text(expireText)
+                            .font(.app(size: T.FontSize.caption, weight: .regular))
+                            .foregroundStyle(expireColor)
+                        Spacer(minLength: T.space4)
+                        if let upload, let download, let total {
+                            let used = upload + download
+                            let quotaText =
+                                "\(ValueFormatter.bytesCompactNoSpace(used)) / " +
+                                "\(ValueFormatter.bytesCompactNoSpace(total))"
                             Text(quotaText)
                                 .font(.app(size: T.FontSize.caption, weight: .regular))
                                 .foregroundStyle(nativeSecondaryLabel)
                                 .lineLimit(1)
-                                .frame(width: quotaTextColumnWidth, alignment: .leading)
-
-                            GeometryReader { geo in
-                                ZStack(alignment: .leading) {
-                                    Capsule().fill(nativeControlFill.opacity(T.Opacity.solid))
-                                    Capsule()
-                                        .fill(nativeAccent.opacity(T.Opacity.solid))
-                                        .frame(width: geo.size.width * remainingRatio)
-                                }
-                            }
-                            .frame(height: T.space4)
                         }
                     }
-                }
-                .padding(.horizontal, rowHorizontalPadding)
-                .padding(.vertical, T.space2)
-                .background(nativeHoverRowBackground(hovered))
-                .animation(.easeInOut(duration: 0.14), value: hovered)
-            },
-            content: { dismiss in
-                self.popoverHeader(name: name, count: nodeCount) {
-                    Image(systemName: "shippingbox.fill")
-                        .font(.app(size: T.FontSize.body, weight: .semibold))
-                        .foregroundStyle(nativeTeal.opacity(T.Opacity.solid))
-                        .frame(width: T.rowLeadingIcon, alignment: .center)
-                }
 
-                let nodes = sortedProviderNodes(provider: name, detail: detail)
-                self.popoverNodesList(nodes) { node in
-                    let nodeKey = appState.providerNodeKey(provider: name, node: node)
-                    ProxyGroupPopoverNodeItem(
-                        title: node,
-                        delayText: appState.providerNodeDelayText(provider: name, node: node),
-                        delayValue: appState.providerNodeLatencies[name]?[node],
-                        delayColor: latencyColor(appState.providerNodeLatencies[name]?[node]),
-                        isTesting: appState.providerNodeTesting.contains(nodeKey),
-                        selected: false)
-                    {
-                        dismiss()
-                        Task { await appState.testProxyProviderNode(provider: name, node: node) }
+                    if let usedRatio {
+                        GeometryReader { geo in
+                            ZStack(alignment: .leading) {
+                                Capsule().fill(nativeControlFill.opacity(T.Opacity.solid))
+                                Capsule()
+                                    .fill(nativeAccent.opacity(T.Opacity.solid))
+                                    .frame(width: geo.size.width * usedRatio)
+                            }
+                        }
+                        .frame(height: T.space6)
                     }
                 }
-            })
-            .onHover { hoveredProxyProviderName = self.nextHovered(
-                current: hoveredProxyProviderName,
-                target: name,
-                isHovering: $0) }
+                .padding(.leading, T.rowLeadingIcon + T.space6)
+                .padding(.trailing, T.rowLeadingIcon + T.space6)
+            }
+        }
+        .padding(.horizontal, rowHorizontalPadding)
+        .padding(.vertical, T.space6)
     }
 
     enum ProviderAction {
@@ -202,6 +191,24 @@ extension MenuBarRoot {
                 count: "\(groups.count)")
             {
                 HStack(spacing: T.space6) {
+                    self.compactTopIcon(
+                        sortGroupsByLatency
+                            ? "line.3.horizontal.decrease.circle.fill"
+                            : "line.3.horizontal.decrease.circle",
+                        label: tr(
+                            sortGroupsByLatency
+                                ? "ui.action.sort_default"
+                                : "ui.action.sort_by_latency"),
+                        toneOverride: sortGroupsByLatency ? nativeTeal : nil)
+                    {
+                        sortGroupsByLatency.toggle()
+                    }
+                    .help(
+                        tr(
+                            sortGroupsByLatency
+                                ? "ui.action.sort_default"
+                                : "ui.action.sort_by_latency"))
+
                     self.compactTopIcon(
                         hideHiddenProxyGroups ? "eye.slash" : "eye",
                         label: tr(
@@ -321,7 +328,9 @@ extension MenuBarRoot {
                 }
             }
 
-            let nodes = sortedGroupNodes(group)
+            let nodes = sortGroupsByLatency
+                ? sortedGroupNodes(group)
+                : defaultGroupNodes(group)
             self.popoverNodesList(nodes) { node in
                 ProxyGroupPopoverNodeItem(
                     title: node,

@@ -517,6 +517,14 @@ extension MenuBarRoot {
             latencyForNode: { self.appState.delayValue(group: group.name, node: $0) })
     }
 
+    func defaultGroupNodes(_ group: ProxyGroup) -> [String] {
+        let unique = self.orderedUniqueNames(group.all)
+        guard self.appState.hideUnavailableProxyNodes else { return unique }
+        return unique.filter {
+            self.isProxyNodeAvailable(self.appState.delayValue(group: group.name, node: $0))
+        }
+    }
+
     private func sortedNodes(names: [String], latencyForNode: (String) -> Int?) -> [String] {
         let unique = self.orderedUniqueNames(names)
         let sorted = unique.sorted { lhs, rhs in

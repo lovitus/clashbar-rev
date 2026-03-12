@@ -148,6 +148,7 @@ struct MenuBarRoot: View {
     @State var visibleRules: [RuleItem] = []
     @State var ruleProviderLookup: [String: ProviderDetail] = [:]
     @AppStorage("clashbar.proxy.group.hide_hidden") var hideHiddenProxyGroups: Bool = true
+    @AppStorage("clashbar.proxy.group.sort_by_latency") var sortGroupsByLatency: Bool = false
 
     var contentWidth: CGFloat {
         MenuBarLayoutTokens.panelWidth - (MenuBarLayoutTokens.space8 * 2)
