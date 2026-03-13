@@ -123,11 +123,6 @@ struct ProviderRefreshStatus {
         updatedAt: nil)
 }
 
-struct ProviderNodeKey: Hashable {
-    let provider: String
-    let node: String
-}
-
 struct MenuBarSpeedLines: Equatable {
     let up: String
     let down: String
@@ -139,6 +134,7 @@ struct MenuBarDisplay: Equatable {
     let mode: StatusBarDisplayMode
     let symbolName: String?
     let speedLines: MenuBarSpeedLines?
+    let isRunning: Bool
 }
 
 struct CoreFeatureRecoveryState {

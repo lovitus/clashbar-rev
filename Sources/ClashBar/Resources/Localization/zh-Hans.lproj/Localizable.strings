@@ -22,6 +22,8 @@
 "ui.action.test_latency" = "延迟测试";
 "ui.action.show_hidden_proxy_groups" = "显示 hidden 代理组";
 "ui.action.hide_hidden_proxy_groups" = "隐藏 hidden 代理组";
+"ui.action.sort_nodes_by_latency" = "节点按延迟排序";
+"ui.action.sort_nodes_default" = "节点默认排序";
 "ui.action.refresh" = "刷新";
 "ui.action.close_all" = "关闭全部";
 "ui.action.close_connection" = "关闭连接";
@@ -310,5 +312,5 @@
 "fmt.relative.days" = "%dd前";
 "fmt.expiry_short.expired" = "已过期";
 "fmt.expiry_short.today" = "今天过期";
-"fmt.expiry_short.days" = "%d天后过期";
-"fmt.expiry_short.long_term" = "长期";
+"fmt.expiry_short.days" = "剩 %d 天";
+"fmt.expiry_short.long_term" = "长期有效";
