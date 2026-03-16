@@ -9,32 +9,19 @@ extension MenuBarRoot {
         static let rowLineHeight: CGFloat = 16
         static let topRuleMinWidth: CGFloat = 26
         static let topPayloadMinWidth: CGFloat = 14
-        // Width of the content VStack inside each connection row (static — panel is fixed 360pt)
-        // = panelWidth - rowHPad*2 - leadingIcon - hstackGaps - closeButton
-        // = 360 - 8 - 16 - 12 - 12 = 312
+        /// Width of the content VStack inside each connection row (static — panel is fixed 360pt)
+        /// = panelWidth - panelContentHPad*2 - rowHPad*2 - leadingIcon - hstackGaps - closeButton
+        /// = 360 - 16 - 8 - 16 - 12 - 12 = 296
         static let rowContentWidth: CGFloat =
             MenuBarLayoutTokens.panelWidth
-            - (MenuBarLayoutTokens.space4 * 2)
-            - MenuBarLayoutTokens.rowLeadingIcon
-            - (MenuBarLayoutTokens.space6 * 2)
-            - 12
+                - (MenuBarLayoutTokens.space8 * 2) // panelContent horizontal padding
+                - (MenuBarLayoutTokens.space4 * 2)
+                - MenuBarLayoutTokens.rowLeadingIcon
+                - (MenuBarLayoutTokens.space6 * 2)
+                - 12
     }
 
-    // Text width measurement cache — keyed by "text\0size\0weight"
-    // Fonts and weights are finite; this cache never grows large.
     private static var textWidthCache: [String: CGFloat] = [:]
-
-    private static let activityISO8601WithFractional: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return formatter
-    }()
-
-    private static let activityISO8601Basic: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime]
-        return formatter
-    }()
 
     var activityTabBody: some View {
         let connections = self.visibleConnections
@@ -133,7 +120,7 @@ extension MenuBarRoot {
     var networkCountSummaryBadge: some View {
         self.fractionSummaryBadge(
             current: self.visibleConnections.count,
-            total: min(self.appState.connections.count, 120))
+            total: min(self.connectionsStore.connections.count, 120))
     }
 
     var trimmedNetworkKeyword: String {
@@ -153,33 +140,29 @@ extension MenuBarRoot {
     func sortedConnections(_ source: [ConnectionSummary]) -> [ConnectionSummary] {
         switch self.networkSortOption {
         case .default:
-            return source
+            source
         case .newest:
-            return self.connectionsSortedByTimestamp(source, descending: true)
+            self.connectionsSortedByTimestamp(source, descending: true)
         case .oldest:
-            return self.connectionsSortedByTimestamp(source, descending: false)
+            self.connectionsSortedByTimestamp(source, descending: false)
         case .uploadDesc:
-            return self.connectionsSortedByTraffic(source) { $0.upload ?? 0 }
+            self.connectionsSortedByTraffic(source) { $0.upload ?? 0 }
         case .downloadDesc:
-            return self.connectionsSortedByTraffic(source) { $0.download ?? 0 }
+            self.connectionsSortedByTraffic(source) { $0.download ?? 0 }
         case .totalDesc:
-            return self.connectionsSortedByTraffic(source) { ($0.upload ?? 0) + ($0.download ?? 0) }
+            self.connectionsSortedByTraffic(source) { ($0.upload ?? 0) + ($0.download ?? 0) }
         }
     }
 
-    // Pre-compute timestamp map once (O(n) parses) instead of O(n log n) in the comparator closure.
+    /// Pre-compute timestamp map once (O(n) parses) instead of O(n log n) in the comparator closure.
     private func connectionsSortedByTimestamp(
         _ source: [ConnectionSummary],
         descending: Bool) -> [ConnectionSummary]
     {
         let fallback: TimeInterval = descending ? -1 : .greatestFiniteMagnitude
-        var timestamps: [String: TimeInterval] = Dictionary(minimumCapacity: source.count)
-        for conn in source {
-            timestamps[conn.id] = self.connectionSortTimestamp(conn.start) ?? fallback
-        }
         return source.sorted { lhs, rhs in
-            let l = timestamps[lhs.id] ?? fallback
-            let r = timestamps[rhs.id] ?? fallback
+            let l = lhs.startTimestamp ?? fallback
+            let r = rhs.startTimestamp ?? fallback
             if l != r { return descending ? (l > r) : (l < r) }
             return lhs.id.localizedStandardCompare(rhs.id) == .orderedAscending
         }
@@ -189,29 +172,16 @@ extension MenuBarRoot {
         _ source: [ConnectionSummary],
         _ metric: (ConnectionSummary) -> Int64) -> [ConnectionSummary]
     {
-        // Pre-compute timestamps for tiebreaker (O(n) parses, not O(n log n))
-        var timestamps: [String: TimeInterval] = Dictionary(minimumCapacity: source.count)
-        for conn in source {
-            timestamps[conn.id] = self.connectionSortTimestamp(conn.start) ?? -1
-        }
-        return source.sorted { lhs, rhs in
+        source.sorted { lhs, rhs in
             let left = metric(lhs)
             let right = metric(rhs)
             if left != right { return left > right }
-            return (timestamps[lhs.id] ?? -1) > (timestamps[rhs.id] ?? -1)
+            return (lhs.startTimestamp ?? -1) > (rhs.startTimestamp ?? -1)
         }
-    }
-
-    func connectionSortTimestamp(_ start: String?) -> TimeInterval? {
-        guard let value = start.trimmedNonEmpty else { return nil }
-        if let date = Self.activityISO8601WithFractional.date(from: value) {
-            return date.timeIntervalSince1970
-        }
-        return Self.activityISO8601Basic.date(from: value)?.timeIntervalSince1970
     }
 
     func refreshVisibleConnections() {
-        let source = self.appState.connections.prefix(120)
+        let source = self.connectionsStore.connections.prefix(120)
         let keyword = self.trimmedNetworkKeyword
 
         let filtered: [ConnectionSummary] = if keyword.isEmpty, self.networkTransportFilter == .all {
@@ -275,7 +245,7 @@ extension MenuBarRoot {
 
     private func connectionRowTopLine(host: String, ruleType: String, rulePayload: String) -> some View {
         // Use static rowContentWidth constant — no GeometryReader needed since panel is always 360pt
-        let layout = activityTopLineLayout(
+        let layout = self.activityTopLineLayout(
             totalWidth: ActivityLayout.rowContentWidth,
             ruleText: ruleType,
             payloadText: rulePayload)

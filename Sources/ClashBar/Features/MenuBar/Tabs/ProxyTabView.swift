@@ -35,7 +35,7 @@ extension MenuBarRoot {
                 HStack(spacing: T.space6) {
                     self.cornerMetric(
                         symbol: "link",
-                        value: "\(appState.connectionsCount)",
+                        value: "\(connectionsStore.connectionsCount)",
                         color: nativeIndigo)
                         .frame(maxWidth: .infinity, alignment: .leading)
 

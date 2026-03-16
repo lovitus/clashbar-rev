@@ -273,8 +273,8 @@ extension AppState {
     }
 
     private func releasePanelCachedData() {
-        connectionsCount = 0
-        connections.removeAll(keepingCapacity: false)
+        connectionsStore.connectionsCount = 0
+        connectionsStore.connections.removeAll(keepingCapacity: false)
 
         memory = MemorySnapshot(inuse: 0)
 

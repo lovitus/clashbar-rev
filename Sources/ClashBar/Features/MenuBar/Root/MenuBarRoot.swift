@@ -122,6 +122,7 @@ private struct RulesRefreshToken: Equatable {
 
 struct MenuBarRoot: View {
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var connectionsStore: ConnectionsStore
     @EnvironmentObject var popoverLayoutModel: PopoverLayoutModel
     @Environment(\.colorScheme) var colorScheme
 
@@ -216,7 +217,7 @@ struct MenuBarRoot: View {
             self.setCurrentTabWithoutAnimation(self.appState.activeMenuTab)
             self.appState.setActiveMenuTab(self.currentTab)
             self.refreshDerivedData(for: self.currentTab)
-            self.filteredProxyGroups = filteredGroups(from: self.appState.proxyGroups)
+            self.filteredProxyGroups = self.filteredGroups(from: self.appState.proxyGroups)
             publishPreferredPanelHeight()
         }
         .onChange(of: self.currentTab) { tab in
@@ -237,7 +238,7 @@ struct MenuBarRoot: View {
             publishPreferredPanelHeight()
         }
         .onChange(of: ActivityRefreshToken(
-            connections: self.appState.connections,
+            connections: self.connectionsStore.connections,
             keyword: self.networkFilterText,
             transport: self.networkTransportFilter,
             sort: self.networkSortOption))
@@ -258,12 +259,12 @@ struct MenuBarRoot: View {
             { _ in
                 self.refreshRulesDerivedDataIfVisible()
                 }
-            .onChange(of: self.appState.proxyGroups) { newGroups in
-                self.filteredProxyGroups = self.filteredGroups(from: newGroups)
-            }
-            .onChange(of: self.hideHiddenProxyGroups) { _ in
-                self.filteredProxyGroups = self.filteredGroups(from: self.appState.proxyGroups)
-            }
+                .onChange(of: self.appState.proxyGroups) { newGroups in
+                        self.filteredProxyGroups = self.filteredGroups(from: newGroups)
+                    }
+                    .onChange(of: self.hideHiddenProxyGroups) { _ in
+                        self.filteredProxyGroups = self.filteredGroups(from: self.appState.proxyGroups)
+                    }
     }
 
     @ViewBuilder
@@ -331,6 +332,6 @@ struct MenuBarRoot: View {
     }
 
     func filteredGroups(from groups: [ProxyGroup]) -> [ProxyGroup] {
-        hideHiddenProxyGroups ? groups.filter { $0.hidden != true } : groups
+        self.hideHiddenProxyGroups ? groups.filter { $0.hidden != true } : groups
     }
 }

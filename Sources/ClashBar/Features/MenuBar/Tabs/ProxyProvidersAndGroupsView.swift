@@ -191,14 +191,12 @@ extension MenuBarRoot {
             {
                 HStack(spacing: T.space6) {
                     self.compactTopIcon(
-                        sortGroupNodesByLatency
-                            ? "line.3.horizontal.decrease.circle.fill"
-                            : "line.3.horizontal.decrease.circle",
+                        sortGroupNodesByLatency ? "timer" : "list.number",
                         label: tr(
                             sortGroupNodesByLatency
                                 ? "ui.action.sort_nodes_default"
                                 : "ui.action.sort_nodes_by_latency"),
-                        toneOverride: sortGroupNodesByLatency ? nativeTeal : nil)
+                        toneOverride: nativeTeal)
                     {
                         sortGroupNodesByLatency.toggle()
                     }

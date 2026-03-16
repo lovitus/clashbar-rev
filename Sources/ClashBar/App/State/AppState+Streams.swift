@@ -153,7 +153,7 @@ extension AppState {
     }
 
     func startMemoryStream() {
-        startDecodableStream(
+        self.startDecodableStream(
             kind: .memory,
             makeWebSocket: { try $0.makeWebSocketTask(for: .memory) },
             onDecoded: { [weak self] (snapshot: MemorySnapshot) in
@@ -163,7 +163,7 @@ extension AppState {
     }
 
     func startConnectionsStream(intervalMilliseconds: Int? = nil) {
-        startDecodableStream(
+        self.startDecodableStream(
             kind: .connections,
             makeWebSocket: { try $0.makeWebSocketTask(for: .connections(interval: intervalMilliseconds)) },
             onDecoded: { [weak self] (snapshot: ConnectionsSnapshot) in
@@ -249,12 +249,12 @@ extension AppState {
 
     private func applyConnectionsSnapshot(_ snapshot: ConnectionsSnapshot) {
         let totalCount = snapshot.totalCount
-        if connectionsCount != totalCount {
-            connectionsCount = totalCount
+        if connectionsStore.connectionsCount != totalCount {
+            connectionsStore.connectionsCount = totalCount
         }
 
-        if connections != snapshot.connections {
-            connections = snapshot.connections
+        if connectionsStore.connections != snapshot.connections {
+            connectionsStore.connections = snapshot.connections
         }
     }
 
@@ -324,7 +324,7 @@ extension AppState {
         makeWebSocket: @escaping (MihomoAPIClient) throws -> URLSessionWebSocketTask,
         onDecoded: @escaping (Payload) -> Void)
     {
-        startStream(
+        self.startStream(
             kind: kind,
             makeWebSocket: makeWebSocket,
             onPayload: { [weak self] payload in
