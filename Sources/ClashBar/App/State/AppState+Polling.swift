@@ -390,13 +390,14 @@ extension AppState {
                 !$0.element.all.isEmpty
             }
             .sorted { lhs, rhs in
-                let lhsOrder = sortIndexMap[lhs.element.name] ?? -1
-                let rhsOrder = sortIndexMap[rhs.element.name] ?? -1
+                let lhsOrder = sortIndexMap[lhs.element.name] ?? Int.max
+                let rhsOrder = sortIndexMap[rhs.element.name] ?? Int.max
 
                 if lhsOrder != rhsOrder {
                     return lhsOrder < rhsOrder
                 }
-                return lhs.offset < rhs.offset
+                return lhs.element.name.localizedCaseInsensitiveCompare(rhs.element.name)
+                    == .orderedAscending
             }
             .map(\.element)
 
