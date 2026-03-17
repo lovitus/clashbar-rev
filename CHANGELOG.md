@@ -1,3 +1,24 @@
+## v1.0.5
+
+### 根本性修复：代理分组 hover 时 CPU 占用过高（80%+ → <5%）
+
+**问题根因**：`hoveredProxyGroupName` 是 `MenuBarRoot` 上的 `@State`。每次鼠标移动触发 hover 变更时，SwiftUI 会重新求值 **全部 60+ 个代理分组行** 的视图 body。每行还包含独立的 `GeometryReader`（60次布局计算）。正常鼠标滑动每秒产生约10次 hover 事件，意味着每秒 600+ 次复杂视图求值。
+
+**修复1 — 每行独立 hover 状态隔离（最大影响）**
+- 新增 `RowHoverContainer`，每行管理自己的 `@State isHovered`
+- hover GroupA 时只有 GroupA 重新渲染，其余 59 行完全不受影响
+- 每次 hover 事件的重渲染行数从 60 降至 1
+
+**修复2 — 消除 GeometryReader×60**
+- 面板宽度固定 360pt，列宽现在在 section 级别一次性计算并传递
+- 移除每行独立的 GeometryReader 布局计算
+
+**修复3 — 移除集中式 hover 状态**
+- 从 MenuBarRoot 移除 `hoveredProxyGroupName` 和 `hoverDebounceTask`
+- 防抖不再需要，因为 hover 已经是每行隔离的
+
+---
+
 ## v1.0.4
 
 - 修复日志行视图 computed property 导致正则表达式重复解析的性能问题
