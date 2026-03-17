@@ -376,6 +376,9 @@ final class AppState: ObservableObject {
     let foregroundLowFrequencyPrimaryTabsIntervalNanoseconds: UInt64 = 20_000_000_000
     let foregroundLowFrequencyOtherTabsIntervalNanoseconds: UInt64 = 45_000_000_000
     let backgroundLowFrequencyIntervalNanoseconds: UInt64 = 120_000_000_000
+    // Performance optimization: reduce refresh frequency when proxy tab is active to prevent CPU overload
+    let foregroundProxyTabMediumFrequencyIntervalNanoseconds: UInt64 = 6_000_000_000
+    let foregroundProxyTabLowFrequencyIntervalNanoseconds: UInt64 = 30_000_000_000
     let trafficPublishIntervalNanoseconds: UInt64 = 500_000_000
     let streamDisconnectLogThrottleInterval: TimeInterval = 2
     let streamReconnectBaseDelayNanoseconds: UInt64 = 1_000_000_000

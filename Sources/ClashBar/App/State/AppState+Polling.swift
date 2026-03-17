@@ -135,10 +135,14 @@ extension AppState {
 
         let lowFrequencyInterval: UInt64 = switch activeTab {
         case .proxy, .rules:
-            foregroundLowFrequencyPrimaryTabsIntervalNanoseconds
+            // Performance optimization: use slower refresh for proxy tab to prevent CPU overload
+            activeTab == .proxy ? foregroundProxyTabLowFrequencyIntervalNanoseconds : foregroundLowFrequencyPrimaryTabsIntervalNanoseconds
         default:
             foregroundLowFrequencyOtherTabsIntervalNanoseconds
         }
+        
+        let mediumFrequencyInterval: UInt64 = activeTab == .proxy ? 
+            foregroundProxyTabMediumFrequencyIntervalNanoseconds : foregroundMediumFrequencyIntervalNanoseconds
 
         let memoryEnabled = activeTab == .proxy
         let connectionsEnabled = (activeTab == .proxy || activeTab == .activity)
@@ -150,7 +154,7 @@ extension AppState {
             enableConnectionsStream: connectionsEnabled,
             connectionsIntervalMilliseconds: connectionsEnabled ? 1000 : nil,
             enableLogsStream: logsEnabled,
-            mediumFrequencyIntervalNanoseconds: foregroundMediumFrequencyIntervalNanoseconds,
+            mediumFrequencyIntervalNanoseconds: mediumFrequencyInterval,
             lowFrequencyIntervalNanoseconds: lowFrequencyInterval)
     }
 

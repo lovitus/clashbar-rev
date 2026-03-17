@@ -4,6 +4,10 @@ import SwiftUI
 private typealias T = MenuBarLayoutTokens
 
 extension MenuBarRoot {
+    // Performance optimization: cached computed properties
+    @State private var cachedNodesForGroup: [String: [String]] = [:]
+    @State private var cachedLatencyForNode: [String: (text: String, value: Int?)] = [:]
+    
     var proxyProvidersSection: some View {
         let providers = appState.sortedProxyProviderNames
 
@@ -180,7 +184,7 @@ extension MenuBarRoot {
     }
 
     var proxyGroupsSection: some View {
-        // Use @State filteredProxyGroups which is updated via .onChange — avoids filtering on every render
+        // Use @State cachedProxyGroups which is updated via .onChange — avoids filtering on every render
         let groups = filteredProxyGroups
 
         return VStack(alignment: .leading, spacing: T.space6) {
@@ -325,15 +329,40 @@ extension MenuBarRoot {
                 }
             }
 
-            let nodes = sortGroupNodesByLatency
+            // Use cached nodes list to avoid recomputing on every render
+            let nodes = cachedNodesForGroup[group.name] ?? (sortGroupNodesByLatency
                 ? sortedGroupNodes(group)
-                : defaultGroupNodes(group)
+                : defaultGroupNodes(group))
+            
+            // Update cache if needed
+            if cachedNodesForGroup[group.name] == nil {
+                DispatchQueue.main.async {
+                    let newNodes = sortGroupNodesByLatency
+                        ? sortedGroupNodes(group)
+                        : defaultGroupNodes(group)
+                    cachedNodesForGroup[group.name] = newNodes
+                    
+                    // Pre-cache latency values
+                    for node in newNodes {
+                        let key = "\(group.name)-\(node)"
+                        if cachedLatencyForNode[key] == nil {
+                            let delayValue = appState.delayValue(group: group.name, node: node)
+                            let delayText = appState.delayText(group: group.name, node: node)
+                            cachedLatencyForNode[key] = (text: delayText, value: delayValue)
+                        }
+                    }
+                }
+            }
+            
             self.popoverNodesList(nodes) { node in
+                // Use cached latency values to avoid repeated lookups
+                let key = "\(group.name)-\(node)"
+                let cachedDelay = cachedLatencyForNode[key]
                 ProxyGroupPopoverNodeItem(
                     title: node,
-                    delayText: appState.delayText(group: group.name, node: node),
-                    delayValue: appState.delayValue(group: group.name, node: node),
-                    delayColor: latencyColor(appState.delayValue(group: group.name, node: node)),
+                    delayText: cachedDelay?.text ?? appState.delayText(group: group.name, node: node),
+                    delayValue: cachedDelay?.value ?? appState.delayValue(group: group.name, node: node),
+                    delayColor: latencyColor(cachedDelay?.value ?? appState.delayValue(group: group.name, node: node)),
                     isTesting: false,
                     selected: node == group.now)
                 {
@@ -346,6 +375,20 @@ extension MenuBarRoot {
             current: hoveredProxyGroupName,
             target: group.name,
             isHovering: $0) }
+        .onChange(of: sortGroupNodesByLatency) { _ in
+            // Clear cached nodes when sort option changes
+            cachedNodesForGroup.removeValue(forKey: group.name)
+        }
+        .onChange(of: appState.hideUnavailableProxyNodes) { _ in
+            // Clear cached nodes when filter option changes
+            cachedNodesForGroup.removeValue(forKey: group.name)
+        }
+        .onChange(of: appState.groupLatencies) { _ in
+            // Clear cached latency values when latencies are updated
+            for key in cachedLatencyForNode.keys where key.hasPrefix("\(group.name)-") {
+                cachedLatencyForNode.removeValue(forKey: key)
+            }
+        }
     }
 
     func proxyGroupMainColumnWidths(
