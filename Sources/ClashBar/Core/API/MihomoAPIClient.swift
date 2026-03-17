@@ -13,7 +13,7 @@ enum HTTPMethod: String {
     case delete = "DELETE"
 }
 
-enum JSONValue {
+enum JSONValue: Sendable {
     case string(String)
     case int(Int)
     case bool(Bool)
