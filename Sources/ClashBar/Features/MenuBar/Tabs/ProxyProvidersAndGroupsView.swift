@@ -236,16 +236,34 @@ extension MenuBarRoot {
             if groups.isEmpty {
                 emptyCard(tr("ui.empty.proxy_groups"))
             } else {
+                // Performance: calculate column widths once for all rows instead of per-row GeometryReader
+                let rowContentWidth = contentWidth - (T.space4 * 2)
+                let columnsWithIcon = self.proxyGroupMainColumnWidths(totalWidth: rowContentWidth, hasLeadingIcon: true)
+                let columnsNoIcon = self.proxyGroupMainColumnWidths(totalWidth: rowContentWidth, hasLeadingIcon: false)
+
                 VStack(spacing: T.space2) {
                     ForEach(groups, id: \.name) { group in
-                        self.proxyGroupInlineRow(group)
+                        // Performance: per-row hover isolation — only the hovered row re-renders,
+                        // not all 60+ rows. This is the single biggest CPU optimization.
+                        RowHoverContainer { isHovered in
+                            self.proxyGroupInlineRow(
+                                group,
+                                isHovered: isHovered,
+                                columnsWithIcon: columnsWithIcon,
+                                columnsNoIcon: columnsNoIcon)
+                        }
                     }
                 }
             }
         }
     }
 
-    func proxyGroupInlineRow(_ group: ProxyGroup) -> some View {
+    func proxyGroupInlineRow(
+        _ group: ProxyGroup,
+        isHovered: Bool,
+        columnsWithIcon: (name: CGFloat, current: CGFloat, delay: CGFloat),
+        columnsNoIcon: (name: CGFloat, current: CGFloat, delay: CGFloat)
+    ) -> some View {
         let currentNode = group.now ?? tr("ui.common.na")
         let delayText = appState.delayText(
             group: group.name,
@@ -258,65 +276,60 @@ extension MenuBarRoot {
         let nodeCount = group.all.count
         let iconURL = self.proxyGroupIconURL(group)
         let hasLeadingIcon = iconURL != nil
+        let columns = hasLeadingIcon ? columnsWithIcon : columnsNoIcon
         let rowHorizontalPadding = T.space4
         let rowVerticalPadding: CGFloat = T.space1
-        let hovered = hoveredProxyGroupName == group.name
 
         return AttachedPopoverMenu {
-            GeometryReader { geo in
-                let columns = self.proxyGroupMainColumnWidths(
-                    totalWidth: geo.size.width,
-                    hasLeadingIcon: hasLeadingIcon)
-                HStack(spacing: T.space1) {
-                    if let iconURL {
-                        self.proxyGroupLeadingIcon(iconURL)
-                    }
-
-                    Text(group.name)
-                        .font(.app(size: T.FontSize.body, weight: .semibold))
-                        .foregroundStyle(nativePrimaryLabel)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                        .minimumScaleFactor(T.minimumScale)
-                        .frame(width: columns.name, alignment: .leading)
-
-                    Text(currentNode)
-                        .font(.app(size: T.FontSize.caption, weight: .medium))
-                        .foregroundStyle(nativeSecondaryLabel)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                        .minimumScaleFactor(T.minimumScale)
-                        .padding(.horizontal, T.space4)
-                        .padding(.vertical, T.space1)
-                        .background(nativeBadgeCapsule())
-                        .frame(width: columns.current, alignment: .leading)
-
-                    Text(delayText)
-                        .font(.app(size: T.FontSize.caption, weight: .regular))
-                        .foregroundStyle(latencyColor(delayValue))
-                        .lineLimit(1)
-                        .minimumScaleFactor(T.minimumScale)
-                        .frame(width: columns.delay, alignment: .trailing)
-
-                    self.providerActionButton(
-                        .healthcheck,
-                        isLoading: appState.groupLatencyLoading.contains(group.name))
-                    {
-                        await appState.refreshGroupLatency(group)
-                    }
-                    .frame(width: 18, alignment: .center)
-
-                    Image(systemName: "chevron.right")
-                        .font(.app(size: T.FontSize.caption, weight: .semibold))
-                        .foregroundStyle(nativeTertiaryLabel)
-                        .frame(width: T.space8, alignment: .trailing)
+            HStack(spacing: T.space1) {
+                if let iconURL {
+                    self.proxyGroupLeadingIcon(iconURL)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+
+                Text(group.name)
+                    .font(.app(size: T.FontSize.body, weight: .semibold))
+                    .foregroundStyle(nativePrimaryLabel)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .minimumScaleFactor(T.minimumScale)
+                    .frame(width: columns.name, alignment: .leading)
+
+                Text(currentNode)
+                    .font(.app(size: T.FontSize.caption, weight: .medium))
+                    .foregroundStyle(nativeSecondaryLabel)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .minimumScaleFactor(T.minimumScale)
+                    .padding(.horizontal, T.space4)
+                    .padding(.vertical, T.space1)
+                    .background(nativeBadgeCapsule())
+                    .frame(width: columns.current, alignment: .leading)
+
+                Text(delayText)
+                    .font(.app(size: T.FontSize.caption, weight: .regular))
+                    .foregroundStyle(latencyColor(delayValue))
+                    .lineLimit(1)
+                    .minimumScaleFactor(T.minimumScale)
+                    .frame(width: columns.delay, alignment: .trailing)
+
+                self.providerActionButton(
+                    .healthcheck,
+                    isLoading: appState.groupLatencyLoading.contains(group.name))
+                {
+                    await appState.refreshGroupLatency(group)
+                }
+                .frame(width: 18, alignment: .center)
+
+                Image(systemName: "chevron.right")
+                    .font(.app(size: T.FontSize.caption, weight: .semibold))
+                    .foregroundStyle(nativeTertiaryLabel)
+                    .frame(width: T.space8, alignment: .trailing)
             }
             .frame(height: T.compactRowHeight)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, rowHorizontalPadding)
             .padding(.vertical, rowVerticalPadding)
-            .background(nativeHoverRowBackground(hovered))
+            .background(nativeHoverRowBackground(isHovered))
         } content: { dismiss in
             self.popoverHeader(name: group.name, count: nodeCount) {
                 if let iconURL {
@@ -338,19 +351,6 @@ extension MenuBarRoot {
                 {
                     dismiss()
                     Task { await appState.switchProxy(group: group.name, target: node) }
-                }
-            }
-        }
-        .onHover { isHovering in
-            // Performance optimization: debounce hover events to prevent excessive re-renders
-            hoverDebounceTask?.cancel()
-            hoverDebounceTask = Task { @MainActor in
-                try? await Task.sleep(nanoseconds: 100_000_000) // 100ms debounce
-                if !Task.isCancelled {
-                    hoveredProxyGroupName = self.nextHovered(
-                        current: hoveredProxyGroupName,
-                        target: group.name,
-                        isHovering: isHovering)
                 }
             }
         }
@@ -573,6 +573,19 @@ private struct ProxyGroupPopoverNodeItem: View {
                 .lineLimit(1)
                 .minimumScaleFactor(T.minimumScale)
         }
+    }
+}
+
+/// Lightweight wrapper that gives each row its own @State hover tracking.
+/// When hover changes, only THIS row re-renders — not the entire parent view tree.
+/// This is critical for performance with 60+ proxy group rows.
+private struct RowHoverContainer<Content: View>: View {
+    @ViewBuilder let content: (Bool) -> Content
+    @State private var isHovered = false
+
+    var body: some View {
+        content(isHovered)
+            .onHover { isHovered = $0 }
     }
 }
 
