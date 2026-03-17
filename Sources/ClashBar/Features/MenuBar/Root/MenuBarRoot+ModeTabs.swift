@@ -23,7 +23,7 @@ extension MenuBarRoot {
             self.modeSegmentButton(
                 title: tr("ui.mode.direct"),
                 mode: .direct,
-                symbol: "paperplane")
+                symbol: "arrow.forward.circle")
         }
         .padding(MenuBarLayoutTokens.space2)
         .frame(width: contentWidth)
@@ -79,7 +79,8 @@ extension MenuBarRoot {
                     RoundedRectangle(cornerRadius: MenuBarLayoutTokens.cornerRadius, style: .continuous)
                         .stroke(
                             selected ? nativeAccent.opacity(MenuBarLayoutTokens.Opacity.tint) : nativeControlBorder
-                                .opacity(MenuBarLayoutTokens.Theme.Dark.borderEmphasis),
+                                .opacity(isDarkAppearance ? MenuBarLayoutTokens.Theme.Dark
+                                    .borderEmphasis : MenuBarLayoutTokens.Theme.Light.borderEmphasis),
                             lineWidth: MenuBarLayoutTokens.stroke)
                 }
             }

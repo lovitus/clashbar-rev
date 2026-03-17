@@ -28,9 +28,11 @@ extension MenuBarRoot {
                     .font(.app(size: MenuBarLayoutTokens.FontSize.caption, weight: .medium))
                     .foregroundStyle(nativeTertiaryLabel)
                     .frame(width: 120, alignment: .leading)
+                    .padding(.trailing, MenuBarLayoutTokens.space6)
                 Text(tr("ui.rules.column.policy"))
                     .font(.app(size: MenuBarLayoutTokens.FontSize.caption, weight: .medium))
                     .foregroundStyle(nativeTertiaryLabel)
+                    .padding(.leading, MenuBarLayoutTokens.space6)
                     .frame(width: 90, alignment: .leading)
                 Text(tr("ui.rules.column.stats"))
                     .font(.app(size: MenuBarLayoutTokens.FontSize.caption, weight: .medium))
@@ -40,7 +42,7 @@ extension MenuBarRoot {
             .textCase(.uppercase)
             .padding(.horizontal, MenuBarLayoutTokens.space4)
             .padding(.vertical, MenuBarLayoutTokens.space6)
-            .background(nativeControlFill.opacity(0.35))
+            .background(nativeControlFill.opacity(0.55))
             .overlay(alignment: .bottom) {
                 Rectangle()
                     .fill(nativeSeparator)
@@ -173,7 +175,7 @@ extension MenuBarRoot {
             return ("network", nativeTeal.opacity(MenuBarLayoutTokens.Opacity.solid))
         }
         if lower.contains("ruleset") {
-            return ("archivebox.fill", nativeWarning.opacity(MenuBarLayoutTokens.Opacity.solid))
+            return ("list.bullet.rectangle.fill", nativeWarning.opacity(MenuBarLayoutTokens.Opacity.solid))
         }
         return ("circle.grid.2x2.fill", nativeIndigo.opacity(MenuBarLayoutTokens.Opacity.solid))
     }

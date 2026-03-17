@@ -239,9 +239,7 @@ extension MenuBarRoot {
     func quickIcon(symbol: String, foreground: Color, background: Color) -> some View {
         RoundedRectangle(cornerRadius: T.cornerRadius, style: .continuous)
             .fill(background)
-            .frame(
-                width: T.rowLeadingIcon,
-                height: T.rowLeadingIcon)
+            .frame(width: 18, height: 18)
             .overlay {
                 Image(systemName: symbol)
                     .font(.app(size: T.FontSize.body, weight: .semibold))

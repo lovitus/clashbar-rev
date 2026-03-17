@@ -53,7 +53,7 @@ extension MenuBarRoot {
         popoverWidth: CGFloat? = nil,
         @ViewBuilder options: @escaping (_ dismiss: @escaping () -> Void) -> some View) -> some View
     {
-        let resolvedControlWidth = controlWidth ?? settingsMenuControlWidth
+        let resolvedControlWidth = controlWidth ?? self.settingsMenuControlWidth
 
         return HStack(spacing: T.space8) {
             self.settingsRowLabel(symbol: symbol, title: title)
@@ -116,7 +116,7 @@ extension MenuBarRoot {
                 .font(.app(size: T.FontSize.body, weight: .regular))
                 .foregroundStyle(nativePrimaryLabel)
                 .multilineTextAlignment(.trailing)
-                .frame(width: settingsPortFieldWidth, alignment: .trailing)
+                .frame(width: self.settingsPortFieldWidth, alignment: .trailing)
                 .onChange(of: text.wrappedValue) { _ in
                     appState.scheduleProxyPortsAutoSaveIfNeeded()
                 }
@@ -141,8 +141,8 @@ extension MenuBarRoot {
         }
         .buttonStyle(.bordered)
         .controlSize(.small)
-        .disabled(!maintenanceActionEnabled)
-        .opacity(maintenanceActionEnabled ? 1 : 0.62)
+        .disabled(!self.maintenanceActionEnabled)
+        .opacity(self.maintenanceActionEnabled ? 1 : 0.62)
     }
 
     func settingsFeedbackBanner(text: String, color: Color, symbol: String) -> some View {
@@ -290,21 +290,21 @@ extension MenuBarRoot {
 
         return VStack(alignment: .leading, spacing: T.space6) {
             VStack(spacing: 0) {
-                settingsCardHeader(
+                self.settingsCardHeader(
                     tr("ui.section.basic_settings"),
                     symbol: "slider.horizontal.3")
                 ForEach(toggleItems, id: \.id) { item in
-                    settingsToggleRow(item.title, symbol: item.symbol, isOn: item.isOn)
+                    self.settingsToggleRow(item.title, symbol: item.symbol, isOn: item.isOn)
                 }
-                settingsSelectionRow(
+                self.settingsSelectionRow(
                     tr("ui.settings.menu_bar_style"),
                     symbol: "menubar.rectangle",
-                    valueText: statusBarModeLabel(appState.statusBarDisplayMode),
+                    valueText: self.statusBarModeLabel(appState.statusBarDisplayMode),
                     options: StatusBarDisplayMode.allCases,
                     optionTitle: self.statusBarModeLabel,
                     isSelected: { appState.statusBarDisplayMode == $0 },
                     onSelect: { appState.statusBarDisplayMode = $0 })
-                settingsSelectionRow(
+                self.settingsSelectionRow(
                     tr("ui.settings.language"),
                     symbol: "character.book.closed",
                     valueText: appState.uiLanguage == .zhHans ? tr("ui.language.zh_hans") : tr("ui.language.en"),
@@ -312,15 +312,15 @@ extension MenuBarRoot {
                     optionTitle: { $0 == .zhHans ? tr("ui.language.zh_hans") : tr("ui.language.en") },
                     isSelected: { appState.uiLanguage == $0 },
                     onSelect: appState.setUILanguage)
-                settingsSelectionRow(
+                self.settingsSelectionRow(
                     tr("ui.settings.appearance"),
                     symbol: "circle.lefthalf.filled",
-                    valueText: appearanceModeLabel(appState.appearanceMode),
+                    valueText: self.appearanceModeLabel(appState.appearanceMode),
                     options: AppAppearanceMode.allCases,
                     optionTitle: self.appearanceModeLabel,
                     isSelected: { appState.appearanceMode == $0 },
                     onSelect: appState.setAppearanceMode)
-                settingsSelectionRow(
+                self.settingsSelectionRow(
                     tr("ui.settings.log_level"),
                     symbol: "text.alignleft",
                     valueText: selectedLogLevel,
@@ -333,13 +333,13 @@ extension MenuBarRoot {
             }
 
             VStack(spacing: 0) {
-                settingsCardHeader(
+                self.settingsCardHeader(
                     tr("ui.section.proxy_ports"),
                     symbol: "point.3.connected.trianglepath.dotted")
 
                 VStack(alignment: .leading, spacing: T.space4) {
                     ForEach(proxyPortFields, id: \.titleKey) { item in
-                        settingsPortFieldRow(
+                        self.settingsPortFieldRow(
                             tr(item.titleKey),
                             symbol: item.symbol,
                             text: item.text)
@@ -349,14 +349,14 @@ extension MenuBarRoot {
             }
 
             VStack(spacing: 0) {
-                settingsCardHeader(
+                self.settingsCardHeader(
                     tr("ui.section.maintenance"),
                     symbol: "wrench.and.screwdriver")
 
                 VStack(alignment: .leading, spacing: T.space4) {
                     HStack(spacing: T.space6) {
                         ForEach(maintenanceActions, id: \.titleKey) { item in
-                            maintenanceActionButton(tr(item.titleKey), symbol: item.symbol) {
+                            self.maintenanceActionButton(tr(item.titleKey), symbol: item.symbol) {
                                 await item.action()
                             }
                         }
@@ -378,7 +378,7 @@ extension MenuBarRoot {
         }
         .overlay(alignment: .top) {
             if let feedback = settingsFeedbackState {
-                settingsFeedbackBanner(
+                self.settingsFeedbackBanner(
                     text: feedback.message,
                     color: feedback.color,
                     symbol: feedback.symbol)

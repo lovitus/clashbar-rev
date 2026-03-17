@@ -288,6 +288,7 @@ extension MenuBarRoot {
                 symbol: "arrow.up",
                 text: up,
                 symbolColor: nativeInfo.opacity(MenuBarLayoutTokens.Opacity.solid),
+                textColor: nativeInfo.opacity(MenuBarLayoutTokens.Opacity.solid),
                 spacing: 0,
                 truncation: .tail,
                 width: columnWidth)
@@ -295,6 +296,7 @@ extension MenuBarRoot {
                 symbol: "arrow.down",
                 text: down,
                 symbolColor: nativePositive.opacity(MenuBarLayoutTokens.Opacity.solid),
+                textColor: nativePositive.opacity(MenuBarLayoutTokens.Opacity.solid),
                 spacing: 0,
                 truncation: .tail,
                 width: columnWidth)
@@ -314,7 +316,6 @@ extension MenuBarRoot {
         .foregroundStyle(hovered ? nativeSecondaryLabel : nativeTertiaryLabel)
         .frame(width: 12, height: 12)
         .opacity(hovered ? 1 : 0)
-        .animation(.easeInOut(duration: 0.14), value: hovered)
     }
 
     @ViewBuilder

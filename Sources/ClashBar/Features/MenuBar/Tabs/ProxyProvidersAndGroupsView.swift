@@ -10,7 +10,7 @@ extension MenuBarRoot {
         return VStack(alignment: .leading, spacing: T.space6) {
             self.nodesSectionHeader(
                 tr("ui.section.proxy_providers"),
-                symbol: "shippingbox.fill",
+                symbol: "externaldrive.fill",
                 count: "\(providers.count)")
 
             if providers.isEmpty {
@@ -53,7 +53,7 @@ extension MenuBarRoot {
                     .fill(nativeTeal.opacity(T.Opacity.tint))
                     .frame(width: T.rowLeadingIcon, height: T.rowLeadingIcon)
                     .overlay {
-                        Image(systemName: "shippingbox.fill")
+                        Image(systemName: "externaldrive.fill")
                             .font(.app(size: T.FontSize.caption, weight: .semibold))
                             .foregroundStyle(nativeTeal.opacity(T.Opacity.solid))
                     }
@@ -128,7 +128,8 @@ extension MenuBarRoot {
                             ZStack(alignment: .leading) {
                                 Capsule().fill(nativeControlFill.opacity(T.Opacity.solid))
                                 Capsule()
-                                    .fill(nativeAccent.opacity(T.Opacity.solid))
+                                    .fill((usedRatio >= 0.9 ? nativeCritical : usedRatio >= 0.75 ? nativeWarning :
+                                            nativeAccent).opacity(T.Opacity.solid))
                                     .frame(width: geo.size.width * usedRatio)
                             }
                         }
@@ -317,7 +318,6 @@ extension MenuBarRoot {
             .padding(.horizontal, rowHorizontalPadding)
             .padding(.vertical, rowVerticalPadding)
             .background(nativeHoverRowBackground(hovered))
-            .animation(.easeInOut(duration: 0.14), value: hovered)
         } content: { dismiss in
             self.popoverHeader(name: group.name, count: nodeCount) {
                 if let iconURL {
@@ -406,6 +406,7 @@ extension MenuBarRoot {
             Text(title)
                 .font(.app(size: T.FontSize.body, weight: .bold))
                 .foregroundStyle(nativeTertiaryLabel)
+                .textCase(.uppercase)
 
             if let count {
                 Text(count)
