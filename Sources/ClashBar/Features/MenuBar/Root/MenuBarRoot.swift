@@ -122,6 +122,7 @@ private struct RulesRefreshToken: Equatable {
 
 struct MenuBarRoot: View {
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var connectionsStore: ConnectionsStore
     @EnvironmentObject var popoverLayoutModel: PopoverLayoutModel
     @Environment(\.colorScheme) var colorScheme
 
@@ -147,6 +148,7 @@ struct MenuBarRoot: View {
     @State var visibleLogs: [AppErrorLogEntry] = []
     @State var visibleRules: [RuleItem] = []
     @State var ruleProviderLookup: [String: ProviderDetail] = [:]
+    @State var filteredProxyGroups: [ProxyGroup] = []
     @AppStorage("clashbar.proxy.group.hide_hidden") var hideHiddenProxyGroups: Bool = true
     @AppStorage("clashbar.proxy.group.sort_nodes_by_latency") var sortGroupNodesByLatency: Bool = false
 
@@ -216,6 +218,7 @@ struct MenuBarRoot: View {
             self.setCurrentTabWithoutAnimation(self.appState.activeMenuTab)
             self.appState.setActiveMenuTab(self.currentTab)
             self.refreshDerivedData(for: self.currentTab)
+            self.filteredProxyGroups = self.filteredGroups(from: self.appState.proxyGroups)
             publishPreferredPanelHeight()
         }
         .onChange(of: self.currentTab) { tab in
@@ -236,7 +239,7 @@ struct MenuBarRoot: View {
             publishPreferredPanelHeight()
         }
         .onChange(of: ActivityRefreshToken(
-            connections: self.appState.connections,
+            connections: self.connectionsStore.connections,
             keyword: self.networkFilterText,
             transport: self.networkTransportFilter,
             sort: self.networkSortOption))
@@ -257,6 +260,12 @@ struct MenuBarRoot: View {
             { _ in
                 self.refreshRulesDerivedDataIfVisible()
                 }
+                .onChange(of: self.appState.proxyGroups) { newGroups in
+                        self.filteredProxyGroups = self.filteredGroups(from: newGroups)
+                    }
+                    .onChange(of: self.hideHiddenProxyGroups) { _ in
+                        self.filteredProxyGroups = self.filteredGroups(from: self.appState.proxyGroups)
+                    }
     }
 
     @ViewBuilder
@@ -321,5 +330,9 @@ struct MenuBarRoot: View {
     func refreshRulesDerivedDataIfVisible() {
         guard self.currentTab == .rules else { return }
         self.refreshVisibleRules()
+    }
+
+    func filteredGroups(from groups: [ProxyGroup]) -> [ProxyGroup] {
+        self.hideHiddenProxyGroups ? groups.filter { $0.hidden != true } : groups
     }
 }
