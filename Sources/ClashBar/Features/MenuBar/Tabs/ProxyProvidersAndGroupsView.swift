@@ -344,7 +344,7 @@ extension MenuBarRoot {
         .onHover { isHovering in
             // Performance optimization: debounce hover events to prevent excessive re-renders
             hoverDebounceTask?.cancel()
-            hoverDebounceTask = Task {
+            hoverDebounceTask = Task { @MainActor in
                 try? await Task.sleep(nanoseconds: 100_000_000) // 100ms debounce
                 if !Task.isCancelled {
                     hoveredProxyGroupName = self.nextHovered(

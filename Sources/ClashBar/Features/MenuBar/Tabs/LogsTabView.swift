@@ -236,6 +236,7 @@ extension MenuBarRoot {
         let levelInfo = self.logLevelPresentation(level)
         let tone = levelInfo.color
         let symbol = levelInfo.symbol
+        let parsed = self.parseLogMessage(log.message)
         
         return LogEntryRowContent(
             log: log,
@@ -245,6 +246,12 @@ extension MenuBarRoot {
             levelLabel: levelInfo.label,
             levelColor: tone,
             levelSymbol: symbol,
+            parsedProtocolTag: parsed.protocolTag,
+            parsedProtocolColor: parsed.protocolColor,
+            parsedMainText: parsed.mainText,
+            parsedDetailText: parsed.detailText,
+            nativeTertiaryLabel: nativeTertiaryLabel,
+            nativeSecondaryLabel: nativeSecondaryLabel,
             appState: appState,
             tr: self.tr
         )
@@ -260,13 +267,14 @@ private struct LogEntryRowContent: View {
     let levelLabel: String
     let levelColor: Color
     let levelSymbol: String
+    let parsedProtocolTag: String?
+    let parsedProtocolColor: Color
+    let parsedMainText: String
+    let parsedDetailText: String?
+    let nativeTertiaryLabel: Color
+    let nativeSecondaryLabel: Color
     let appState: AppState
     let tr: (String) -> String
-    
-    // Parse message once when view is created
-    private var parsed: (protocolTag: String?, protocolColor: Color, mainText: String, detailText: String?) {
-        MenuBarRoot.parseLogMessageStatic(log.message)
-    }
     
     var body: some View {
         HStack(alignment: .center, spacing: MenuBarLayoutTokens.space6) {
@@ -291,27 +299,27 @@ private struct LogEntryRowContent: View {
                         .font(.app(size: MenuBarLayoutTokens.FontSize.caption, weight: .semibold))
                         .foregroundStyle(levelColor)
 
-                    if let protocolTag = parsed.protocolTag {
+                    if let protocolTag = parsedProtocolTag {
                         Text(protocolTag)
                             .font(.app(size: T.FontSize.caption, weight: .semibold))
-                            .foregroundStyle(parsed.protocolColor)
+                            .foregroundStyle(parsedProtocolColor)
                     }
 
                     Text(ValueFormatter.dateTime(log.timestamp))
                         .font(.app(size: MenuBarLayoutTokens.FontSize.caption, weight: .regular))
-                        .foregroundStyle(Color(nsColor: .tertiaryLabelColor))
+                        .foregroundStyle(nativeTertiaryLabel)
                         .lineLimit(1)
                 }
 
-                Text(parsed.mainText)
+                Text(parsedMainText)
                     .font(.app(size: MenuBarLayoutTokens.FontSize.caption, weight: .regular))
                     .foregroundStyle(Color(nsColor: .labelColor))
                     .fixedSize(horizontal: false, vertical: true)
 
-                if let detailText = parsed.detailText {
+                if let detailText = parsedDetailText {
                     Text(detailText)
                         .font(.app(size: MenuBarLayoutTokens.FontSize.caption, weight: .regular))
-                        .foregroundStyle(Color(nsColor: .secondaryLabelColor))
+                        .foregroundStyle(nativeSecondaryLabel)
                         .lineLimit(2)
                         .padding(.leading, MenuBarLayoutTokens.space6)
                         .overlay(alignment: .leading) {
@@ -398,42 +406,6 @@ extension MenuBarRoot {
         }
     }
 
-    // Static version for use in separate view
-    static func parseLogMessageStatic(_ raw: String)
-    -> (protocolTag: String?, protocolColor: Color, mainText: String, detailText: String?) {
-        var message = raw.trimmed
-        if message.isEmpty {
-            return (nil, Color(nsColor: .secondaryLabelColor), "N/A", nil)
-        }
-
-        if let extracted = firstRegexCaptureStatic(in: message, regex: CachedLogRegex.msgField), !extracted.isEmpty {
-            message = extracted
-        }
-
-        var detailText: String?
-        if let trailingBracket = firstRegexCaptureStatic(in: message, regex: CachedLogRegex.trailingBracket) {
-            detailText = trailingBracket
-            message = message.replacingOccurrences(of: trailingBracket, with: "").trimmed
-        }
-
-        var protocolTag: String?
-        var protocolColor = Color.accentColor.opacity(MenuBarLayoutTokens.Opacity.solid)
-        if let tag = firstRegexCaptureStatic(in: message, regex: CachedLogRegex.protocolTag) {
-            protocolTag = tag
-            message = message.replacingOccurrences(of: tag, with: "").trimmed
-
-            let upper = tag.uppercased()
-            if upper.contains("UDP") { protocolColor = Color.orange.opacity(MenuBarLayoutTokens.Opacity.solid) }
-            if upper.contains("DNS") { protocolColor = Color.green.opacity(MenuBarLayoutTokens.Opacity.solid) }
-            if upper.contains("HTTP") { protocolColor = Color.accentColor.opacity(MenuBarLayoutTokens.Opacity.solid) }
-        }
-
-        if message.isEmpty {
-            message = raw.trimmed
-        }
-        return (protocolTag, protocolColor, message, detailText)
-    }
-    
     func parseLogMessage(_ raw: String)
     -> (protocolTag: String?, protocolColor: Color, mainText: String, detailText: String?) {
         var message = raw.trimmed
@@ -469,18 +441,6 @@ extension MenuBarRoot {
         return (protocolTag, protocolColor, message, detailText)
     }
 
-    static func firstRegexCaptureStatic(in text: String, regex: NSRegularExpression?) -> String? {
-        guard let regex else { return nil }
-        let nsText = text as NSString
-        let range = NSRange(location: 0, length: nsText.length)
-        guard let match = regex.firstMatch(in: text, options: [], range: range), match.numberOfRanges > 1 else {
-            return nil
-        }
-        let captureRange = match.range(at: 1)
-        guard captureRange.location != NSNotFound else { return nil }
-        return nsText.substring(with: captureRange)
-    }
-    
     func firstRegexCapture(in text: String, regex: NSRegularExpression?) -> String? {
         guard let regex else { return nil }
         let nsText = text as NSString
