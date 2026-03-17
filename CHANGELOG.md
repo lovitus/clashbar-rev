@@ -1,3 +1,12 @@
+## v1.0.4
+
+- 修复日志行视图 computed property 导致正则表达式重复解析的性能问题
+- 修复日志行颜色与全局主题不一致的问题（nativeSecondaryLabel/nativeTertiaryLabel）
+- 删除冗余的静态解析方法，统一使用实例方法确保本地化和主题一致性
+- 为 hover 防抖 Task 添加 @MainActor 标注，与项目风格保持一致
+
+---
+
 ## v1.0.3
 
 ![macOS](https://img.shields.io/badge/macOS-Supported-000000?style=flat-square&logo=apple) ![Version](https://img.shields.io/badge/Release-v1.0.3-10B981?style=flat-square) ![Performance](https://img.shields.io/badge/Performance-Optimized-6366f1?style=flat-square)
