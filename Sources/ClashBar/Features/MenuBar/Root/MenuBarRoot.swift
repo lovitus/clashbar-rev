@@ -150,6 +150,9 @@ struct MenuBarRoot: View {
     @State var filteredProxyGroups: [ProxyGroup] = []
     @AppStorage("clashbar.proxy.group.hide_hidden") var hideHiddenProxyGroups: Bool = true
     @AppStorage("clashbar.proxy.group.sort_nodes_by_latency") var sortGroupNodesByLatency: Bool = false
+    
+    // Performance optimization: cache for proxy groups
+    @StateObject private var proxyGroupCache = ProxyGroupCache()
 
     var contentWidth: CGFloat {
         MenuBarLayoutTokens.panelWidth - (MenuBarLayoutTokens.space8 * 2)

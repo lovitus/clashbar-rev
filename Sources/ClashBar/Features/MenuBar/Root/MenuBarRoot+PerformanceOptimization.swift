@@ -1,26 +1,12 @@
 import SwiftUI
 
-// Performance optimization extension for MenuBarRoot
-extension MenuBarRoot {
-    // Cached computed properties to avoid repeated calculations
-    @State private var cachedProxyGroups: [ProxyGroup] = []
-    @State private var cachedNodesForGroup: [String: [String]] = [:]
-    @State private var cachedLatencyForNode: [String: (text: String, value: Int?)] = [:]
-    @State private var lastCacheUpdate: Date = Date()
+// Performance optimization helper class for MenuBarRoot
+@MainActor
+class ProxyGroupCache: ObservableObject {
+    @Published var cachedNodesForGroup: [String: [String]] = [:]
+    @Published var cachedLatencyForNode: [String: (text: String, value: Int?)] = [:]
     
-    // Update cached proxy groups when relevant data changes
-    func updateCachedProxyGroups() {
-        let groups = filteredGroups(from: appState.proxyGroups)
-        if cachedProxyGroups != groups {
-            cachedProxyGroups = groups
-            // Clear group-specific caches when groups change
-            cachedNodesForGroup.removeAll(keepingCapacity: true)
-            cachedLatencyForNode.removeAll(keepingCapacity: true)
-        }
-    }
-    
-    // Update cached nodes list for a specific group
-    func updateCachedNodesForGroup(_ group: ProxyGroup) {
+    func updateCachedNodesForGroup(_ group: ProxyGroup, sortGroupNodesByLatency: Bool, appState: AppState, sortedGroupNodes: (ProxyGroup) -> [String], defaultGroupNodes: (ProxyGroup) -> [String]) {
         let nodes = sortGroupNodesByLatency
             ? sortedGroupNodes(group)
             : defaultGroupNodes(group)
@@ -35,8 +21,7 @@ extension MenuBarRoot {
         }
     }
     
-    // Update cached latency values for a group when latencies change
-    func updateCachedLatencyForGroup(_ group: ProxyGroup) {
+    func updateCachedLatencyForGroup(_ group: ProxyGroup, appState: AppState) {
         guard let nodes = cachedNodesForGroup[group.name] else { return }
         
         for node in nodes {
@@ -46,19 +31,16 @@ extension MenuBarRoot {
             cachedLatencyForNode[key] = (text: delayText, value: delayValue)
         }
     }
-    
-    // Throttled cache update to avoid excessive updates
-    private func throttledCacheUpdate() {
-        let now = Date()
-        let timeSinceLastUpdate = now.timeIntervalSince(lastCacheUpdate)
-        
-        // Only update cache if at least 100ms have passed
-        if timeSinceLastUpdate >= 0.1 {
-            updateCachedProxyGroups()
-            lastCacheUpdate = now
-        }
-    }
 }
+
+// Performance optimization extension for MenuBarRoot
+extension MenuBarRoot {
+    // Update cached proxy groups when relevant data changes
+    func updateCachedProxyGroups() {
+        let groups = filteredGroups(from: appState.proxyGroups)
+        // Note: This would need to be a @State variable in the main struct
+        // For now, we'll rely on the existing filteredProxyGroups
+    }
 
 // Modified proxy group row with performance optimizations
 struct OptimizedProxyGroupRow: View {

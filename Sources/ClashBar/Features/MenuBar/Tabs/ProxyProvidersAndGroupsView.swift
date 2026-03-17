@@ -4,10 +4,6 @@ import SwiftUI
 private typealias T = MenuBarLayoutTokens
 
 extension MenuBarRoot {
-    // Performance optimization: cached computed properties
-    @State private var cachedNodesForGroup: [String: [String]] = [:]
-    @State private var cachedLatencyForNode: [String: (text: String, value: Int?)] = [:]
-    
     var proxyProvidersSection: some View {
         let providers = appState.sortedProxyProviderNames
 
@@ -330,34 +326,25 @@ extension MenuBarRoot {
             }
 
             // Use cached nodes list to avoid recomputing on every render
-            let nodes = cachedNodesForGroup[group.name] ?? (sortGroupNodesByLatency
+            let nodes = proxyGroupCache.cachedNodesForGroup[group.name] ?? (sortGroupNodesByLatency
                 ? sortedGroupNodes(group)
                 : defaultGroupNodes(group))
             
             // Update cache if needed
-            if cachedNodesForGroup[group.name] == nil {
-                DispatchQueue.main.async {
-                    let newNodes = sortGroupNodesByLatency
-                        ? sortedGroupNodes(group)
-                        : defaultGroupNodes(group)
-                    cachedNodesForGroup[group.name] = newNodes
-                    
-                    // Pre-cache latency values
-                    for node in newNodes {
-                        let key = "\(group.name)-\(node)"
-                        if cachedLatencyForNode[key] == nil {
-                            let delayValue = appState.delayValue(group: group.name, node: node)
-                            let delayText = appState.delayText(group: group.name, node: node)
-                            cachedLatencyForNode[key] = (text: delayText, value: delayValue)
-                        }
-                    }
-                }
+            if proxyGroupCache.cachedNodesForGroup[group.name] == nil {
+                proxyGroupCache.updateCachedNodesForGroup(
+                    group,
+                    sortGroupNodesByLatency: sortGroupNodesByLatency,
+                    appState: appState,
+                    sortedGroupNodes: sortedGroupNodes,
+                    defaultGroupNodes: defaultGroupNodes
+                )
             }
             
             self.popoverNodesList(nodes) { node in
                 // Use cached latency values to avoid repeated lookups
                 let key = "\(group.name)-\(node)"
-                let cachedDelay = cachedLatencyForNode[key]
+                let cachedDelay = proxyGroupCache.cachedLatencyForNode[key]
                 ProxyGroupPopoverNodeItem(
                     title: node,
                     delayText: cachedDelay?.text ?? appState.delayText(group: group.name, node: node),
@@ -377,17 +364,15 @@ extension MenuBarRoot {
             isHovering: $0) }
         .onChange(of: sortGroupNodesByLatency) { _ in
             // Clear cached nodes when sort option changes
-            cachedNodesForGroup.removeValue(forKey: group.name)
+            proxyGroupCache.cachedNodesForGroup.removeValue(forKey: group.name)
         }
         .onChange(of: appState.hideUnavailableProxyNodes) { _ in
             // Clear cached nodes when filter option changes
-            cachedNodesForGroup.removeValue(forKey: group.name)
+            proxyGroupCache.cachedNodesForGroup.removeValue(forKey: group.name)
         }
         .onChange(of: appState.groupLatencies) { _ in
             // Clear cached latency values when latencies are updated
-            for key in cachedLatencyForNode.keys where key.hasPrefix("\(group.name)-") {
-                cachedLatencyForNode.removeValue(forKey: key)
-            }
+            proxyGroupCache.updateCachedLatencyForGroup(group, appState: appState)
         }
     }
 
