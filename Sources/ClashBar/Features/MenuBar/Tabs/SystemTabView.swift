@@ -59,7 +59,7 @@ extension MenuBarRoot {
             self.settingsRowLabel(symbol: symbol, title: title)
                 .layoutPriority(1)
             Spacer(minLength: 0)
-            AttachedPopoverMenu(width: popoverWidth ?? resolvedControlWidth) {
+            AttachedPopoverMenu(width: popoverWidth ?? resolvedControlWidth) { _ in
                 HStack(spacing: T.space2) {
                     Text(valueText)
                         .foregroundStyle(nativeSecondaryLabel)

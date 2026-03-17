@@ -97,7 +97,7 @@ extension MenuBarRoot {
 
     var proxyQuickRows: some View {
         VStack(spacing: 0) {
-            AttachedPopoverMenu {
+            AttachedPopoverMenu { _ in
                 self.quickRowContent(
                     title: tr("ui.quick.switch_config"),
                     symbol: "doc.text",

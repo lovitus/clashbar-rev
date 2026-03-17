@@ -261,9 +261,8 @@ extension MenuBarRoot {
         let hasLeadingIcon = iconURL != nil
         let rowHorizontalPadding = T.space4
         let rowVerticalPadding: CGFloat = T.space1
-        let hovered = hoveredProxyGroupName == group.name
 
-        return AttachedPopoverMenu {
+        return AttachedPopoverMenu { isHovered in
             GeometryReader { geo in
                 let columns = self.proxyGroupMainColumnWidths(
                     totalWidth: geo.size.width,
@@ -317,7 +316,7 @@ extension MenuBarRoot {
             .frame(height: T.compactRowHeight)
             .padding(.horizontal, rowHorizontalPadding)
             .padding(.vertical, rowVerticalPadding)
-            .background(nativeHoverRowBackground(hovered))
+            .background(nativeHoverRowBackground(isHovered))
         } content: { dismiss in
             self.popoverHeader(name: group.name, count: nodeCount) {
                 if let iconURL {
@@ -339,19 +338,6 @@ extension MenuBarRoot {
                 {
                     dismiss()
                     Task { await appState.switchProxy(group: group.name, target: node) }
-                }
-            }
-        }
-        .onHover { isHovering in
-            // Performance optimization: debounce hover events to prevent excessive re-renders
-            hoverDebounceTask?.cancel()
-            hoverDebounceTask = Task {
-                try? await Task.sleep(nanoseconds: 100_000_000) // 100ms debounce
-                if !Task.isCancelled {
-                    hoveredProxyGroupName = self.nextHovered(
-                        current: hoveredProxyGroupName,
-                        target: group.name,
-                        isHovering: isHovering)
                 }
             }
         }

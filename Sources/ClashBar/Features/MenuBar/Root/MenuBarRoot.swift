@@ -134,9 +134,7 @@ struct MenuBarRoot: View {
     @State var networkTransportFilter: NetworkTransportFilter = .all
     @State var networkSortOption: NetworkSortOption = .default
     @State var hoveredConnectionID: String?
-    @State var hoveredProxyGroupName: String?
     @State var hoveredMode: CoreMode?
-    @State var hoverDebounceTask: Task<Void, Never>?
     @State var selectedLogSources: Set<AppLogSource> = Set(AppLogSource.allCases)
     @State var selectedLogLevels: Set<LogLevelFilter> = [.info, .warning, .error]
     @State var logSearchText: String = ""
