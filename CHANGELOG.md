@@ -1,3 +1,28 @@
+## v1.0.3
+
+![macOS](https://img.shields.io/badge/macOS-Supported-000000?style=flat-square&logo=apple) ![Version](https://img.shields.io/badge/Release-v1.0.3-10B981?style=flat-square) ![Performance](https://img.shields.io/badge/Performance-Optimized-6366f1?style=flat-square)
+
+> 本次更新**优化日志展示性能并修复滚动bug**：优化日志解析避免重复计算，修复日志标签页滚动位置丢失问题，提升整体使用体验。
+
+### 📝 更新日志 (Changelog)
+
+**🚀 性能优化 (Performance Improvements)**
+
+- ![Perf](https://img.shields.io/badge/Perf-10B981?style=flat-square) **日志解析优化**：将日志消息解析移到独立视图，避免每次渲染都执行正则表达式匹配，显著提升日志列表滚动性能。
+- ![Perf](https://img.shields.io/badge/Perf-10B981?style=flat-square) **搜索逻辑简化**：优化日志搜索过滤，减少不必要的字符串拼接，提升搜索响应速度。
+
+**🐞 修复问题 (Bug Fixes)**
+
+- ![Fix](https://img.shields.io/badge/Fix-EF4444?style=flat-square) **日志滚动bug**：修复日志标签页滚动到顶部后无法返回的问题，将LazyVStack改为VStack以保持稳定的滚动位置。
+
+**🔧 技术细节**
+
+- 修改文件：2个 (LogsTabView.swift, MenuBarCommonViews.swift)
+- 正则表达式解析：从每次渲染变为仅创建时执行
+- 完全向后兼容，零破坏性改动
+
+---
+
 ## v1.0.2
 
 ![macOS](https://img.shields.io/badge/macOS-Supported-000000?style=flat-square&logo=apple) ![Version](https://img.shields.io/badge/Release-v1.0.2-10B981?style=flat-square) ![Performance](https://img.shields.io/badge/Performance-Optimized-6366f1?style=flat-square)
