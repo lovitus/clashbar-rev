@@ -180,9 +180,8 @@ extension MenuBarRoot {
     }
 
     var proxyGroupsSection: some View {
-        let groups = hideHiddenProxyGroups
-            ? appState.proxyGroups.filter { $0.hidden != true }
-            : appState.proxyGroups
+        // Use @State cachedProxyGroups which is updated via .onChange — avoids filtering on every render
+        let groups = filteredProxyGroups
 
         return VStack(alignment: .leading, spacing: T.space6) {
             self.nodesSectionHeader(
@@ -192,14 +191,12 @@ extension MenuBarRoot {
             {
                 HStack(spacing: T.space6) {
                     self.compactTopIcon(
-                        sortGroupNodesByLatency
-                            ? "line.3.horizontal.decrease.circle.fill"
-                            : "line.3.horizontal.decrease.circle",
+                        sortGroupNodesByLatency ? "timer" : "list.number",
                         label: tr(
                             sortGroupNodesByLatency
                                 ? "ui.action.sort_nodes_default"
                                 : "ui.action.sort_nodes_by_latency"),
-                        toneOverride: sortGroupNodesByLatency ? nativeTeal : nil)
+                        toneOverride: nativeTeal)
                     {
                         sortGroupNodesByLatency.toggle()
                     }
@@ -328,15 +325,31 @@ extension MenuBarRoot {
                 }
             }
 
-            let nodes = sortGroupNodesByLatency
+            // Use cached nodes list to avoid recomputing on every render
+            let nodes = proxyGroupCache.cachedNodesForGroup[group.name] ?? (sortGroupNodesByLatency
                 ? sortedGroupNodes(group)
-                : defaultGroupNodes(group)
+                : defaultGroupNodes(group))
+            
+            // Update cache if needed
+            if proxyGroupCache.cachedNodesForGroup[group.name] == nil {
+                proxyGroupCache.updateCachedNodesForGroup(
+                    group,
+                    sortGroupNodesByLatency: sortGroupNodesByLatency,
+                    appState: appState,
+                    sortedGroupNodes: sortedGroupNodes,
+                    defaultGroupNodes: defaultGroupNodes
+                )
+            }
+            
             self.popoverNodesList(nodes) { node in
+                // Use cached latency values to avoid repeated lookups
+                let key = "\(group.name)-\(node)"
+                let cachedDelay = proxyGroupCache.cachedLatencyForNode[key]
                 ProxyGroupPopoverNodeItem(
                     title: node,
-                    delayText: appState.delayText(group: group.name, node: node),
-                    delayValue: appState.delayValue(group: group.name, node: node),
-                    delayColor: latencyColor(appState.delayValue(group: group.name, node: node)),
+                    delayText: cachedDelay?.text ?? appState.delayText(group: group.name, node: node),
+                    delayValue: cachedDelay?.value ?? appState.delayValue(group: group.name, node: node),
+                    delayColor: latencyColor(cachedDelay?.value ?? appState.delayValue(group: group.name, node: node)),
                     isTesting: false,
                     selected: node == group.now)
                 {
@@ -349,6 +362,18 @@ extension MenuBarRoot {
             current: hoveredProxyGroupName,
             target: group.name,
             isHovering: $0) }
+        .onChange(of: sortGroupNodesByLatency) { _ in
+            // Clear cached nodes when sort option changes
+            proxyGroupCache.cachedNodesForGroup.removeValue(forKey: group.name)
+        }
+        .onChange(of: appState.hideUnavailableProxyNodes) { _ in
+            // Clear cached nodes when filter option changes
+            proxyGroupCache.cachedNodesForGroup.removeValue(forKey: group.name)
+        }
+        .onChange(of: appState.groupLatencies) { _ in
+            // Clear cached latency values when latencies are updated
+            proxyGroupCache.updateCachedLatencyForGroup(group, appState: appState)
+        }
     }
 
     func proxyGroupMainColumnWidths(

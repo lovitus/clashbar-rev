@@ -135,10 +135,14 @@ extension AppState {
 
         let lowFrequencyInterval: UInt64 = switch activeTab {
         case .proxy, .rules:
-            foregroundLowFrequencyPrimaryTabsIntervalNanoseconds
+            // Performance optimization: use slower refresh for proxy tab to prevent CPU overload
+            activeTab == .proxy ? foregroundProxyTabLowFrequencyIntervalNanoseconds : foregroundLowFrequencyPrimaryTabsIntervalNanoseconds
         default:
             foregroundLowFrequencyOtherTabsIntervalNanoseconds
         }
+        
+        let mediumFrequencyInterval: UInt64 = activeTab == .proxy ? 
+            foregroundProxyTabMediumFrequencyIntervalNanoseconds : foregroundMediumFrequencyIntervalNanoseconds
 
         let memoryEnabled = activeTab == .proxy
         let connectionsEnabled = (activeTab == .proxy || activeTab == .activity)
@@ -150,7 +154,7 @@ extension AppState {
             enableConnectionsStream: connectionsEnabled,
             connectionsIntervalMilliseconds: connectionsEnabled ? 1000 : nil,
             enableLogsStream: logsEnabled,
-            mediumFrequencyIntervalNanoseconds: foregroundMediumFrequencyIntervalNanoseconds,
+            mediumFrequencyIntervalNanoseconds: mediumFrequencyInterval,
             lowFrequencyIntervalNanoseconds: lowFrequencyInterval)
     }
 
@@ -267,12 +271,14 @@ extension AppState {
         displayDownTotal = 0
         trafficHistoryUp = []
         trafficHistoryDown = []
+        trafficHistoryUp.reserveCapacity(historyMaxPoints)
+        trafficHistoryDown.reserveCapacity(historyMaxPoints)
         lastTrafficSampleAt = nil
     }
 
     private func releasePanelCachedData() {
-        connectionsCount = 0
-        connections.removeAll(keepingCapacity: false)
+        connectionsStore.connectionsCount = 0
+        connectionsStore.connections.removeAll(keepingCapacity: false)
 
         memory = MemorySnapshot(inuse: 0)
 
@@ -388,13 +394,14 @@ extension AppState {
                 !$0.element.all.isEmpty
             }
             .sorted { lhs, rhs in
-                let lhsOrder = sortIndexMap[lhs.element.name] ?? -1
-                let rhsOrder = sortIndexMap[rhs.element.name] ?? -1
+                let lhsOrder = sortIndexMap[lhs.element.name] ?? Int.max
+                let rhsOrder = sortIndexMap[rhs.element.name] ?? Int.max
 
                 if lhsOrder != rhsOrder {
                     return lhsOrder < rhsOrder
                 }
-                return lhs.offset < rhs.offset
+                return lhs.element.name.localizedCaseInsensitiveCompare(rhs.element.name)
+                    == .orderedAscending
             }
             .map(\.element)
 

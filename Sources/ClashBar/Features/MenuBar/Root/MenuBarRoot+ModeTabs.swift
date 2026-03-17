@@ -8,9 +8,6 @@ extension MenuBarRoot {
             self.topTabs
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .overlay(alignment: .bottom) {
-            Rectangle().fill(nativeSeparator).frame(height: MenuBarLayoutTokens.stroke)
-        }
     }
 
     var modeSwitcher: some View {
@@ -130,6 +127,14 @@ private struct EqualWidthSegmentedControl: NSViewRepresentable {
         if control.selectedSegment != self.selectedIndex {
             control.selectedSegment = self.selectedIndex
         }
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView: NSSegmentedControl, context: Context) -> CGSize? {
+        let height = nsView.intrinsicContentSize.height
+        guard let width = proposal.width else {
+            return CGSize(width: nsView.intrinsicContentSize.width, height: height)
+        }
+        return CGSize(width: width, height: height)
     }
 
     func makeCoordinator() -> Coordinator {
