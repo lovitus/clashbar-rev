@@ -71,98 +71,98 @@ struct RemoteMachineManagerView: View {
 
     private var localRow: some View {
         let isActive = self.store.activeTarget.isLocal
-        return Button {
+        return HStack(spacing: 10) {
+            Image(systemName: "desktopcomputer")
+                .font(.system(size: 14))
+                .foregroundStyle(isActive ? .blue : .secondary)
+                .frame(width: 20)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(self.tr("ui.machine.return_local"))
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(isActive ? .primary : .secondary)
+            }
+            Spacer()
+            if isActive {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                    .font(.system(size: 14))
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .contentShape(Rectangle())
+        .onTapGesture {
             guard !isActive else { return }
             self.onSwitchTarget(.local)
             self.dismiss()
-        } label: {
-            HStack(spacing: 10) {
-                Image(systemName: "desktopcomputer")
-                    .font(.system(size: 14))
-                    .foregroundStyle(isActive ? .blue : .secondary)
-                    .frame(width: 20)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(self.tr("ui.machine.return_local"))
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(isActive ? .primary : .secondary)
-                }
-                Spacer()
-                if isActive {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
-                        .font(.system(size: 14))
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isButton)
     }
 
     private func machineRow(_ machine: RemoteMachine) -> some View {
         let isActive = self.store.activeTargetID == machine.id
         let status = self.store.statusFor(machine.id)
 
-        return Button {
+        return HStack(spacing: 10) {
+            self.statusDot(status)
+                .frame(width: 20)
+
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 4) {
+                    Text(machine.name)
+                        .font(.system(size: 13, weight: .medium))
+                    if isActive {
+                        Text("(\(self.tr("ui.machine.active")))")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.green)
+                    }
+                }
+                HStack(spacing: 4) {
+                    Text(machine.displayAddress)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                    Text("· \(status.shortLabel)")
+                        .font(.system(size: 10))
+                        .foregroundStyle(self.statusTextColor(status))
+                }
+            }
+
+            Spacer()
+
+            if isActive {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                    .font(.system(size: 14))
+            }
+
+            Button {
+                self.editingMachine = machine
+            } label: {
+                Image(systemName: "pencil.circle")
+                    .font(.system(size: 14))
+            }
+            .buttonStyle(.plain)
+
+            Button {
+                self.store.removeMachine(id: machine.id)
+            } label: {
+                Image(systemName: "trash")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.red)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .contentShape(Rectangle())
+        .onTapGesture {
             guard !isActive else { return }
             self.onSwitchTarget(.remote(machine))
             self.dismiss()
-        } label: {
-            HStack(spacing: 10) {
-                self.statusDot(status)
-                    .frame(width: 20)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 4) {
-                        Text(machine.name)
-                            .font(.system(size: 13, weight: .medium))
-                        if isActive {
-                            Text("(\(self.tr("ui.machine.active")))")
-                                .font(.system(size: 11))
-                                .foregroundStyle(.green)
-                        }
-                    }
-                    HStack(spacing: 4) {
-                        Text(machine.displayAddress)
-                            .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
-                        Text("· \(status.shortLabel)")
-                            .font(.system(size: 10))
-                            .foregroundStyle(self.statusTextColor(status))
-                    }
-                }
-
-                Spacer()
-
-                if isActive {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
-                        .font(.system(size: 14))
-                }
-
-                Button {
-                    self.editingMachine = machine
-                } label: {
-                    Image(systemName: "pencil.circle")
-                        .font(.system(size: 14))
-                }
-                .buttonStyle(.plain)
-
-                Button {
-                    self.store.removeMachine(id: machine.id)
-                } label: {
-                    Image(systemName: "trash")
-                        .font(.system(size: 13))
-                        .foregroundStyle(.red)
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isButton)
     }
 
     @ViewBuilder
