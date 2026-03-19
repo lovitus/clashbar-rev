@@ -11,26 +11,26 @@ struct RemoteMachineManagerView: View {
     }
 
     private func tr(_ key: String) -> String {
-        L10n.t(key, language: language)
+        L10n.t(key, language: self.language)
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            headerBar
+            self.headerBar
             Divider()
-            machineList
+            self.machineList
             Divider()
-            bottomBar
+            self.bottomBar
         }
     }
 
     private var headerBar: some View {
         HStack {
-            Text(tr("ui.machine.manage"))
+            Text(self.tr("ui.machine.manage"))
                 .font(.headline)
             Spacer()
             Button {
-                dismiss()
+                self.dismiss()
             } label: {
                 Image(systemName: "xmark.circle.fill")
                     .foregroundStyle(.secondary)
@@ -44,13 +44,13 @@ struct RemoteMachineManagerView: View {
     private var machineList: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
-                if store.machines.isEmpty {
-                    Text(tr("ui.machine.empty"))
+                if self.store.machines.isEmpty {
+                    Text(self.tr("ui.machine.empty"))
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, minHeight: 100)
                 } else {
-                    ForEach(store.machines) { machine in
-                        machineRow(machine)
+                    ForEach(self.store.machines) { machine in
+                        self.machineRow(machine)
                         Divider().padding(.horizontal, 16)
                     }
                 }
@@ -71,14 +71,14 @@ struct RemoteMachineManagerView: View {
 
             Spacer()
 
-            if store.activeTargetID == machine.id {
+            if self.store.activeTargetID == machine.id {
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundStyle(.green)
                     .font(.system(size: 14))
             }
 
             Button {
-                editingMachine = machine
+                self.editingMachine = machine
             } label: {
                 Image(systemName: "pencil.circle")
                     .font(.system(size: 14))
@@ -86,7 +86,7 @@ struct RemoteMachineManagerView: View {
             .buttonStyle(.plain)
 
             Button {
-                store.removeMachine(id: machine.id)
+                self.store.removeMachine(id: machine.id)
             } label: {
                 Image(systemName: "trash")
                     .font(.system(size: 13))
@@ -101,9 +101,9 @@ struct RemoteMachineManagerView: View {
     private var bottomBar: some View {
         HStack {
             Button {
-                isAddingNew = true
+                self.isAddingNew = true
             } label: {
-                Label(tr("ui.machine.add"), systemImage: "plus.circle")
+                Label(self.tr("ui.machine.add"), systemImage: "plus.circle")
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
@@ -111,14 +111,14 @@ struct RemoteMachineManagerView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
-        .sheet(isPresented: $isAddingNew) {
-            RemoteMachineEditView(store: store, machine: nil) {
-                isAddingNew = false
+        .sheet(isPresented: self.$isAddingNew) {
+            RemoteMachineEditView(store: self.store, machine: nil) {
+                self.isAddingNew = false
             }
         }
-        .sheet(item: $editingMachine) { machine in
-            RemoteMachineEditView(store: store, machine: machine) {
-                editingMachine = nil
+        .sheet(item: self.$editingMachine) { machine in
+            RemoteMachineEditView(store: self.store, machine: machine) {
+                self.editingMachine = nil
             }
         }
     }
@@ -140,42 +140,42 @@ struct RemoteMachineEditView: View {
     }
 
     private func tr(_ key: String) -> String {
-        L10n.t(key, language: language)
+        L10n.t(key, language: self.language)
     }
 
     private var isValid: Bool {
-        !name.trimmingCharacters(in: .whitespaces).isEmpty &&
-            !host.trimmingCharacters(in: .whitespaces).isEmpty &&
-            (Int(port) ?? 0) > 0 && (Int(port) ?? 0) <= 65535
+        !self.name.trimmingCharacters(in: .whitespaces).isEmpty &&
+            !self.host.trimmingCharacters(in: .whitespaces).isEmpty &&
+            (Int(self.port) ?? 0) > 0 && (Int(self.port) ?? 0) <= 65535
     }
 
     var body: some View {
         VStack(spacing: 16) {
-            Text(machine == nil ? tr("ui.machine.add") : tr("ui.machine.edit"))
+            Text(self.machine == nil ? self.tr("ui.machine.add") : self.tr("ui.machine.edit"))
                 .font(.headline)
 
             Form {
-                TextField(tr("ui.machine.field.name"), text: $name)
-                TextField(tr("ui.machine.field.host"), text: $host)
-                TextField(tr("ui.machine.field.port"), text: $port)
-                SecureField(tr("ui.machine.field.secret"), text: $secret)
-                Toggle("HTTPS", isOn: $useHTTPS)
+                TextField(self.tr("ui.machine.field.name"), text: self.$name)
+                TextField(self.tr("ui.machine.field.host"), text: self.$host)
+                TextField(self.tr("ui.machine.field.port"), text: self.$port)
+                SecureField(self.tr("ui.machine.field.secret"), text: self.$secret)
+                Toggle("HTTPS", isOn: self.$useHTTPS)
             }
 
             HStack {
-                Button(tr("ui.action.cancel")) {
-                    onDismiss()
+                Button(self.tr("ui.action.cancel")) {
+                    self.onDismiss()
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.regular)
 
                 Spacer()
 
-                Button(tr("ui.machine.save")) {
-                    let trimmedName = name.trimmingCharacters(in: .whitespaces)
-                    let trimmedHost = host.trimmingCharacters(in: .whitespaces)
+                Button(self.tr("ui.machine.save")) {
+                    let trimmedName = self.name.trimmingCharacters(in: .whitespaces)
+                    let trimmedHost = self.host.trimmingCharacters(in: .whitespaces)
                     let portValue = Int(port) ?? 9090
-                    let trimmedSecret = secret.trimmingCharacters(in: .whitespaces)
+                    let trimmedSecret = self.secret.trimmingCharacters(in: .whitespaces)
 
                     if let existing = machine {
                         var updated = existing
@@ -183,33 +183,33 @@ struct RemoteMachineEditView: View {
                         updated.host = trimmedHost
                         updated.port = portValue
                         updated.secret = trimmedSecret.isEmpty ? nil : trimmedSecret
-                        updated.useHTTPS = useHTTPS
-                        store.updateMachine(updated)
+                        updated.useHTTPS = self.useHTTPS
+                        self.store.updateMachine(updated)
                     } else {
                         let newMachine = RemoteMachine(
                             name: trimmedName,
                             host: trimmedHost,
                             port: portValue,
                             secret: trimmedSecret.isEmpty ? nil : trimmedSecret,
-                            useHTTPS: useHTTPS)
-                        store.addMachine(newMachine)
+                            useHTTPS: self.useHTTPS)
+                        self.store.addMachine(newMachine)
                     }
-                    onDismiss()
+                    self.onDismiss()
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.regular)
-                .disabled(!isValid)
+                .disabled(!self.isValid)
             }
         }
         .padding(20)
         .frame(width: 320)
         .onAppear {
             if let machine {
-                name = machine.name
-                host = machine.host
-                port = "\(machine.port)"
-                secret = machine.secret ?? ""
-                useHTTPS = machine.useHTTPS
+                self.name = machine.name
+                self.host = machine.host
+                self.port = "\(machine.port)"
+                self.secret = machine.secret ?? ""
+                self.useHTTPS = machine.useHTTPS
             }
         }
     }

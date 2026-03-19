@@ -155,7 +155,7 @@ extension AppState {
     }
 
     func updateDataAcquisitionPolicy() {
-        guard processManager.isRunning else {
+        guard isRemoteTarget || processManager.isRunning else {
             self.ensurePeriodicTasksForCurrentVisibility()
             mediumFrequencyIntervalNanoseconds = foregroundMediumFrequencyIntervalNanoseconds
             lowFrequencyIntervalNanoseconds = foregroundLowFrequencyPrimaryTabsIntervalNanoseconds
@@ -173,7 +173,7 @@ extension AppState {
     }
 
     func refreshForActivatedTab(_ tab: RootTab, generation: Int? = nil) async {
-        guard processManager.isRunning else { return }
+        guard isRemoteTarget || processManager.isRunning else { return }
 
         func shouldContinueRefresh() -> Bool {
             guard let generation else { return true }
@@ -250,6 +250,10 @@ extension AppState {
         redirPort = config.redirPort
         tproxyPort = config.tproxyPort
         mixedPort = config.mixedPort ?? 0
+
+        if isRemoteTarget {
+            return
+        }
 
         if let externalController = config.externalController {
             applyExternalControllerFromConfig(externalController)

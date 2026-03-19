@@ -25,14 +25,17 @@ extension AppState {
                 controllerUIURL = makeControllerUIURL(fallback)
                 ensureAPIClient()
             }
+            if let snapshot = loadPersistedEditableSettingsSnapshot() {
+                applyEditableSettingsSnapshotToUI(snapshot)
+            }
+            lastSyncedEditableSettings = nil
 
         case let .remote(machine):
             appendLog(level: "info", message: tr("log.remote.switched_to_remote", machine.name, machine.displayAddress))
-            let addr = machine.controllerAddress
-            controller = addr
+            controller = machine.controllerAddress
             controllerSecret = machine.secret
             externalControllerDisplay = machine.displayAddress
-            controllerUIURL = makeControllerUIURL(addr)
+            controllerUIURL = makeControllerUIURL(machine.controllerAddress)
             ensureAPIClient()
         }
 

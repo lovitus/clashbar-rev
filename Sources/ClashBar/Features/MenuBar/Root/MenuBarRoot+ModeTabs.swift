@@ -64,7 +64,7 @@ extension MenuBarRoot {
                             .font(.app(size: MenuBarLayoutTokens.FontSize.caption, weight: .medium))
                     }
 
-                    Text(machineSwitcherLabel)
+                    Text(self.machineSwitcherLabel)
                         .font(.app(size: MenuBarLayoutTokens.FontSize.caption, weight: .medium))
                         .lineLimit(1)
                         .truncationMode(.tail)
@@ -94,9 +94,9 @@ extension MenuBarRoot {
     private var machineSwitcherLabel: String {
         switch remoteMachineStore.activeTarget {
         case .local:
-            return tr("ui.machine.local")
+            tr("ui.machine.local")
         case let .remote(machine):
-            return machine.name
+            machine.name
         }
     }
 

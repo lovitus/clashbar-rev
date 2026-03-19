@@ -272,8 +272,12 @@ final class AppState: ObservableObject {
         self.menuBarDisplaySnapshot = next
     }
 
+    var isRemoteTarget: Bool {
+        !self.remoteMachineStore.activeTarget.isLocal
+    }
+
     var isModeSwitchEnabled: Bool {
-        self.processManager.isRunning && self.apiStatus == .healthy
+        (self.isRemoteTarget || self.processManager.isRunning) && self.apiStatus == .healthy
     }
 
     var isTunToggleEnabled: Bool {

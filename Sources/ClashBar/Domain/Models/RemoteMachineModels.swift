@@ -9,15 +9,24 @@ struct RemoteMachine: Identifiable, Codable, Equatable, Hashable {
     var useHTTPS: Bool
 
     var controllerAddress: String {
-        let scheme = useHTTPS ? "https" : "http"
-        return "\(scheme)://\(host):\(port)"
+        if self.useHTTPS {
+            return "https://\(self.host):\(self.port)"
+        }
+        return "\(self.host):\(self.port)"
     }
 
     var displayAddress: String {
-        "\(host):\(port)"
+        "\(self.host):\(self.port)"
     }
 
-    init(id: UUID = UUID(), name: String, host: String, port: Int = 9090, secret: String? = nil, useHTTPS: Bool = false) {
+    init(
+        id: UUID = UUID(),
+        name: String,
+        host: String,
+        port: Int = 9090,
+        secret: String? = nil,
+        useHTTPS: Bool = false)
+    {
         self.id = id
         self.name = name
         self.host = host

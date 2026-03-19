@@ -26,45 +26,45 @@ final class RemoteMachineStore: ObservableObject {
     }
 
     func addMachine(_ machine: RemoteMachine) {
-        machines.append(machine)
-        persist()
+        self.machines.append(machine)
+        self.persist()
     }
 
     func updateMachine(_ machine: RemoteMachine) {
         guard let index = machines.firstIndex(where: { $0.id == machine.id }) else { return }
-        machines[index] = machine
-        persist()
+        self.machines[index] = machine
+        self.persist()
     }
 
     func removeMachine(id: UUID) {
-        machines.removeAll { $0.id == id }
-        if activeTargetID == id {
-            activeTargetID = nil
-            persistActiveTarget()
+        self.machines.removeAll { $0.id == id }
+        if self.activeTargetID == id {
+            self.activeTargetID = nil
+            self.persistActiveTarget()
         }
-        persist()
+        self.persist()
     }
 
     func selectTarget(_ target: MachineTarget) {
         switch target {
         case .local:
-            activeTargetID = nil
+            self.activeTargetID = nil
         case let .remote(machine):
-            activeTargetID = machine.id
+            self.activeTargetID = machine.id
         }
-        persistActiveTarget()
+        self.persistActiveTarget()
     }
 
     private func persist() {
         guard let data = try? JSONEncoder().encode(machines) else { return }
-        defaults.set(data, forKey: Self.storageKey)
+        self.defaults.set(data, forKey: Self.storageKey)
     }
 
     private func persistActiveTarget() {
         if let id = activeTargetID {
-            defaults.set(id.uuidString, forKey: Self.activeTargetKey)
+            self.defaults.set(id.uuidString, forKey: Self.activeTargetKey)
         } else {
-            defaults.removeObject(forKey: Self.activeTargetKey)
+            self.defaults.removeObject(forKey: Self.activeTargetKey)
         }
     }
 
