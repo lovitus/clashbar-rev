@@ -98,14 +98,14 @@ extension AppState {
                 self.webSocketTask(for: kind)?.cancel(with: .goingAway, reason: nil)
                 self.setWebSocketTask(nil, for: kind)
 
-                guard processManager.isRunning else { return }
+                guard isRemoteTarget || processManager.isRunning else { return }
                 do {
                     try await Task.sleep(nanoseconds: self.nextReconnectDelayNanoseconds(for: kind))
                 } catch {
                     return
                 }
                 if Task.isCancelled { return }
-                guard processManager.isRunning else { return }
+                guard isRemoteTarget || processManager.isRunning else { return }
                 restart()
                 return
             }
