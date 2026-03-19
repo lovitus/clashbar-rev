@@ -7,6 +7,7 @@ extension AppState {
 
         cancelPolling()
         resetTrafficPresentation()
+        clearAllLogs()
         proxyGroups = []
         ruleItems = []
         connectionsStore.connections = []
@@ -45,6 +46,12 @@ extension AppState {
         }
 
         await refreshFromAPI(includeSlowCalls: true)
+
+        // Fallback: if refreshMediumFrequency was skipped (e.g. panel not presented),
+        // ensure settings are still synced from the active core.
+        if lastSyncedEditableSettings == nil {
+            _ = try? await fetchRuntimeConfigSnapshot()
+        }
 
         if case .local = target {
             await applyPendingAppLaunchSettingsOverlayIfNeeded()

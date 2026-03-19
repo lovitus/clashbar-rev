@@ -447,6 +447,7 @@ final class AppState: ObservableObject {
         if let managedProcess = self.processManager as? MihomoProcessManager {
             managedProcess.onLog = { [weak self] line in
                 Task { @MainActor in
+                    guard self?.isRemoteTarget != true else { return }
                     self?.appendMihomoLog(level: "info", message: line)
                 }
             }
