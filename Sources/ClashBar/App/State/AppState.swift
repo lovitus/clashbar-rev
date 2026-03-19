@@ -320,6 +320,7 @@ final class AppState: ObservableObject {
     let configImportService: ConfigImportService
     let appLaunchService: AppLaunchService
     let networkReachabilityMonitor: NetworkReachabilityMonitor
+    let remoteMachineStore: RemoteMachineStore
     var apiClient: MihomoAPIClient?
     var modeSwitchTransportOverride: MihomoAPITransporting?
     var settingsPatchTransportOverride: MihomoAPITransporting?
@@ -416,6 +417,7 @@ final class AppState: ObservableObject {
         configImportService: ConfigImportService = ConfigImportService(),
         appLaunchService: AppLaunchService = AppLaunchService(),
         networkReachabilityMonitor: NetworkReachabilityMonitor = NetworkReachabilityMonitor(),
+        remoteMachineStore: RemoteMachineStore = RemoteMachineStore(),
         clashbarLogStore: AppLogStore? = nil,
         mihomoLogStore: AppLogStore? = nil,
         startBackgroundRefresh: Bool = true)
@@ -427,6 +429,7 @@ final class AppState: ObservableObject {
         self.configImportService = configImportService
         self.appLaunchService = appLaunchService
         self.networkReachabilityMonitor = networkReachabilityMonitor
+        self.remoteMachineStore = remoteMachineStore
         self.clashbarLogStore = clashbarLogStore
         self.mihomoLogStore = mihomoLogStore
         self.configManager = configManager ?? ConfigDirectoryManager(workingDirectoryManager: workingDirectoryManager)

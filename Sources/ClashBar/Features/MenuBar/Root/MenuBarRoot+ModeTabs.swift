@@ -4,10 +4,100 @@ import SwiftUI
 extension MenuBarRoot {
     var modeAndTabSection: some View {
         VStack(spacing: MenuBarLayoutTokens.space6) {
+            self.machineSwitcherBar
             self.modeSwitcher
             self.topTabs
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .sheet(isPresented: $showRemoteMachineManager) {
+            RemoteMachineManagerView(store: remoteMachineStore)
+                .frame(width: 360, height: 400)
+        }
+    }
+
+    var machineSwitcherBar: some View {
+        HStack(spacing: MenuBarLayoutTokens.space4) {
+            Menu {
+                Button {
+                    guard !remoteMachineStore.activeTarget.isLocal else { return }
+                    isSwitchingMachine = true
+                    Task { @MainActor in
+                        await appState.switchToMachineTarget(.local)
+                        isSwitchingMachine = false
+                    }
+                } label: {
+                    if remoteMachineStore.activeTarget.isLocal {
+                        Label(tr("ui.machine.local"), systemImage: "checkmark")
+                    } else {
+                        Text(tr("ui.machine.local"))
+                    }
+                }
+
+                if !remoteMachineStore.machines.isEmpty {
+                    Divider()
+                }
+
+                ForEach(remoteMachineStore.machines) { machine in
+                    Button {
+                        guard remoteMachineStore.activeTargetID != machine.id else { return }
+                        isSwitchingMachine = true
+                        Task { @MainActor in
+                            await appState.switchToMachineTarget(.remote(machine))
+                            isSwitchingMachine = false
+                        }
+                    } label: {
+                        if remoteMachineStore.activeTargetID == machine.id {
+                            Label("\(machine.name) (\(machine.displayAddress))", systemImage: "checkmark")
+                        } else {
+                            Text("\(machine.name) (\(machine.displayAddress))")
+                        }
+                    }
+                }
+            } label: {
+                HStack(spacing: MenuBarLayoutTokens.space4) {
+                    if isSwitchingMachine {
+                        ProgressView()
+                            .controlSize(.mini)
+                    } else {
+                        Image(systemName: remoteMachineStore.activeTarget.isLocal
+                            ? "desktopcomputer" : "network")
+                            .font(.app(size: MenuBarLayoutTokens.FontSize.caption, weight: .medium))
+                    }
+
+                    Text(machineSwitcherLabel)
+                        .font(.app(size: MenuBarLayoutTokens.FontSize.caption, weight: .medium))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .disabled(isSwitchingMachine)
+
+            Spacer()
+
+            Button {
+                showRemoteMachineManager = true
+            } label: {
+                Image(systemName: "slider.horizontal.3")
+                    .font(.app(size: MenuBarLayoutTokens.FontSize.caption, weight: .medium))
+                    .frame(width: 20, height: 20)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .help(tr("ui.machine.manage"))
+        }
+        .frame(width: contentWidth)
+    }
+
+    private var machineSwitcherLabel: String {
+        switch remoteMachineStore.activeTarget {
+        case .local:
+            return tr("ui.machine.local")
+        case let .remote(machine):
+            return machine.name
+        }
     }
 
     var modeSwitcher: some View {
