@@ -76,7 +76,9 @@ extension AppState {
             return
         }
 
+        suppressSettingsPersistence = true
         self[keyPath: keyPath] = normalized
+        suppressSettingsPersistence = false
         await self.patchSingleConfig(setting.configKey, value: .string(normalized))
     }
 
@@ -321,6 +323,7 @@ extension AppState {
             settingsSavedMessage = successMessage
             self.scheduleSettingsFeedbackAutoClearIfNeeded(message: successMessage)
             await refreshFromAPI(includeSlowCalls: false)
+            await self.reconcileEditableSettingsWithRuntimeConfig()
             await self.syncSystemProxyPortIfNeeded(
                 shouldSync: shouldSyncSystemProxyPort,
                 previousPorts: previousSystemProxyPorts)
@@ -334,6 +337,7 @@ extension AppState {
             }
             settingsSavedMessage = nil
             await refreshFromAPI(includeSlowCalls: false)
+            await self.reconcileEditableSettingsWithRuntimeConfig()
             return false
         }
     }
@@ -458,8 +462,14 @@ extension AppState {
         configKey: String,
         value: Bool) async
     {
+        suppressSettingsPersistence = true
         self[keyPath: keyPath] = value
+        suppressSettingsPersistence = false
         await self.applySettingBool(key: configKey, value: value)
+    }
+
+    private func reconcileEditableSettingsWithRuntimeConfig() async {
+        _ = try? await fetchRuntimeConfigSnapshot()
     }
 
     private func validatedPort(_ textValue: String, key: String, errorMessageKey: String) -> Int? {

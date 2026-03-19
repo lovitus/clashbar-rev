@@ -96,43 +96,15 @@ final class AppState: ObservableObject {
         speedLines: nil,
         isRunning: false)
 
-    @Published var settingsAllowLan: Bool = false {
-        didSet { persistEditableSettingsSnapshot() }
-    }
-
-    @Published var settingsIPv6: Bool = false {
-        didSet { persistEditableSettingsSnapshot() }
-    }
-
-    @Published var settingsTCPConcurrent: Bool = false {
-        didSet { persistEditableSettingsSnapshot() }
-    }
-
-    @Published var settingsLogLevel: String = ConfigLogLevel.info
-        .rawValue
-    {
-        didSet { persistEditableSettingsSnapshot() }
-    }
-
-    @Published var settingsPort: String = "0" {
-        didSet { persistEditableSettingsSnapshot() }
-    }
-
-    @Published var settingsSocksPort: String = "0" {
-        didSet { persistEditableSettingsSnapshot() }
-    }
-
-    @Published var settingsMixedPort: String = "7890" {
-        didSet { persistEditableSettingsSnapshot() }
-    }
-
-    @Published var settingsRedirPort: String = "0" {
-        didSet { persistEditableSettingsSnapshot() }
-    }
-
-    @Published var settingsTProxyPort: String = "0" {
-        didSet { persistEditableSettingsSnapshot() }
-    }
+    @Published var settingsAllowLan: Bool = false
+    @Published var settingsIPv6: Bool = false
+    @Published var settingsTCPConcurrent: Bool = false
+    @Published var settingsLogLevel: String = ConfigLogLevel.info.rawValue
+    @Published var settingsPort: String = "0"
+    @Published var settingsSocksPort: String = "0"
+    @Published var settingsMixedPort: String = "7890"
+    @Published var settingsRedirPort: String = "0"
+    @Published var settingsTProxyPort: String = "0"
 
     @Published var settingsSyncingKey: String?
     @Published var settingsErrorMessage: String?
