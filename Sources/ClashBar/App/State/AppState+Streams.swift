@@ -202,9 +202,9 @@ extension AppState {
     }
 
     func refreshLogsStreamLevelIfNeeded() {
-        guard webSocketTask(for: .logs) != nil else { return }
-        guard currentLogsStreamLevel != logsStreamLevelFilter() else { return }
-        startLogsStream()
+        guard self.webSocketTask(for: .logs) != nil else { return }
+        guard currentLogsStreamLevel != self.logsStreamLevelFilter() else { return }
+        self.startLogsStream()
     }
 
     private func schedulePendingTrafficSnapshotPublishIfNeeded() {
