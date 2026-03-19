@@ -79,6 +79,11 @@ final class RemoteMachineStore: ObservableObject {
         self.persistActiveTarget()
     }
 
+    func resetActiveTarget() {
+        self.activeTargetID = nil
+        self.persistActiveTarget()
+    }
+
     private func persist() {
         guard let data = try? JSONEncoder().encode(machines) else { return }
         self.defaults.set(data, forKey: Self.storageKey)
