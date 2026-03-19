@@ -60,11 +60,17 @@ extension MenuBarRoot {
                     }
 
                     HStack(spacing: MenuBarLayoutTokens.space6) {
+                        if appState.isRemoteTarget {
+                            self.remoteConnectionStatusDot
+                        }
                         self.headerControllerLink(
                             symbol: "network",
                             text: appState.externalControllerDisplay)
                         if appState.isExternalControllerWildcardIPv4 {
                             self.headerControllerWarningIcon
+                        }
+                        if appState.isRemoteTarget {
+                            self.remoteConnectionStatusLabel
                         }
                     }
                 }
@@ -131,6 +137,48 @@ extension MenuBarRoot {
             .help(url.absoluteString)
         } else {
             self.headerMetaLabel(symbol: symbol, text: text)
+        }
+    }
+
+    @ViewBuilder
+    var remoteConnectionStatusDot: some View {
+        let status = self.activeRemoteConnectionStatus
+        Circle()
+            .fill(self.remoteStatusDotColor(status))
+            .frame(width: MenuBarLayoutTokens.space6, height: MenuBarLayoutTokens.space6)
+    }
+
+    @ViewBuilder
+    var remoteConnectionStatusLabel: some View {
+        let status = self.activeRemoteConnectionStatus
+        switch status {
+        case .unknown, .checking:
+            ProgressView()
+                .controlSize(.mini)
+        case let .connected(version):
+            Text(version)
+                .font(.app(size: MenuBarLayoutTokens.FontSize.caption, weight: .medium))
+                .foregroundStyle(nativePositive)
+                .lineLimit(1)
+        case let .failed(reason):
+            Text(reason)
+                .font(.app(size: MenuBarLayoutTokens.FontSize.caption, weight: .medium))
+                .foregroundStyle(nativeCritical)
+                .lineLimit(1)
+        }
+    }
+
+    var activeRemoteConnectionStatus: MachineConnectionStatus {
+        guard let id = remoteMachineStore.activeTargetID else { return .unknown }
+        return remoteMachineStore.statusFor(id)
+    }
+
+    func remoteStatusDotColor(_ status: MachineConnectionStatus) -> Color {
+        switch status {
+        case .unknown: nativeSecondaryLabel
+        case .checking: nativeWarning.opacity(MenuBarLayoutTokens.Opacity.solid)
+        case .connected: nativePositive.opacity(MenuBarLayoutTokens.Opacity.solid)
+        case .failed: nativeCritical.opacity(MenuBarLayoutTokens.Opacity.solid)
         }
     }
 

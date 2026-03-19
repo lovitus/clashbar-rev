@@ -64,7 +64,14 @@
 "ui.machine.field.host" = "Host";
 "ui.machine.field.port" = "Port";
 "ui.machine.field.secret" = "Secret";
+"ui.machine.remote_readonly" = "(Remote, read-only)";
+"ui.machine.return_local" = "Return to Local Core";
+"ui.machine.active" = "Active";
+"ui.machine.local_label" = "Local";
 
+"ui.section.local_app_settings" = "App Settings (Local)";
+"ui.section.core_settings" = "Core Settings";
+"ui.section.core_settings_remote" = "Core Settings (Remote)";
 
 "ui.quick.switch_config" = "Switch Config";
 "ui.quick.system_proxy" = "System Proxy";

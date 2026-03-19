@@ -10,8 +10,14 @@ extension MenuBarRoot {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .sheet(isPresented: $showRemoteMachineManager) {
-            RemoteMachineManagerView(store: remoteMachineStore)
-                .frame(width: 360, height: 400)
+            RemoteMachineManagerView(store: remoteMachineStore) { target in
+                isSwitchingMachine = true
+                Task { @MainActor in
+                    await appState.switchToMachineTarget(target)
+                    isSwitchingMachine = false
+                }
+            }
+            .frame(width: 360, height: 400)
         }
     }
 
@@ -27,9 +33,9 @@ extension MenuBarRoot {
                     }
                 } label: {
                     if remoteMachineStore.activeTarget.isLocal {
-                        Label(tr("ui.machine.local"), systemImage: "checkmark")
+                        Label(tr("ui.machine.return_local"), systemImage: "checkmark")
                     } else {
-                        Text(tr("ui.machine.local"))
+                        Text(tr("ui.machine.return_local"))
                     }
                 }
 
@@ -38,6 +44,7 @@ extension MenuBarRoot {
                 }
 
                 ForEach(remoteMachineStore.machines) { machine in
+                    let status = remoteMachineStore.statusFor(machine.id)
                     Button {
                         guard remoteMachineStore.activeTargetID != machine.id else { return }
                         isSwitchingMachine = true
@@ -47,9 +54,9 @@ extension MenuBarRoot {
                         }
                     } label: {
                         if remoteMachineStore.activeTargetID == machine.id {
-                            Label("\(machine.name) (\(machine.displayAddress))", systemImage: "checkmark")
+                            Label("\(machine.name) (\(status.shortLabel))", systemImage: "checkmark")
                         } else {
-                            Text("\(machine.name) (\(machine.displayAddress))")
+                            Text("\(machine.name) (\(status.shortLabel))")
                         }
                     }
                 }

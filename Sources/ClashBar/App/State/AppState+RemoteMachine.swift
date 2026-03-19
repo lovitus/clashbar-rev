@@ -37,6 +37,7 @@ extension AppState {
             externalControllerDisplay = machine.displayAddress
             controllerUIURL = makeControllerUIURL(machine.controllerAddress)
             ensureAPIClient()
+            remoteMachineStore.checkConnectivity(for: machine)
         }
 
         await refreshFromAPI(includeSlowCalls: true)

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct RemoteMachineManagerView: View {
     @ObservedObject var store: RemoteMachineStore
+    let onSwitchTarget: (MachineTarget) -> Void
     @State private var editingMachine: RemoteMachine?
     @State private var isAddingNew = false
     @Environment(\.dismiss) private var dismiss
@@ -21,6 +22,12 @@ struct RemoteMachineManagerView: View {
             self.machineList
             Divider()
             self.bottomBar
+        }
+        .onAppear {
+            self.store.startPeriodicConnectivityChecks()
+        }
+        .onDisappear {
+            self.store.stopPeriodicConnectivityChecks()
         }
     }
 
@@ -44,10 +51,13 @@ struct RemoteMachineManagerView: View {
     private var machineList: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
+                self.localRow
+                Divider().padding(.horizontal, 16)
+
                 if self.store.machines.isEmpty {
                     Text(self.tr("ui.machine.empty"))
                         .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, minHeight: 100)
+                        .frame(maxWidth: .infinity, minHeight: 60)
                 } else {
                     ForEach(self.store.machines) { machine in
                         self.machineRow(machine)
@@ -59,43 +69,123 @@ struct RemoteMachineManagerView: View {
         .frame(maxHeight: .infinity)
     }
 
-    private func machineRow(_ machine: RemoteMachine) -> some View {
-        HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(machine.name)
-                    .font(.system(size: 13, weight: .medium))
-                Text(machine.displayAddress)
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer()
-
-            if self.store.activeTargetID == machine.id {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(.green)
+    private var localRow: some View {
+        let isActive = self.store.activeTarget.isLocal
+        return Button {
+            guard !isActive else { return }
+            self.onSwitchTarget(.local)
+            self.dismiss()
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "desktopcomputer")
                     .font(.system(size: 14))
+                    .foregroundStyle(isActive ? .blue : .secondary)
+                    .frame(width: 20)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(self.tr("ui.machine.return_local"))
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(isActive ? .primary : .secondary)
+                }
+                Spacer()
+                if isActive {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                        .font(.system(size: 14))
+                }
             }
-
-            Button {
-                self.editingMachine = machine
-            } label: {
-                Image(systemName: "pencil.circle")
-                    .font(.system(size: 14))
-            }
-            .buttonStyle(.plain)
-
-            Button {
-                self.store.removeMachine(id: machine.id)
-            } label: {
-                Image(systemName: "trash")
-                    .font(.system(size: 13))
-                    .foregroundStyle(.red)
-            }
-            .buttonStyle(.plain)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .contentShape(Rectangle())
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
+        .buttonStyle(.plain)
+    }
+
+    private func machineRow(_ machine: RemoteMachine) -> some View {
+        let isActive = self.store.activeTargetID == machine.id
+        let status = self.store.statusFor(machine.id)
+
+        return Button {
+            guard !isActive else { return }
+            self.onSwitchTarget(.remote(machine))
+            self.dismiss()
+        } label: {
+            HStack(spacing: 10) {
+                self.statusDot(status)
+                    .frame(width: 20)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 4) {
+                        Text(machine.name)
+                            .font(.system(size: 13, weight: .medium))
+                        if isActive {
+                            Text("(\(self.tr("ui.machine.active")))")
+                                .font(.system(size: 11))
+                                .foregroundStyle(.green)
+                        }
+                    }
+                    HStack(spacing: 4) {
+                        Text(machine.displayAddress)
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                        Text("· \(status.shortLabel)")
+                            .font(.system(size: 10))
+                            .foregroundStyle(self.statusTextColor(status))
+                    }
+                }
+
+                Spacer()
+
+                if isActive {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                        .font(.system(size: 14))
+                }
+
+                Button {
+                    self.editingMachine = machine
+                } label: {
+                    Image(systemName: "pencil.circle")
+                        .font(.system(size: 14))
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    self.store.removeMachine(id: machine.id)
+                } label: {
+                    Image(systemName: "trash")
+                        .font(.system(size: 13))
+                        .foregroundStyle(.red)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private func statusDot(_ status: MachineConnectionStatus) -> some View {
+        switch status {
+        case .unknown:
+            Circle().fill(.gray).frame(width: 8, height: 8)
+        case .checking:
+            ProgressView().controlSize(.mini)
+        case .connected:
+            Circle().fill(.green).frame(width: 8, height: 8)
+        case .failed:
+            Circle().fill(.red).frame(width: 8, height: 8)
+        }
+    }
+
+    private func statusTextColor(_ status: MachineConnectionStatus) -> Color {
+        switch status {
+        case .unknown: .gray
+        case .checking: .secondary
+        case .connected: .green
+        case .failed: .red
+        }
     }
 
     private var bottomBar: some View {
