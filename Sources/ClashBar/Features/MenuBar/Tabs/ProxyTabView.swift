@@ -164,7 +164,9 @@ extension MenuBarRoot {
             }
 
             self.quickToggleRow(
-                title: tr("ui.quick.system_proxy"),
+                title: appState.isRemoteTarget
+                    ? "\(tr("ui.quick.system_proxy")) (\(tr("ui.machine.local_label")))"
+                    : tr("ui.quick.system_proxy"),
                 symbol: "network",
                 foreground: nativeInfo,
                 background: nativeInfo.opacity(T.Opacity.tint),

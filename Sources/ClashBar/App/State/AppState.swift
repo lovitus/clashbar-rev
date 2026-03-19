@@ -281,7 +281,7 @@ final class AppState: ObservableObject {
     }
 
     var isTunToggleEnabled: Bool {
-        self.isRuntimeRunning && !self.isCoreActionProcessing && !self.isTunSyncing
+        (self.isRemoteTarget || self.isRuntimeRunning) && !self.isCoreActionProcessing && !self.isTunSyncing
     }
 
     var autoStartCoreEnabled: Bool {

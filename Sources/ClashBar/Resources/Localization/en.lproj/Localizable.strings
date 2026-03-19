@@ -68,6 +68,7 @@
 "ui.machine.return_local" = "Return to Local Core";
 "ui.machine.active" = "Active";
 "ui.machine.local_label" = "Local";
+"ui.machine.status_unreachable" = "Unreachable";
 
 "ui.section.local_app_settings" = "App Settings (Local)";
 "ui.section.core_settings" = "Core Settings";

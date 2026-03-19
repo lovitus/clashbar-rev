@@ -169,8 +169,19 @@ extension MenuBarRoot {
     }
 
     var activeRemoteConnectionStatus: MachineConnectionStatus {
-        guard let id = remoteMachineStore.activeTargetID else { return .unknown }
-        return remoteMachineStore.statusFor(id)
+        guard remoteMachineStore.activeTargetID != nil else { return .unknown }
+        switch appState.apiStatus {
+        case .healthy:
+            let probeStatus = remoteMachineStore.statusFor(remoteMachineStore.activeTargetID!)
+            if case let .connected(version) = probeStatus {
+                return .connected(version: version)
+            }
+            return .connected(version: "OK")
+        case .degraded, .unknown:
+            return .checking
+        case .failed:
+            return .failed(reason: tr("ui.machine.status_unreachable"))
+        }
     }
 
     func remoteStatusDotColor(_ status: MachineConnectionStatus) -> Color {

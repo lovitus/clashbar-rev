@@ -80,6 +80,9 @@ extension MenuBarRoot {
             .buttonStyle(.bordered)
             .controlSize(.small)
             .disabled(isSwitchingMachine)
+            .onAppear {
+                remoteMachineStore.checkAllConnectivity()
+            }
 
             Spacer()
 

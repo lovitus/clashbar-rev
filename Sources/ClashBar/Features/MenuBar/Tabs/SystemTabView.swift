@@ -205,7 +205,7 @@ extension MenuBarRoot {
     }
 
     var maintenanceActionEnabled: Bool {
-        appState.processManager.isRunning || appState.statusText.lowercased() == "running"
+        appState.isRemoteTarget || appState.processManager.isRunning || appState.statusText.lowercased() == "running"
     }
 
     var portAutoSaving: Bool {

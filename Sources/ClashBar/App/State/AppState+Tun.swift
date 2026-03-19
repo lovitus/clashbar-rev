@@ -22,7 +22,7 @@ extension AppState {
         defer { isTunSyncing = false }
 
         do {
-            if enabled {
+            if enabled, !isRemoteTarget {
                 try await self.ensureTunPermissions(requestIfMissing: true)
             }
 
@@ -157,7 +157,7 @@ extension AppState {
     }
 
     func applyTunRuntimeChange(enabled: Bool) async throws {
-        guard isRuntimeRunning else { return }
+        guard isRemoteTarget || isRuntimeRunning else { return }
         try await self.patchTunConfig(enable: enabled)
         try await self.verifyTunRuntimeState(expectedEnabled: enabled)
     }
