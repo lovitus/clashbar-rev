@@ -251,12 +251,10 @@ extension AppState {
         tproxyPort = config.tproxyPort
         mixedPort = config.mixedPort ?? 0
 
-        if isRemoteTarget {
-            return
-        }
-
-        if let externalController = config.externalController {
-            applyExternalControllerFromConfig(externalController)
+        if !isRemoteTarget {
+            if let externalController = config.externalController {
+                applyExternalControllerFromConfig(externalController)
+            }
         }
         syncEditableSettings(from: config)
     }

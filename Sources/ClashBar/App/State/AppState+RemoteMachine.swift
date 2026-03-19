@@ -27,6 +27,8 @@ extension AppState {
             }
             if let snapshot = loadPersistedEditableSettingsSnapshot() {
                 applyEditableSettingsSnapshotToUI(snapshot)
+                preserveLocalSettingsOnNextSync = true
+                pendingAppLaunchOverlaySettings = snapshot
             }
             lastSyncedEditableSettings = nil
 
@@ -37,10 +39,16 @@ extension AppState {
             externalControllerDisplay = machine.displayAddress
             controllerUIURL = makeControllerUIURL(machine.controllerAddress)
             ensureAPIClient()
+            lastSyncedEditableSettings = nil
+            preserveLocalSettingsOnNextSync = false
             remoteMachineStore.checkConnectivity(for: machine)
         }
 
         await refreshFromAPI(includeSlowCalls: true)
+
+        if case .local = target {
+            await applyPendingAppLaunchSettingsOverlayIfNeeded()
+        }
 
         if apiStatus == .healthy || apiStatus == .degraded {
             startPolling()

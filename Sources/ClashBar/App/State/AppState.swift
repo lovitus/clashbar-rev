@@ -492,19 +492,29 @@ final class AppState: ObservableObject {
         restoreLastSuccessfulConfigIfAvailable()
         self.remoteConfigSources = loadPersistedRemoteConfigSources()
         pruneRemoteConfigSourcesIfNeeded()
+        if case let .remote(machine) = remoteMachineStore.activeTarget {
+            self.controller = machine.controllerAddress
+            self.controllerSecret = machine.secret
+            self.externalControllerDisplay = machine.displayAddress
+        }
         self.controllerUIURL = makeControllerUIURL(self.controller)
-        if let persisted = loadPersistedEditableSettingsSnapshot() {
-            applyEditableSettingsSnapshotToUI(persisted)
-            self.preserveLocalSettingsOnNextSync = true
-            self.pendingAppLaunchOverlaySettings = persisted
+
+        if remoteMachineStore.activeTarget.isLocal {
+            if let persisted = loadPersistedEditableSettingsSnapshot() {
+                applyEditableSettingsSnapshotToUI(persisted)
+                self.preserveLocalSettingsOnNextSync = true
+                self.pendingAppLaunchOverlaySettings = persisted
+            }
         }
 
         if startBackgroundRefresh {
             Task {
                 await refreshFromAPI(includeSlowCalls: true)
-                await applyPendingAppLaunchSettingsOverlayIfNeeded()
-                await refreshSystemProxyStatus()
-                await ensureSystemProxyConsistencyOnFirstLaunchIfNeeded()
+                if remoteMachineStore.activeTarget.isLocal {
+                    await applyPendingAppLaunchSettingsOverlayIfNeeded()
+                    await refreshSystemProxyStatus()
+                    await ensureSystemProxyConsistencyOnFirstLaunchIfNeeded()
+                }
             }
 
             self.startConfigDirectoryMonitoringIfNeeded()
