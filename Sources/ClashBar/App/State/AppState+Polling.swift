@@ -198,7 +198,9 @@ extension AppState {
         case .system:
             await self.refreshMediumFrequency()
             guard shouldContinueRefresh() else { return }
-            await self.refreshSystemProxyStatus()
+            if !isRemoteTarget {
+                await self.refreshSystemProxyStatus()
+            }
         }
     }
 
@@ -328,11 +330,15 @@ extension AppState {
         switch activeMenuTab {
         case .proxy:
             await refreshProvidersAndRules()
-            await self.refreshSystemProxyStatus()
+            if !isRemoteTarget {
+                await self.refreshSystemProxyStatus()
+            }
         case .rules:
             await refreshProvidersAndRules()
         case .system:
-            await self.refreshSystemProxyStatus()
+            if !isRemoteTarget {
+                await self.refreshSystemProxyStatus()
+            }
         case .activity, .logs:
             break
         }

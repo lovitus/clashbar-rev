@@ -453,6 +453,7 @@ final class AppState: ObservableObject {
             }
             managedProcess.onTermination = { [weak self] code in
                 Task { @MainActor in
+                    guard self?.isRemoteTarget != true else { return }
                     let message = self?.tr("log.process.terminated", code) ?? ""
                     self?.statusText = "Failed"
                     self?.apiStatus = .failed

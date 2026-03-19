@@ -308,7 +308,7 @@ extension AppState {
         settingsErrorMessage = nil
         settingsSavedMessage = nil
         defer { settingsSyncingKey = nil }
-        let shouldSyncSystemProxyPort = body.keys.contains { key in
+        let shouldSyncSystemProxyPort = !isRemoteTarget && body.keys.contains { key in
             key == "mixed-port" || key == "port" || key == "socks-port"
         }
         let previousSystemProxyPorts =
