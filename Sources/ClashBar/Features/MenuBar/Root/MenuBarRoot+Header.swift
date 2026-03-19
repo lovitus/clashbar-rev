@@ -86,8 +86,8 @@ extension MenuBarRoot {
                 {
                     await appState.performPrimaryCoreAction()
                 }
-                .disabled(!appState.isPrimaryCoreActionEnabled)
-                .opacity(appState.isPrimaryCoreActionEnabled ? 1 : 0.6)
+                .disabled(appState.isRemoteTarget || !appState.isPrimaryCoreActionEnabled)
+                .opacity((appState.isRemoteTarget || !appState.isPrimaryCoreActionEnabled) ? 0.6 : 1)
 
                 self.compactTopIcon(
                     appState.isRuntimeRunning ? "stop.circle" : "play.circle",
@@ -100,8 +100,8 @@ extension MenuBarRoot {
                         await appState.startCore(trigger: .manual)
                     }
                 }
-                .disabled(appState.isCoreActionProcessing)
-                .opacity(appState.isCoreActionProcessing ? 0.6 : 1)
+                .disabled(appState.isRemoteTarget || appState.isCoreActionProcessing)
+                .opacity((appState.isRemoteTarget || appState.isCoreActionProcessing) ? 0.6 : 1)
 
                 self.compactTopIcon("power", label: tr("ui.action.quit"), warning: true) {
                     await appState.quitApp()
@@ -169,17 +169,30 @@ extension MenuBarRoot {
     }
 
     var activeRemoteConnectionStatus: MachineConnectionStatus {
-        guard remoteMachineStore.activeTargetID != nil else { return .unknown }
+        guard let activeID = remoteMachineStore.activeTargetID else { return .unknown }
+        let probeStatus = remoteMachineStore.statusFor(activeID)
+
         switch appState.apiStatus {
         case .healthy:
-            let probeStatus = remoteMachineStore.statusFor(remoteMachineStore.activeTargetID!)
             if case let .connected(version) = probeStatus {
                 return .connected(version: version)
             }
+            let runtimeVersion = appState.version.trimmed
+            if !runtimeVersion.isEmpty, runtimeVersion != "-" {
+                return .connected(version: runtimeVersion)
+            }
             return .connected(version: "OK")
-        case .degraded, .unknown:
+        case .degraded:
+            if case let .failed(reason) = probeStatus {
+                return .failed(reason: reason)
+            }
             return .checking
+        case .unknown:
+            return probeStatus
         case .failed:
+            if case let .failed(reason) = probeStatus {
+                return .failed(reason: reason)
+            }
             return .failed(reason: tr("ui.machine.status_unreachable"))
         }
     }

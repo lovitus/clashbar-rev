@@ -83,6 +83,9 @@ extension MenuBarRoot {
             .onAppear {
                 remoteMachineStore.checkAllConnectivity()
             }
+            .simultaneousGesture(TapGesture().onEnded {
+                remoteMachineStore.checkAllConnectivity()
+            })
 
             Spacer()
 
