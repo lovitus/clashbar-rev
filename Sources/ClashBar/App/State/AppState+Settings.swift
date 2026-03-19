@@ -469,7 +469,11 @@ extension AppState {
     }
 
     private func reconcileEditableSettingsWithRuntimeConfig() async {
-        _ = try? await fetchRuntimeConfigSnapshot()
+        guard let config = try? await fetchRuntimeConfigSnapshot() else { return }
+        let incoming = EditableSettingsSnapshot(config: config)
+        self.applyEditableSettingsSnapshotToUI(incoming)
+        lastSyncedEditableSettings = incoming
+        persistEditableSettingsSnapshot()
     }
 
     private func validatedPort(_ textValue: String, key: String, errorMessageKey: String) -> Int? {
