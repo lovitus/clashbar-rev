@@ -70,6 +70,9 @@ extension AppState {
         if kind == .connections {
             currentConnectionsStreamIntervalMilliseconds = nil
         }
+        if kind == .logs {
+            currentLogsStreamLevel = nil
+        }
         if kind == .traffic {
             self.resetPendingTrafficSnapshotState()
         }
@@ -174,15 +177,23 @@ extension AppState {
     }
 
     func startLogsStream() {
+        let level = self.logsStreamLevelFilter()
         self.startStream(
             kind: .logs,
-            makeWebSocket: { try $0.makeWebSocketTask(for: .logs(level: nil)) },
+            makeWebSocket: { try $0.makeWebSocketTask(for: .logs(level: level)) },
             onPayload: { [weak self] payload in
                 guard let self else { return }
                 if let line = decodeLogLinePayload(payload) {
                     appendMihomoLog(level: line.level, message: line.message)
                 }
             })
+        currentLogsStreamLevel = level
+    }
+
+    func logsStreamLevelFilter() -> String? {
+        let level = settingsLogLevel.trimmed.lowercased()
+        guard ConfigLogLevel(rawValue: level) != nil else { return nil }
+        return level
     }
 
     private func schedulePendingTrafficSnapshotPublishIfNeeded() {

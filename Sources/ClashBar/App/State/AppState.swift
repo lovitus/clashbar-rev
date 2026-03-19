@@ -363,6 +363,7 @@ final class AppState: ObservableObject {
     var mediumFrequencyIntervalNanoseconds: UInt64 = 4_000_000_000
     var lowFrequencyIntervalNanoseconds: UInt64 = 20_000_000_000
     var currentConnectionsStreamIntervalMilliseconds: Int?
+    var currentLogsStreamLevel: String?
     var clashbarLogFileURL: URL?
     var mihomoLogFileURL: URL?
     var clashbarLogStore: AppLogStore?

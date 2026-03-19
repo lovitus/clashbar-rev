@@ -453,7 +453,11 @@ extension AppState {
         self.syncConnectionsStream(
             enabled: policy.enableConnectionsStream,
             intervalMilliseconds: policy.connectionsIntervalMilliseconds)
-        self.syncStream(.logs, enabled: policy.enableLogsStream) { startLogsStream() }
+        self.syncStream(
+            .logs,
+            enabled: policy.enableLogsStream,
+            forceRestart: currentLogsStreamLevel != logsStreamLevelFilter())
+        { startLogsStream() }
     }
 
     private func syncConnectionsStream(enabled: Bool, intervalMilliseconds: Int?) {
