@@ -259,6 +259,7 @@ extension AppState {
             }
         }
         syncEditableSettings(from: config)
+        refreshLogsStreamLevelIfNeeded()
     }
 
     func resetTrafficPresentation() {

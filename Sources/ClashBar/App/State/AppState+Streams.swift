@@ -191,9 +191,20 @@ extension AppState {
     }
 
     func logsStreamLevelFilter() -> String? {
+        let runtimeLevel = logLevel.trimmed.lowercased()
+        if ConfigLogLevel(rawValue: runtimeLevel) != nil {
+            return runtimeLevel
+        }
+
         let level = settingsLogLevel.trimmed.lowercased()
         guard ConfigLogLevel(rawValue: level) != nil else { return nil }
         return level
+    }
+
+    func refreshLogsStreamLevelIfNeeded() {
+        guard webSocketTask(for: .logs) != nil else { return }
+        guard currentLogsStreamLevel != logsStreamLevelFilter() else { return }
+        startLogsStream()
     }
 
     private func schedulePendingTrafficSnapshotPublishIfNeeded() {
