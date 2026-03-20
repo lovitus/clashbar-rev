@@ -20,6 +20,10 @@ final class DefaultSystemProxyRepository: SystemProxyRepository {
         try await self.service.isSystemProxyConfigured(host: host, ports: ports)
     }
 
+    func warmUpHelperIfPossible() async {
+        await self.service.warmUpHelperIfPossible()
+    }
+
     func clearBlocking(timeout: TimeInterval = 2.0) {
         self.service.clearSystemProxyBlocking(timeout: timeout)
     }

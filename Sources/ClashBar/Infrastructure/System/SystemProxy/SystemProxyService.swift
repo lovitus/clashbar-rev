@@ -69,6 +69,30 @@ struct SystemProxyService {
     private let helperRecoveryDelayNanoseconds: UInt64 = 1_500_000_000
     private let helperResponseTimeoutNanoseconds: UInt64 = 4_000_000_000
 
+    func warmUpHelperIfPossible() async {
+        guard self.isHelperBundledInMainApp() else { return }
+        guard !self.isRunningFromReadOnlyVolume() else { return }
+
+        let daemonService = self.helperService()
+        switch daemonService.status {
+        case .enabled:
+            break
+        case .notRegistered:
+            do {
+                try daemonService.register()
+            } catch {
+                guard daemonService.status == .enabled else { return }
+            }
+        case .requiresApproval, .notFound:
+            return
+        @unknown default:
+            return
+        }
+
+        guard daemonService.status == .enabled else { return }
+        _ = try? await self.invokeStateQueryWithRecovery()
+    }
+
     func applySystemProxy(enabled: Bool, host: String, ports: SystemProxyPorts) async throws {
         try self.validateHost(host)
 
