@@ -34,6 +34,8 @@ extension AppSession {
     }
 
     private func handleConfigDirectoryChangesIfNeeded() async {
+        guard !self.isRemoteTarget else { return }
+
         if self.pendingConfigChangeRestart,
            self.isRuntimeRunning,
            !self.isCoreActionProcessing

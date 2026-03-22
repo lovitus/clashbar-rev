@@ -71,7 +71,7 @@ enum L10n {
             ]
         }
 
-        for path in candidatePaths.compactMap({ $0 }) {
+        for path in candidatePaths.compactMap(\.self) {
             if let localizedBundle = Bundle(path: path) {
                 return localizedBundle
             }

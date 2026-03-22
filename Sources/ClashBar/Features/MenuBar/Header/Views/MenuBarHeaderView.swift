@@ -1,9 +1,13 @@
 import SwiftUI
 
 extension MenuBarRootView {
+    var headerLogoSize: CGFloat {
+        40
+    }
+
     var topHeader: some View {
         HStack(alignment: .center, spacing: MenuBarLayoutTokens.space8) {
-            HStack(alignment: .center, spacing: MenuBarLayoutTokens.space8) {
+            HStack(alignment: .top, spacing: MenuBarLayoutTokens.space8) {
                 ZStack {
                     RoundedRectangle(cornerRadius: MenuBarLayoutTokens.cornerRadius, style: .continuous)
                         .fill(nativeControlFill.opacity(MenuBarLayoutTokens.Opacity.solid))
@@ -19,50 +23,26 @@ extension MenuBarRootView {
                             .resizable()
                             .interpolation(.high)
                             .scaledToFit()
-                            .frame(width: MenuBarLayoutTokens.rowHeight, height: MenuBarLayoutTokens.rowHeight)
+                            .frame(width: self.headerLogoSize, height: self.headerLogoSize)
                     } else {
                         Image(systemName: "paperplane.fill")
                             .renderingMode(.template)
                             .symbolRenderingMode(.monochrome)
                             .resizable()
                             .scaledToFit()
-                            .frame(width: MenuBarLayoutTokens.rowHeight, height: MenuBarLayoutTokens.rowHeight)
+                            .frame(width: self.headerLogoSize, height: self.headerLogoSize)
                             .foregroundStyle(nativeAccent)
                     }
                 }
-                .frame(width: MenuBarLayoutTokens.rowHeight, height: MenuBarLayoutTokens.rowHeight)
+                .frame(width: self.headerLogoSize, height: self.headerLogoSize)
 
-                VStack(alignment: .leading, spacing: MenuBarLayoutTokens.space4) {
-                    HStack(spacing: MenuBarLayoutTokens.space6) {
-                        Text("ClashBar")
-                            .font(.app(size: MenuBarLayoutTokens.FontSize.title, weight: .semibold))
-                            .foregroundStyle(nativePrimaryLabel)
-
-                        HStack(spacing: MenuBarLayoutTokens.space1) {
-                            Circle()
-                                .fill(statusColor)
-                                .frame(width: MenuBarLayoutTokens.space6, height: MenuBarLayoutTokens.space6)
-                            Text(runtimeBadgeText)
-                                .font(.app(size: MenuBarLayoutTokens.FontSize.caption, weight: .medium))
-                                .foregroundStyle(nativeSecondaryLabel)
-                        }
-                        .padding(.horizontal, MenuBarLayoutTokens.space6)
-                        .padding(.vertical, MenuBarLayoutTokens.space2)
-                        .background(nativeControlFill.opacity(MenuBarLayoutTokens.Opacity.solid), in: Capsule())
-                        .overlay {
-                            Capsule().stroke(
-                                nativeControlBorder.opacity(
-                                    isDarkAppearance
-                                        ? MenuBarLayoutTokens.Theme.Dark.borderEmphasis
-                                        : MenuBarLayoutTokens.Theme.Light.borderEmphasis),
-                                lineWidth: MenuBarLayoutTokens.stroke)
-                        }
-                    }
+                VStack(alignment: .leading, spacing: MenuBarLayoutTokens.space2) {
+                    Text("ClashBar")
+                        .font(.app(size: MenuBarLayoutTokens.FontSize.title, weight: .semibold))
+                        .foregroundStyle(nativePrimaryLabel)
 
                     HStack(spacing: MenuBarLayoutTokens.space6) {
-                        self.headerControllerLink(
-                            symbol: "network",
-                            text: appSession.externalControllerDisplay)
+                        self.headerConnectionControl
                         if appSession.isExternalControllerWildcardIPv4 {
                             self.headerControllerWarningIcon
                         }
@@ -80,8 +60,8 @@ extension MenuBarRootView {
                 {
                     await appSession.performPrimaryCoreAction()
                 }
-                .disabled(!appSession.isPrimaryCoreActionEnabled)
-                .opacity(appSession.isPrimaryCoreActionEnabled ? 1 : 0.6)
+                .disabled(appSession.isRemoteTarget || !appSession.isPrimaryCoreActionEnabled)
+                .opacity((appSession.isRemoteTarget || !appSession.isPrimaryCoreActionEnabled) ? 1 * 0.6 : 1)
 
                 self.compactTopIcon(
                     appSession.isRuntimeRunning ? "stop.circle" : "play.circle",
@@ -94,8 +74,8 @@ extension MenuBarRootView {
                         await appSession.startCore(trigger: .manual)
                     }
                 }
-                .disabled(appSession.isCoreActionProcessing)
-                .opacity(appSession.isCoreActionProcessing ? 0.6 : 1)
+                .disabled(appSession.isRemoteTarget || appSession.isCoreActionProcessing)
+                .opacity((appSession.isRemoteTarget || appSession.isCoreActionProcessing) ? 0.6 : 1)
 
                 self.compactTopIcon("power", label: tr("ui.action.quit"), warning: true) {
                     await appSession.quitApp()
@@ -103,35 +83,92 @@ extension MenuBarRootView {
             }
         }
         .padding(.vertical, MenuBarLayoutTokens.space8)
-    }
-
-    func headerMetaLabel(symbol: String, text: String) -> some View {
-        HStack(spacing: MenuBarLayoutTokens.space4) {
-            Image(systemName: symbol)
-                .font(.app(size: MenuBarLayoutTokens.FontSize.caption, weight: .medium))
-                .foregroundStyle(nativeTertiaryLabel)
-            Text(text)
-                .lineLimit(1)
-                .truncationMode(.middle)
-        }
-        .font(.app(size: MenuBarLayoutTokens.FontSize.caption, weight: .medium))
-        .foregroundStyle(nativeSecondaryLabel)
-    }
-
-    @ViewBuilder
-    func headerControllerLink(symbol: String, text: String) -> some View {
-        if let url = makeMetaCubeXDSetupURL(
-            controller: appSession.controller,
-            secret: appSession.controllerSecret)
-        {
-            Link(destination: url) {
-                self.headerMetaLabel(symbol: symbol, text: text)
+        .sheet(isPresented: $showRemoteMachineManager) {
+            RemoteMachineManagerView(
+                store: remoteMachineStore,
+                localControllerDisplay: appSession.externalControllerDisplay)
+            { target in
+                isSwitchingMachine = true
+                Task { @MainActor in
+                    await appSession.switchToMachineTarget(target)
+                    isSwitchingMachine = false
+                }
             }
-            .buttonStyle(.plain)
-            .help(url.absoluteString)
-        } else {
-            self.headerMetaLabel(symbol: symbol, text: text)
         }
+    }
+
+    var headerConnectionControl: some View {
+        AttachedPopoverMenu(
+            expandAnchor: false,
+            onWillPresent: {
+                remoteMachineStore.checkAllConnectivity()
+            },
+            label: { _ in
+                HStack(spacing: MenuBarLayoutTokens.space6) {
+                    if isSwitchingMachine {
+                        ProgressView()
+                            .controlSize(.mini)
+                            .frame(width: 10, height: 10)
+                    } else {
+                        Circle()
+                            .fill(self.headerConnectionStatusTint)
+                            .frame(width: 8, height: 8)
+                    }
+
+                    Text(self.headerConnectionDisplayText)
+                        .font(.app(size: MenuBarLayoutTokens.FontSize.caption, weight: .semibold))
+                        .foregroundStyle(nativePrimaryLabel)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
+                .contentShape(Rectangle())
+            },
+            content: { dismiss in
+                self.headerPopoverSection(self.tr("ui.machine.local_label"))
+                AttachedPopoverMenuItem(
+                    title: tr("ui.machine.return_local"),
+                    selected: remoteMachineStore.activeTarget.isLocal)
+                {
+                    dismiss()
+                    guard !remoteMachineStore.activeTarget.isLocal else { return }
+                    isSwitchingMachine = true
+                    Task { @MainActor in
+                        await appSession.switchToMachineTarget(.local)
+                        isSwitchingMachine = false
+                    }
+                }
+
+                if !remoteMachineStore.machines.isEmpty {
+                    AttachedPopoverMenuDivider()
+                    self.headerPopoverSection(self.tr("ui.machine.manage"))
+                }
+
+                ForEach(remoteMachineStore.machines) { machine in
+                    let status = remoteMachineStore.statusFor(machine.id)
+                    AttachedPopoverMenuItem(
+                        title: machine.name,
+                        leadingSymbol: nil,
+                        leadingTint: self.machineStatusTint(status),
+                        showLeadingDot: true,
+                        selected: remoteMachineStore.activeTargetID == machine.id)
+                    {
+                        dismiss()
+                        guard remoteMachineStore.activeTargetID != machine.id else { return }
+                        isSwitchingMachine = true
+                        Task { @MainActor in
+                            await appSession.switchToMachineTarget(.remote(machine))
+                            isSwitchingMachine = false
+                        }
+                    }
+                }
+
+                AttachedPopoverMenuDivider()
+                AttachedPopoverMenuItem(title: tr("ui.machine.manage")) {
+                    dismiss()
+                    showRemoteMachineManager = true
+                }
+            })
+            .disabled(isSwitchingMachine)
     }
 
     var headerControllerWarningIcon: some View {
@@ -142,40 +179,26 @@ extension MenuBarRootView {
             .accessibilityLabel("Warning: external-controller is bound to 0.0.0.0")
     }
 
-    func makeMetaCubeXDSetupURL(controller: String, secret: String?) -> URL? {
-        guard let endpoint = parseControllerEndpoint(controller) else { return nil }
-
-        var query = URLComponents()
-        var items: [URLQueryItem] = [
-            URLQueryItem(name: "hostname", value: endpoint.host),
-            URLQueryItem(name: "port", value: "\(endpoint.port)"),
-            URLQueryItem(name: "http", value: endpoint.useHTTP ? "true" : "false"),
-        ]
-        if let trimmedSecret = secret.trimmedNonEmpty {
-            items.append(URLQueryItem(name: "secret", value: trimmedSecret))
-        }
-        query.queryItems = items
-
-        guard let encodedQuery = query.percentEncodedQuery else { return nil }
-        return URL(string: "https://metacubexd.pages.dev/#/setup?\(encodedQuery)")
+    func headerPopoverSection(_ title: String) -> some View {
+        Text(title)
+            .font(.app(size: MenuBarLayoutTokens.FontSize.caption, weight: .bold))
+            .foregroundStyle(nativeTertiaryLabel)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, MenuBarLayoutTokens.space6)
+            .padding(.top, MenuBarLayoutTokens.space2)
+            .padding(.bottom, MenuBarLayoutTokens.space1)
+            .textCase(.uppercase)
     }
 
-    func parseControllerEndpoint(_ raw: String) -> (host: String, port: Int, useHTTP: Bool)? {
-        let trimmed = raw.trimmed
-        guard !trimmed.isEmpty else { return nil }
+    var headerConnectionDisplayText: String {
+        appSession.externalControllerDisplay
+    }
 
-        let normalized = trimmed.contains("://") ? trimmed : "http://\(trimmed)"
-        guard let components = URLComponents(string: normalized),
-              let host = components.host,
-              !host.isEmpty
-        else {
-            return nil
+    var headerConnectionStatusTint: Color {
+        if let status = self.machineSwitcherStatus {
+            return self.machineStatusTint(status)
         }
-
-        let scheme = components.scheme?.lowercased() ?? "http"
-        let useHTTP = scheme != "https"
-        let fallbackPort = useHTTP ? 80 : 443
-        return (host: host, port: components.port ?? fallbackPort, useHTTP: useHTTP)
+        return self.statusColor
     }
 
     func compactTopIcon(

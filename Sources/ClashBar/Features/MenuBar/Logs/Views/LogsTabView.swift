@@ -3,6 +3,56 @@ import SwiftUI
 // swiftlint:disable:next type_name
 private typealias T = MenuBarLayoutTokens
 
+private struct LogsFilterChipButton: View {
+    let title: String
+    let selected: Bool
+    let selectedFill: Color
+    let selectedBorder: Color
+    let selectedText: Color
+    let normalText: Color
+    let hoverFill: Color
+    let action: () -> Void
+
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: self.action) {
+            Text(self.title)
+                .font(.app(size: T.FontSize.caption, weight: .semibold))
+                .lineLimit(1)
+                .padding(.horizontal, T.space6)
+                .padding(.vertical, T.space2)
+                .foregroundStyle(self.selected ? self.selectedText : self.normalText)
+                .background {
+                    Capsule(style: .continuous)
+                        .fill(self.selected ? self.selectedFill : (self.isHovered ? self.hoverFill : .clear))
+                        .overlay {
+                            if self.selected {
+                                Capsule(style: .continuous)
+                                    .stroke(self.selectedBorder, lineWidth: T.stroke)
+                            }
+                        }
+                }
+                .contentShape(Capsule(style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .onHover { self.isHovered = $0 }
+        .animation(.easeOut(duration: 0.12), value: self.isHovered)
+        .animation(.snappy(duration: 0.16), value: self.selected)
+    }
+}
+
+private struct LogFilterGroupConfiguration<Item: Hashable> {
+    let symbol: String
+    let allTitle: String
+    let allSelected: Bool
+    let selectAll: () -> Void
+    let items: [Item]
+    let itemTitle: (Item) -> String
+    let itemSelected: (Item) -> Bool
+    let toggleItem: (Item) -> Void
+}
+
 extension MenuBarRootView {
     var logsTabBody: some View {
         let logs = self.logsViewModel.visibleLogs
@@ -31,7 +81,7 @@ extension MenuBarRootView {
 
                 Spacer(minLength: 0)
 
-                self.logsCountSummaryBadge(filteredCount: filteredCount)
+                self.fractionSummaryBadge(current: filteredCount, total: appSession.errorLogs.count)
             }
             self.logsSecondaryControlRow
             TextField(tr("ui.placeholder.search_logs"), text: $logsViewModel.searchText)
@@ -45,15 +95,6 @@ extension MenuBarRootView {
     var logsSecondaryControlRow: some View {
         HStack(spacing: T.space6) {
             self.logsLevelFilterButtons
-
-            self.compactTopIcon(
-                "line.3.horizontal.decrease.circle",
-                label: tr("ui.action.reset_log_filters"))
-            {
-                self.resetLogFilters()
-            }
-            .help(tr("ui.action.reset_log_filters"))
-            .disabled(!self.hasActiveLogFilters)
 
             Spacer(minLength: 0)
 
@@ -82,93 +123,70 @@ extension MenuBarRootView {
     }
 
     var logsSourceFilterButtons: some View {
-        self.logFilterGroup(
+        self.logFilterGroup(.init(
             symbol: "line.3.horizontal.decrease.circle",
             allTitle: tr("ui.log_source.all"),
-            allSelected: self.logsViewModel.selectedSources == self.logsViewModel.allSourceSelection,
-            selectAll: { self.logsViewModel.selectAllSources() },
+            allSelected: false,
+            selectAll: { self.logsViewModel.selectedSources = [] },
             items: AppLogSource.allCases,
             itemTitle: { self.logSourcePresentation($0).label },
             itemSelected: { self.logsViewModel.selectedSources.contains($0) },
-            toggleItem: { self.logsViewModel.toggleSource($0) })
+            toggleItem: { self.logsViewModel.toggleSource($0) }))
             .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     var logsLevelFilterButtons: some View {
-        self.logFilterGroup(
+        self.logFilterGroup(.init(
             symbol: "slider.horizontal.3",
             allTitle: tr("ui.log_filter.all"),
-            allSelected: self.logsViewModel.selectedLevels == self.logsViewModel.allLevelSelection,
-            selectAll: { self.logsViewModel.selectAllLevels() },
+            allSelected: false,
+            selectAll: { self.logsViewModel.selectedLevels = [] },
             items: LogLevelFilter.allCases,
             itemTitle: { tr($0.titleKey) },
             itemSelected: { self.logsViewModel.selectedLevels.contains($0) },
-            toggleItem: { self.logsViewModel.toggleLevel($0) })
+            toggleItem: { self.logsViewModel.toggleLevel($0) }))
     }
 
-    // swiftlint:disable:next function_parameter_count
-    private func logFilterGroup<V: Hashable>(
-        symbol: String,
-        allTitle: String,
-        allSelected: Bool,
-        selectAll: @escaping () -> Void,
-        items: [V],
-        itemTitle: @escaping (V) -> String,
-        itemSelected: @escaping (V) -> Bool,
-        toggleItem: @escaping (V) -> Void) -> some View
+    private func logFilterGroup(
+        _ configuration: LogFilterGroupConfiguration<some Hashable>) -> some View
     {
         HStack(spacing: T.space2) {
-            Image(systemName: symbol)
+            Image(systemName: configuration.symbol)
                 .font(.app(size: T.FontSize.caption, weight: .semibold))
                 .foregroundStyle(nativeTertiaryLabel)
 
-            self.logFilterToggleButton(title: allTitle, selected: allSelected, action: selectAll)
+            self.logFilterToggleButton(
+                title: configuration.allTitle,
+                selected: configuration.allSelected,
+                action: configuration.selectAll)
 
-            ForEach(items, id: \.self) { item in
+            ForEach(configuration.items, id: \.self) { item in
                 self.logFilterToggleButton(
-                    title: itemTitle(item),
-                    selected: itemSelected(item),
-                    action: { toggleItem(item) })
+                    title: configuration.itemTitle(item),
+                    selected: configuration.itemSelected(item),
+                    action: { configuration.toggleItem(item) })
             }
         }
     }
 
-    @ViewBuilder
     func logFilterToggleButton(
         title: String,
         selected: Bool,
         action: @escaping () -> Void) -> some View
     {
-        if selected {
-            self.logFilterButtonLabel(title, action: action).appBorderedButtonStyle(prominent: true)
-        } else {
-            self.logFilterButtonLabel(title, action: action).appBorderedButtonStyle()
-        }
-    }
-
-    private func logFilterButtonLabel(_ title: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(.app(size: T.FontSize.caption, weight: .medium))
-                .lineLimit(1)
-        }
-        .controlSize(.small)
-    }
-
-    func logsCountSummaryBadge(filteredCount: Int) -> some View {
-        self.fractionSummaryBadge(current: filteredCount, total: appSession.errorLogs.count)
-    }
-
-    var hasActiveLogFilters: Bool {
-        self.logsViewModel.hasActiveFilters
-    }
-
-    var trimmedLogKeyword: String {
-        self.logsViewModel.trimmedKeyword
-    }
-
-    func resetLogFilters() {
-        self.logsViewModel.resetFilters()
+        LogsFilterChipButton(
+            title: title,
+            selected: selected,
+            selectedFill: self.nativeAccent
+                .opacity(self.isDarkAppearance ? 0.10 : 0.045),
+            selectedBorder: self.nativeAccent
+                .opacity(self.isDarkAppearance ? 0.14 : 0.08),
+            selectedText: self.nativePrimaryLabel
+                .opacity(self.isDarkAppearance ? 0.96 : 0.88),
+            normalText: self.nativeSecondaryLabel,
+            hoverFill: self.nativeHoverFill
+                .opacity(self.isDarkAppearance ? 0.06 : 0.035),
+            action: action)
     }
 
     func refreshVisibleLogs() {

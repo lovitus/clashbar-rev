@@ -84,20 +84,6 @@ final class ConnectionsTabViewModel: ObservableObject {
         self.presentConnectionsUseCase = presentConnectionsUseCase
     }
 
-    var trimmedKeyword: String {
-        self.filterText.trimmed
-    }
-
-    var hasActiveFilters: Bool {
-        !self.trimmedKeyword.isEmpty || self.transportFilter != .all || self.sortOption != .default
-    }
-
-    func resetFilters() {
-        self.filterText = ""
-        self.transportFilter = .all
-        self.sortOption = .default
-    }
-
     func updateVisibleConnections(
         from connections: [ConnectionSummary],
         searchText: (ConnectionSummary) -> String)

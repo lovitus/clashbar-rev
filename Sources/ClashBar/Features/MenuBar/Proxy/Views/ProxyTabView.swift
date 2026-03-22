@@ -4,8 +4,67 @@ import SwiftUI
 private typealias T = MenuBarLayoutTokens
 
 extension MenuBarRootView {
+    func handleCopyProxyCommand() {
+        self.appSession.copyProxyCommand()
+
+        self.proxyCommandCopyResetTask?.cancel()
+        self.proxyCommandCopyResetTask = nil
+
+        withAnimation(.snappy(duration: 0.16)) {
+            self.proxyCommandCopied = true
+        }
+
+        self.proxyCommandCopyResetTask = Task { @MainActor in
+            do {
+                try await Task.sleep(nanoseconds: 1_600_000_000)
+            } catch {
+                return
+            }
+
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeOut(duration: 0.16)) {
+                self.proxyCommandCopied = false
+            }
+            self.proxyCommandCopyResetTask = nil
+        }
+    }
+
     var quickRowTrailingColumnWidth: CGFloat {
         min(170, max(126, contentWidth * 0.44))
+    }
+
+    @ViewBuilder
+    func configMenuContent(dismiss: @escaping () -> Void) -> some View {
+        ForEach(appSession.availableConfigFileNames, id: \.self) { name in
+            AttachedPopoverMenuItem(
+                title: name,
+                selected: name == appSession.selectedConfigName)
+            {
+                dismiss()
+                Task { await appSession.selectConfigFile(named: name) }
+            }
+        }
+        AttachedPopoverMenuDivider()
+        AttachedPopoverMenuItem(title: tr("ui.quick.reload_config_list")) {
+            dismiss()
+            appSession.reloadConfigFileList()
+        }
+        AttachedPopoverMenuItem(title: tr("ui.quick.import_local_config")) {
+            dismiss()
+            appSession.importLocalConfigFile()
+        }
+        AttachedPopoverMenuItem(title: tr("ui.quick.import_remote_config")) {
+            dismiss()
+            Task { await appSession.importRemoteConfigFile() }
+        }
+        AttachedPopoverMenuItem(title: tr("ui.quick.update_remote_configs")) {
+            dismiss()
+            Task { await appSession.updateAllRemoteConfigFiles() }
+        }
+        AttachedPopoverMenuItem(title: tr("ui.quick.show_in_finder")) {
+            dismiss()
+            appSession.showSelectedConfigInFinder()
+        }
     }
 
     var proxyTabBody: some View {
@@ -97,59 +156,45 @@ extension MenuBarRootView {
 
     var proxyQuickRows: some View {
         VStack(spacing: 0) {
-            AttachedPopoverMenu { _ in
+            if appSession.isRemoteTarget {
                 self.quickRowContent(
                     title: tr("ui.quick.switch_config"),
                     symbol: "doc.text",
                     foreground: nativePurple)
                 {
-                    HStack(spacing: T.space2) {
-                        Text(appSession.selectedConfigName)
-                            .font(.app(size: T.FontSize.caption, weight: .regular))
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                            .foregroundStyle(nativeSecondaryLabel)
-                        Image(systemName: "chevron.right")
-                            .font(.app(size: T.FontSize.caption, weight: .medium))
-                            .foregroundStyle(nativeTertiaryLabel)
-                    }
+                    Text(tr("ui.machine.remote_readonly"))
+                        .font(.app(size: T.FontSize.caption, weight: .regular))
+                        .lineLimit(1)
+                        .foregroundStyle(nativeTertiaryLabel)
                 }
-            } content: { dismiss in
-                ForEach(appSession.availableConfigFileNames, id: \.self) { name in
-                    AttachedPopoverMenuItem(
-                        title: name,
-                        selected: name == appSession.selectedConfigName)
+            } else {
+                AttachedPopoverMenu { _ in
+                    self.quickRowContent(
+                        title: tr("ui.quick.switch_config"),
+                        symbol: "doc.text",
+                        foreground: nativePurple)
                     {
-                        dismiss()
-                        Task { await appSession.selectConfigFile(named: name) }
+                        HStack(spacing: T.space2) {
+                            Text(appSession.selectedConfigName)
+                                .font(.app(size: T.FontSize.caption, weight: .regular))
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                                .foregroundStyle(nativeSecondaryLabel)
+                            Image(systemName: "chevron.right")
+                                .font(.app(size: T.FontSize.caption, weight: .medium))
+                                .foregroundStyle(nativeTertiaryLabel)
+                        }
                     }
+                } content: { dismiss in
+                    self.configMenuContent(dismiss: dismiss)
                 }
-                AttachedPopoverMenuDivider()
-                AttachedPopoverMenuItem(title: tr("ui.quick.reload_config_list")) {
-                    dismiss()
-                    appSession.reloadConfigFileList()
-                }
-                AttachedPopoverMenuItem(title: tr("ui.quick.import_local_config")) {
-                    dismiss()
-                    appSession.importLocalConfigFile()
-                }
-                AttachedPopoverMenuItem(title: tr("ui.quick.import_remote_config")) {
-                    dismiss()
-                    Task { await appSession.importRemoteConfigFile() }
-                }
-                AttachedPopoverMenuItem(title: tr("ui.quick.update_remote_configs")) {
-                    dismiss()
-                    Task { await appSession.updateAllRemoteConfigFiles() }
-                }
-                AttachedPopoverMenuItem(title: tr("ui.quick.show_in_finder")) {
-                    dismiss()
-                    appSession.showSelectedConfigInFinder()
-                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
 
             self.quickToggleRow(
-                title: tr("ui.quick.system_proxy"),
+                title: appSession.isRemoteTarget
+                    ? "\(tr("ui.quick.system_proxy")) (\(tr("ui.machine.local_label")))"
+                    : tr("ui.quick.system_proxy"),
                 symbol: "network",
                 foreground: nativeInfo,
                 isDisabled: appSession.isProxySyncing,
@@ -171,16 +216,19 @@ extension MenuBarRootView {
                     }))
 
             Button {
-                appSession.copyProxyCommand()
+                self.handleCopyProxyCommand()
             } label: {
                 self.quickRowContent(
                     title: tr("ui.quick.copy_terminal"),
                     symbol: "terminal",
                     foreground: nativeWarning)
                 {
-                    Image(systemName: "doc.on.doc")
+                    Image(systemName: proxyCommandCopied ? "checkmark.circle.fill" : "doc.on.doc")
                         .font(.app(size: T.FontSize.body, weight: .medium))
-                        .foregroundStyle(hoveringCopyRow ? nativeSecondaryLabel : nativeTertiaryLabel.opacity(0.6))
+                        .foregroundStyle(
+                            proxyCommandCopied
+                                ? nativePositive.opacity(T.Opacity.solid)
+                                : (hoveringCopyRow ? nativeSecondaryLabel : nativeTertiaryLabel.opacity(0.6)))
                 }
             }
             .buttonStyle(.plain)
@@ -199,6 +247,8 @@ extension MenuBarRootView {
             Text(title)
                 .font(.app(size: T.FontSize.body, weight: .medium))
                 .foregroundStyle(nativePrimaryLabel)
+                .lineLimit(1)
+                .minimumScaleFactor(T.minimumScale)
             Spacer(minLength: 0)
             trailing()
                 .frame(width: self.quickRowTrailingColumnWidth, alignment: .trailing)
@@ -208,7 +258,6 @@ extension MenuBarRootView {
         .padding(.vertical, T.space2)
     }
 
-    // swiftlint:disable:next function_parameter_count
     func quickToggleRow(
         title: String,
         symbol: String,

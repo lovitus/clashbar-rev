@@ -13,11 +13,15 @@ final class AppCommandsViewModel {
     }
 
     var isPrimaryCoreActionEnabled: Bool {
-        self.session.isPrimaryCoreActionEnabled
+        self.session.isPrimaryCoreActionEnabled && !self.session.isRemoteTarget
     }
 
     var isCoreActionProcessing: Bool {
         self.session.isCoreActionProcessing
+    }
+
+    var isStopCoreEnabled: Bool {
+        !self.session.isRemoteTarget && !self.session.isCoreActionProcessing
     }
 
     var isTunEnabled: Bool {

@@ -97,43 +97,15 @@ final class AppSession: ObservableObject {
         speedLines: nil,
         isRunning: false)
 
-    @Published var settingsAllowLan: Bool = false {
-        didSet { persistEditableSettingsSnapshot() }
-    }
-
-    @Published var settingsIPv6: Bool = false {
-        didSet { persistEditableSettingsSnapshot() }
-    }
-
-    @Published var settingsTCPConcurrent: Bool = false {
-        didSet { persistEditableSettingsSnapshot() }
-    }
-
-    @Published var settingsLogLevel: String = ConfigLogLevel.info
-        .rawValue
-    {
-        didSet { persistEditableSettingsSnapshot() }
-    }
-
-    @Published var settingsPort: String = "0" {
-        didSet { persistEditableSettingsSnapshot() }
-    }
-
-    @Published var settingsSocksPort: String = "0" {
-        didSet { persistEditableSettingsSnapshot() }
-    }
-
-    @Published var settingsMixedPort: String = "7890" {
-        didSet { persistEditableSettingsSnapshot() }
-    }
-
-    @Published var settingsRedirPort: String = "0" {
-        didSet { persistEditableSettingsSnapshot() }
-    }
-
-    @Published var settingsTProxyPort: String = "0" {
-        didSet { persistEditableSettingsSnapshot() }
-    }
+    @Published var settingsAllowLan: Bool = false
+    @Published var settingsIPv6: Bool = false
+    @Published var settingsTCPConcurrent: Bool = false
+    @Published var settingsLogLevel: String = ConfigLogLevel.info.rawValue
+    @Published var settingsPort: String = "0"
+    @Published var settingsSocksPort: String = "0"
+    @Published var settingsMixedPort: String = "7890"
+    @Published var settingsRedirPort: String = "0"
+    @Published var settingsTProxyPort: String = "0"
 
     @Published var settingsSyncingKey: String?
     @Published var settingsErrorMessage: String?
@@ -269,12 +241,16 @@ final class AppSession: ObservableObject {
         self.menuBarDisplaySnapshot = next
     }
 
+    var isRemoteTarget: Bool {
+        !self.remoteMachineStore.activeTarget.isLocal
+    }
+
     var isModeSwitchEnabled: Bool {
-        self.coreRepository.isRunning && self.apiStatus == .healthy
+        (self.isRemoteTarget || self.coreRepository.isRunning) && self.apiStatus == .healthy
     }
 
     var isTunToggleEnabled: Bool {
-        self.isRuntimeRunning && !self.isCoreActionProcessing && !self.isTunSyncing
+        (self.isRemoteTarget || self.isRuntimeRunning) && !self.isCoreActionProcessing && !self.isTunSyncing
     }
 
     var autoStartCoreEnabled: Bool {
@@ -318,6 +294,7 @@ final class AppSession: ObservableObject {
     let workingDirectoryManager: WorkingDirectoryManager
     let networkReachabilityMonitor: NetworkReachabilityMonitor
     let clipboardRepository: any ClipboardRepository
+    let remoteMachineStore: RemoteMachineStore
     var apiClient: MihomoAPIClient?
     var modeSwitchTransportOverride: MihomoAPITransporting?
     var settingsPatchTransportOverride: MihomoAPITransporting?
@@ -384,6 +361,7 @@ final class AppSession: ObservableObject {
     var mediumFrequencyIntervalNanoseconds: UInt64 = 4_000_000_000
     var lowFrequencyIntervalNanoseconds: UInt64 = 20_000_000_000
     var currentConnectionsStreamIntervalMilliseconds: Int?
+    var currentLogsStreamLevel: String?
     var clashbarLogFileURL: URL?
     var mihomoLogFileURL: URL?
     var clashbarLogStore: AppLogStore?
@@ -415,6 +393,7 @@ final class AppSession: ObservableObject {
         appLaunchService: AppLaunchService = AppLaunchService(),
         networkReachabilityMonitor: NetworkReachabilityMonitor = NetworkReachabilityMonitor(),
         clipboardRepository: any ClipboardRepository = PasteboardClipboardRepository(),
+        remoteMachineStore: RemoteMachineStore = RemoteMachineStore(),
         clashbarLogStore: AppLogStore? = nil,
         mihomoLogStore: AppLogStore? = nil,
         startBackgroundRefresh: Bool = true)
@@ -427,6 +406,7 @@ final class AppSession: ObservableObject {
         self.launchAtLoginRepository = DefaultLaunchAtLoginRepository(service: appLaunchService)
         self.networkReachabilityMonitor = networkReachabilityMonitor
         self.clipboardRepository = clipboardRepository
+        self.remoteMachineStore = remoteMachineStore
         self.clashbarLogStore = clashbarLogStore
         self.mihomoLogStore = mihomoLogStore
         let resolvedConfigManager = configManager ?? ConfigDirectoryManager(
@@ -444,11 +424,13 @@ final class AppSession: ObservableObject {
         if let managedProcess = self.processManager as? MihomoProcessManager {
             managedProcess.onLog = { [weak self] line in
                 Task { @MainActor in
+                    guard self?.isRemoteTarget != true else { return }
                     self?.appendMihomoLog(level: "info", message: line)
                 }
             }
             managedProcess.onTermination = { [weak self] code in
                 Task { @MainActor in
+                    guard self?.isRemoteTarget != true else { return }
                     let message = self?.tr("log.process.terminated", code) ?? ""
                     self?.statusText = "Failed"
                     self?.apiStatus = .failed
@@ -489,6 +471,8 @@ final class AppSession: ObservableObject {
         restoreLastSuccessfulConfigIfAvailable()
         self.remoteConfigSources = loadPersistedRemoteConfigSources()
         pruneRemoteConfigSourcesIfNeeded()
+        // Always start in local mode. Remote target is session-level only.
+        self.remoteMachineStore.resetActiveTarget()
         self.controllerUIURL = makeControllerUIURL(self.controller)
         if let persisted = loadPersistedEditableSettingsSnapshot() {
             applyEditableSettingsSnapshotToUI(persisted)

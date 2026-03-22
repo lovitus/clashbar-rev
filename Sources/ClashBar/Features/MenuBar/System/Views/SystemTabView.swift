@@ -3,12 +3,17 @@ import SwiftUI
 // swiftlint:disable:next type_name
 private typealias T = MenuBarLayoutTokens
 
-extension MenuBarRootView {
-    @MainActor
-    var systemTabViewModel: SystemTabViewModel {
-        SystemTabViewModel()
-    }
+private struct SettingsSelectionRowConfiguration<Option: Hashable> {
+    let title: String
+    let symbol: String
+    let valueText: String
+    let options: [Option]
+    let optionTitle: (Option) -> String
+    let isSelected: (Option) -> Bool
+    let onSelect: (Option) -> Void
+}
 
+extension MenuBarRootView {
     func settingsCardHeader(_ title: String, symbol: String) -> some View {
         HStack(spacing: T.space6) {
             Image(systemName: symbol)
@@ -86,23 +91,20 @@ extension MenuBarRootView {
         .menuRowPadding(vertical: T.space4)
     }
 
-    // swiftlint:disable:next function_parameter_count
-    func settingsSelectionRow<Option: Hashable>(
-        _ title: String,
-        symbol: String,
-        valueText: String,
-        options: [Option],
-        optionTitle: @escaping (Option) -> String,
-        isSelected: @escaping (Option) -> Bool,
-        onSelect: @escaping (Option) -> Void) -> some View
+    private func settingsSelectionRow(
+        _ configuration: SettingsSelectionRowConfiguration<some Hashable>) -> some View
     {
-        self.settingsMenuRow(title, symbol: symbol, valueText: valueText) { dismiss in
-            ForEach(options, id: \.self) { option in
+        self.settingsMenuRow(
+            configuration.title,
+            symbol: configuration.symbol,
+            valueText: configuration.valueText)
+        { dismiss in
+            ForEach(configuration.options, id: \.self) { option in
                 AttachedPopoverMenuItem(
-                    title: optionTitle(option),
-                    selected: isSelected(option))
+                    title: configuration.optionTitle(option),
+                    selected: configuration.isSelected(option))
                 {
-                    onSelect(option)
+                    configuration.onSelect(option)
                     dismiss()
                 }
             }
@@ -210,11 +212,11 @@ extension MenuBarRootView {
     }
 
     var maintenanceActionEnabled: Bool {
-        self.systemTabViewModel.maintenanceActionEnabled(session: appSession)
+        SystemTabViewModel.maintenanceActionEnabled(session: appSession)
     }
 
     var settingsFeedbackState: (message: String, color: Color, symbol: String)? {
-        guard let feedback = self.systemTabViewModel.feedbackState(session: appSession) else { return nil }
+        guard let feedback = SystemTabViewModel.feedbackState(session: appSession) else { return nil }
         let color: Color = switch feedback.kind {
         case .error:
             nativeCritical.opacity(T.Opacity.solid)
@@ -235,6 +237,7 @@ extension MenuBarRootView {
     }
 
     var systemTabBody: some View {
+        let isRemote = appSession.isRemoteTarget
         let proxyPortFields: [(titleKey: String, symbol: String, text: Binding<String>)] = [
             ("ui.settings.port.port", "network", $appSession.settingsPort),
             ("ui.settings.port.socks", "wave.3.right", $appSession.settingsSocksPort),
@@ -242,7 +245,7 @@ extension MenuBarRootView {
             ("ui.settings.port.redir", "arrowshape.turn.up.right", $appSession.settingsRedirPort),
             ("ui.settings.port.tproxy", "shield.lefthalf.filled", $appSession.settingsTProxyPort),
         ]
-        let toggleItems: [(id: String, title: String, symbol: String, isOn: Binding<Bool>)] = [
+        let localOnlyItems: [(id: String, title: String, symbol: String, isOn: Binding<Bool>)] = [
             (
                 "launch-at-login",
                 tr("ui.settings.launch_at_login"),
@@ -264,6 +267,8 @@ extension MenuBarRootView {
                 Binding(
                     get: { appSession.autoManageCoreOnNetworkChangeEnabled },
                     set: { appSession.autoManageCoreOnNetworkChangeEnabled = $0 })),
+        ]
+        let coreToggleItems: [(id: String, title: String, symbol: String, isOn: Binding<Bool>)] = [
             (
                 AppSession.EditableCoreSetting.allowLan.id,
                 tr("ui.settings.allow_lan"),
@@ -289,37 +294,40 @@ extension MenuBarRootView {
         return VStack(alignment: .leading, spacing: T.space6) {
             VStack(spacing: 0) {
                 self.settingsCardHeader(
-                    tr("ui.section.basic_settings"),
+                    isRemote ? tr("ui.section.local_app_settings") : tr("ui.section.basic_settings"),
                     symbol: "slider.horizontal.3")
-                ForEach(toggleItems, id: \.id) { item in
-                    self.settingsToggleRow(item.title, symbol: item.symbol, isOn: item.isOn)
+                ForEach(localOnlyItems, id: \.id) { item in
+                    self.settingsToggleRow(
+                        isRemote ? "\(item.title) (\(tr("ui.machine.local_label")))" : item.title,
+                        symbol: item.symbol,
+                        isOn: item.isOn)
                 }
-                self.settingsSelectionRow(
-                    tr("ui.settings.menu_bar_style"),
+                self.settingsSelectionRow(.init(
+                    title: tr("ui.settings.menu_bar_style"),
                     symbol: "menubar.rectangle",
                     valueText: self.statusBarModeLabel(appSession.statusBarDisplayMode),
                     options: StatusBarDisplayMode.allCases,
                     optionTitle: self.statusBarModeLabel,
                     isSelected: { appSession.statusBarDisplayMode == $0 },
-                    onSelect: { appSession.statusBarDisplayMode = $0 })
-                self.settingsSelectionRow(
-                    tr("ui.settings.language"),
+                    onSelect: { appSession.statusBarDisplayMode = $0 }))
+                self.settingsSelectionRow(.init(
+                    title: tr("ui.settings.language"),
                     symbol: "character.book.closed",
                     valueText: appSession.uiLanguage == .zhHans ? tr("ui.language.zh_hans") : tr("ui.language.en"),
                     options: AppLanguage.allCases,
                     optionTitle: { $0 == .zhHans ? tr("ui.language.zh_hans") : tr("ui.language.en") },
                     isSelected: { appSession.uiLanguage == $0 },
-                    onSelect: appSession.setUILanguage)
-                self.settingsSelectionRow(
-                    tr("ui.settings.appearance"),
+                    onSelect: appSession.setUILanguage))
+                self.settingsSelectionRow(.init(
+                    title: tr("ui.settings.appearance"),
                     symbol: "circle.lefthalf.filled",
                     valueText: self.appearanceModeLabel(appSession.appearanceMode),
                     options: AppAppearanceMode.allCases,
                     optionTitle: self.appearanceModeLabel,
                     isSelected: { appSession.appearanceMode == $0 },
-                    onSelect: appSession.setAppearanceMode)
-                self.settingsSelectionRow(
-                    tr("ui.settings.log_level"),
+                    onSelect: appSession.setAppearanceMode))
+                self.settingsSelectionRow(.init(
+                    title: tr("ui.settings.log_level"),
                     symbol: "text.alignleft",
                     valueText: selectedLogLevel,
                     options: ConfigLogLevel.allCases,
@@ -327,7 +335,16 @@ extension MenuBarRootView {
                     isSelected: { selectedLogLevel.caseInsensitiveCompare($0.rawValue) == .orderedSame },
                     onSelect: { level in
                         Task { await appSession.applyEditableCoreSetting(.logLevel, to: level.rawValue) }
-                    })
+                    }))
+            }
+
+            VStack(spacing: 0) {
+                self.settingsCardHeader(
+                    isRemote ? tr("ui.section.core_settings_remote") : tr("ui.section.core_settings"),
+                    symbol: "gearshape.2")
+                ForEach(coreToggleItems, id: \.id) { item in
+                    self.settingsToggleRow(item.title, symbol: item.symbol, isOn: item.isOn)
+                }
             }
 
             VStack(spacing: 0) {

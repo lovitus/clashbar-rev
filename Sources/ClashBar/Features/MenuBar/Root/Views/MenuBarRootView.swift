@@ -64,6 +64,7 @@ private struct RulesRefreshToken: Equatable {
 struct MenuBarRootView: View {
     @EnvironmentObject var appSession: AppSession
     @EnvironmentObject var connectionsStore: ConnectionsStore
+    @EnvironmentObject var remoteMachineStore: RemoteMachineStore
     @EnvironmentObject var popoverLayoutModel: PopoverLayoutModel
     @Environment(\.colorScheme) var colorScheme
 
@@ -74,7 +75,11 @@ struct MenuBarRootView: View {
     @Namespace var segmentedSelectionNamespace
 
     @State var switchingMode: CoreMode?
+    @State var isSwitchingMachine = false
+    @State var showRemoteMachineManager = false
     @State var hoveringCopyRow = false
+    @State var proxyCommandCopied = false
+    @State var proxyCommandCopyResetTask: Task<Void, Never>?
     @State var hoveredProviderName: String?
     @State var hoveredRuleIndex: Int?
     @State var hoveredMode: CoreMode?
@@ -118,6 +123,10 @@ struct MenuBarRootView: View {
             Spacer(minLength: 0)
         }
         .frame(width: MenuBarLayoutTokens.panelWidth, alignment: .topLeading)
+        .onDisappear {
+            self.proxyCommandCopyResetTask?.cancel()
+            self.proxyCommandCopyResetTask = nil
+        }
     }
 
     private var panelSections: some View {

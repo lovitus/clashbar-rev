@@ -44,21 +44,14 @@ extension MenuBarRootView {
     var connectionsControlCard: some View {
         VStack(alignment: .leading, spacing: MenuBarLayoutTokens.space4) {
             HStack(spacing: MenuBarLayoutTokens.space6) {
-                Text(tr("ui.tab.connections"))
-                    .font(.app(size: MenuBarLayoutTokens.FontSize.body, weight: .bold))
-                    .textCase(.uppercase)
-                    .foregroundStyle(nativeTertiaryLabel)
+                self.connectionsFilterMenu
+                self.connectionsSortMenu
 
                 Spacer(minLength: 0)
 
-                self.compactTopIcon(
-                    "arrow.clockwise",
-                    label: tr("ui.action.refresh"),
-                    toneOverride: nativeInfo)
-                {
-                    await appSession.refreshConnections()
-                }
-                .help(tr("ui.action.refresh"))
+                self.fractionSummaryBadge(
+                    current: self.connectionsViewModel.visibleConnections.count,
+                    total: min(self.connectionsStore.connections.count, 120))
 
                 self.compactTopIcon(
                     "xmark",
@@ -69,58 +62,34 @@ extension MenuBarRootView {
                 }
                 .help(tr("ui.action.close_all"))
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             TextField(tr("ui.placeholder.filter_connection"), text: $connectionsViewModel.filterText)
                 .textFieldStyle(.roundedBorder)
                 .font(.app(size: MenuBarLayoutTokens.FontSize.body, weight: .regular))
                 .foregroundStyle(nativePrimaryLabel)
-
-            HStack(spacing: MenuBarLayoutTokens.space6) {
-                self.connectionsFilterMenu
-                self.connectionsSortMenu
-
-                self.compactTopIcon(
-                    "line.3.horizontal.decrease.circle",
-                    label: tr("ui.action.reset_network_filters"))
-                {
-                    self.connectionsViewModel.resetFilters()
-                }
-                .help(tr("ui.action.reset_network_filters"))
-                .disabled(!self.connectionsViewModel.hasActiveFilters)
-
-                Spacer(minLength: 0)
-
-                self.connectionsCountSummaryBadge
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .menuRowPadding(vertical: MenuBarLayoutTokens.space4)
     }
 
     var connectionsFilterMenu: some View {
-        self.compactSelectionMenu(
+        self.compactSelectionMenu(.init(
             selection: self.connectionsViewModel.transportFilter,
             options: ConnectionsTransportFilter.allCases,
             symbol: "line.3.horizontal.decrease.circle",
             helpText: tr("ui.network.filter.transport"),
             optionTitle: { self.tr($0.titleKey) },
-            onSelect: { self.connectionsViewModel.transportFilter = $0 })
+            onSelect: { self.connectionsViewModel.transportFilter = $0 }))
     }
 
     var connectionsSortMenu: some View {
-        self.compactSelectionMenu(
+        self.compactSelectionMenu(.init(
             selection: self.connectionsViewModel.sortOption,
             options: ConnectionsSortOption.allCases,
             symbol: "arrow.up.arrow.down",
             helpText: tr("ui.network.sort.label"),
             optionTitle: { self.tr($0.titleKey) },
-            onSelect: { self.connectionsViewModel.sortOption = $0 })
-    }
-
-    var connectionsCountSummaryBadge: some View {
-        self.fractionSummaryBadge(
-            current: self.connectionsViewModel.visibleConnections.count,
-            total: min(self.connectionsStore.connections.count, 120))
+            onSelect: { self.connectionsViewModel.sortOption = $0 }))
     }
 
     func refreshVisibleConnections() {

@@ -120,7 +120,7 @@ extension AppSession {
         panelPresented: Bool,
         activeTab: RootTab) -> DataAcquisitionPolicy
     {
-        self.makeDetermineDataAcquisitionPolicyUseCase().execute(
+        self.makeDetermineDataAcquisitionPolicyUseCase().execute(.init(
             panelPresented: panelPresented,
             activeTab: activeTab,
             statusBarDisplayMode: self.statusBarDisplayMode,
@@ -129,11 +129,11 @@ extension AppSession {
             foregroundLowFrequencyPrimaryTabsIntervalNanoseconds: self
                 .foregroundLowFrequencyPrimaryTabsIntervalNanoseconds,
             foregroundLowFrequencyOtherTabsIntervalNanoseconds: self.foregroundLowFrequencyOtherTabsIntervalNanoseconds,
-            backgroundLowFrequencyIntervalNanoseconds: self.backgroundLowFrequencyIntervalNanoseconds)
+            backgroundLowFrequencyIntervalNanoseconds: self.backgroundLowFrequencyIntervalNanoseconds))
     }
 
     func updateDataAcquisitionPolicy() {
-        guard coreRepository.isRunning else {
+        guard self.isRemoteTarget || self.coreRepository.isRunning else {
             self.ensurePeriodicTasksForCurrentVisibility()
             mediumFrequencyIntervalNanoseconds = foregroundMediumFrequencyIntervalNanoseconds
             lowFrequencyIntervalNanoseconds = foregroundLowFrequencyPrimaryTabsIntervalNanoseconds
@@ -151,7 +151,7 @@ extension AppSession {
     }
 
     func refreshForActivatedTab(_ tab: RootTab, generation: Int? = nil) async {
-        guard coreRepository.isRunning else { return }
+        guard self.isRemoteTarget || self.coreRepository.isRunning else { return }
 
         func shouldContinueRefresh() -> Bool {
             guard let generation else { return true }
@@ -176,7 +176,9 @@ extension AppSession {
         case .system:
             await self.refreshMediumFrequency()
             guard shouldContinueRefresh() else { return }
-            await self.refreshSystemProxyStatus()
+            if !self.isRemoteTarget {
+                await self.refreshSystemProxyStatus()
+            }
         }
     }
 
@@ -220,10 +222,11 @@ extension AppSession {
         tproxyPort = config.tproxyPort
         mixedPort = config.mixedPort ?? 0
 
-        if let externalController = config.externalController {
+        if !self.isRemoteTarget, let externalController = config.externalController {
             applyExternalControllerFromConfig(externalController)
         }
         syncEditableSettings(from: config)
+        refreshLogsStreamLevelIfNeeded()
     }
 
     func resetTrafficPresentation() {
@@ -296,11 +299,15 @@ extension AppSession {
         switch activeMenuTab {
         case .proxy:
             await refreshProvidersAndRules()
-            await self.refreshSystemProxyStatus()
+            if !self.isRemoteTarget {
+                await self.refreshSystemProxyStatus()
+            }
         case .rules:
             await refreshProvidersAndRules()
         case .system:
-            await self.refreshSystemProxyStatus()
+            if !self.isRemoteTarget {
+                await self.refreshSystemProxyStatus()
+            }
         case .connections, .logs:
             break
         }
@@ -358,7 +365,13 @@ extension AppSession {
         self.syncConnectionsStream(
             enabled: policy.enableConnectionsStream,
             intervalMilliseconds: policy.connectionsIntervalMilliseconds)
-        self.syncStream(.logs, enabled: policy.enableLogsStream) { startLogsStream() }
+        self.syncStream(
+            .logs,
+            enabled: policy.enableLogsStream,
+            forceRestart: currentLogsStreamLevel != logsStreamLevelFilter())
+        {
+            startLogsStream()
+        }
     }
 
     private func syncConnectionsStream(enabled: Bool, intervalMilliseconds: Int?) {

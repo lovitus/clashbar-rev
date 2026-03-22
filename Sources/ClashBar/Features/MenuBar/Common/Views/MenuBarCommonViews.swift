@@ -56,6 +56,15 @@ struct MeasurementAwareVStack<Content: View>: View {
     }
 }
 
+struct CompactSelectionMenuConfiguration<Option: Hashable & Identifiable> {
+    let selection: Option
+    let options: [Option]
+    let symbol: String
+    let helpText: String
+    let optionTitle: (Option) -> String
+    let onSelect: (Option) -> Void
+}
+
 extension MenuBarRootView {
     func fractionSummaryBadge(current: Int, total: Int) -> some View {
         HStack(spacing: MenuBarLayoutTokens.space1) {
@@ -74,35 +83,29 @@ extension MenuBarRootView {
         .background(self.nativeBadgeCapsule())
     }
 
-    // swiftlint:disable:next function_parameter_count
-    func compactSelectionMenu<Option: Hashable & Identifiable>(
-        selection: Option,
-        options: [Option],
-        symbol: String,
-        helpText: String,
-        optionTitle: @escaping (Option) -> String,
-        onSelect: @escaping (Option) -> Void) -> some View
+    func compactSelectionMenu(
+        _ configuration: CompactSelectionMenuConfiguration<some Hashable & Identifiable>) -> some View
     {
         Menu {
-            ForEach(options) { option in
+            ForEach(configuration.options) { option in
                 Button {
-                    onSelect(option)
+                    configuration.onSelect(option)
                 } label: {
-                    if selection == option {
-                        Label(optionTitle(option), systemImage: "checkmark")
+                    if configuration.selection == option {
+                        Label(configuration.optionTitle(option), systemImage: "checkmark")
                     } else {
-                        Text(optionTitle(option))
+                        Text(configuration.optionTitle(option))
                     }
                 }
             }
         } label: {
-            Label(optionTitle(selection), systemImage: symbol)
+            Label(configuration.optionTitle(configuration.selection), systemImage: configuration.symbol)
                 .font(.app(size: MenuBarLayoutTokens.FontSize.caption, weight: .medium))
                 .lineLimit(1)
         }
         .appBorderedButtonStyle()
         .controlSize(.small)
-        .help(helpText)
+        .help(configuration.helpText)
     }
 
     var isDarkAppearance: Bool {
@@ -227,18 +230,13 @@ extension MenuBarRootView {
 
     var footerSurfaceBackground: some View {
         RoundedRectangle(cornerRadius: MenuBarLayoutTokens.cornerRadius, style: .continuous)
-            .fill(self.nativeControlFill.opacity(0.86))
+            .fill(self.nativeControlFill.opacity(self.isDarkAppearance ? 0.54 : 0.38))
             .overlay {
                 RoundedRectangle(cornerRadius: MenuBarLayoutTokens.cornerRadius, style: .continuous)
                     .stroke(
-                        self.nativeControlBorder.opacity(MenuBarLayoutTokens.Opacity.solid),
+                        self.nativeControlBorder.opacity(self.isDarkAppearance ? 0.40 : 0.12),
                         lineWidth: MenuBarLayoutTokens.stroke)
             }
-            .shadow(
-                color: Color(nsColor: .shadowColor).opacity(MenuBarLayoutTokens.Shadow.standard.opacity),
-                radius: MenuBarLayoutTokens.Shadow.standard.radius,
-                x: MenuBarLayoutTokens.Shadow.standard.x,
-                y: MenuBarLayoutTokens.Shadow.standard.y)
     }
 
     @ViewBuilder

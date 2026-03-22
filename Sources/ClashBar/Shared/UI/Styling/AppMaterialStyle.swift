@@ -23,9 +23,9 @@ struct AppMaterialSurface: View {
         let shape = RoundedRectangle(cornerRadius: self.cornerRadius, style: .continuous)
 
         self.legacySurface(shape: shape)
-        .overlay {
-            shape.stroke(self.stroke, lineWidth: self.lineWidth)
-        }
+            .overlay {
+                shape.stroke(self.stroke, lineWidth: self.lineWidth)
+            }
     }
 
     @ViewBuilder

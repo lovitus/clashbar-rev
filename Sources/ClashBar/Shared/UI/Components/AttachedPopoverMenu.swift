@@ -7,6 +7,7 @@ private typealias T = MenuBarLayoutTokens
 struct AttachedPopoverMenu<Label: View, Content: View>: View {
     let width: CGFloat?
     let maxHeight: CGFloat?
+    let expandAnchor: Bool
     let onWillPresent: (() -> Void)?
     let label: (_ isHovered: Bool) -> Label
     let content: (_ dismiss: @escaping () -> Void) -> Content
@@ -20,12 +21,14 @@ struct AttachedPopoverMenu<Label: View, Content: View>: View {
     init(
         width: CGFloat? = nil,
         maxHeight: CGFloat? = nil,
+        expandAnchor: Bool = true,
         onWillPresent: (() -> Void)? = nil,
         @ViewBuilder label: @escaping (_ isHovered: Bool) -> Label,
         @ViewBuilder content: @escaping (_ dismiss: @escaping () -> Void) -> Content)
     {
         self.width = width
         self.maxHeight = maxHeight
+        self.expandAnchor = expandAnchor
         self.onWillPresent = onWillPresent
         self.label = label
         self.content = content
@@ -78,9 +81,15 @@ struct AttachedPopoverMenu<Label: View, Content: View>: View {
     }
 
     var anchorLabel: some View {
-        self.label(self.isAnchorHovered)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
+        Group {
+            if self.expandAnchor {
+                self.label(self.isAnchorHovered)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                self.label(self.isAnchorHovered)
+            }
+        }
+        .contentShape(Rectangle())
     }
 
     @ViewBuilder
@@ -140,6 +149,9 @@ struct AttachedPopoverMenu<Label: View, Content: View>: View {
 
 struct AttachedPopoverMenuItem: View {
     let title: String
+    var leadingSymbol: String?
+    var leadingTint: Color = .secondary
+    var showLeadingDot: Bool = false
     var selected: Bool = false
     var destructive: Bool = false
     let action: () -> Void
@@ -150,10 +162,22 @@ struct AttachedPopoverMenuItem: View {
             self.action()
         } label: {
             HStack(spacing: T.space6) {
-                Image(systemName: "checkmark")
-                    .font(.app(size: T.FontSize.caption, weight: .semibold))
-                    .opacity(self.selected ? 1 : 0)
-                    .frame(width: 12, alignment: .center)
+                if self.showLeadingDot {
+                    Circle()
+                        .fill(self.leadingTint)
+                        .frame(width: 8, height: 8)
+                        .frame(width: 12, alignment: .center)
+                } else if let leadingSymbol {
+                    Image(systemName: leadingSymbol)
+                        .font(.app(size: T.FontSize.caption, weight: .semibold))
+                        .foregroundStyle(self.leadingTint)
+                        .frame(width: 12, alignment: .center)
+                } else {
+                    Image(systemName: "checkmark")
+                        .font(.app(size: T.FontSize.caption, weight: .semibold))
+                        .opacity(self.selected ? 1 : 0)
+                        .frame(width: 12, alignment: .center)
+                }
                 Text(self.title)
                     .font(.app(size: T.FontSize.body, weight: .medium))
                     .lineLimit(1)

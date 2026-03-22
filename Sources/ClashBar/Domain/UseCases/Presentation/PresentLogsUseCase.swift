@@ -1,32 +1,34 @@
 import Foundation
 
 struct PresentLogsUseCase {
-    func execute(
-        logs: [AppErrorLogEntry],
-        selectedSources: Set<AppLogSource>,
-        selectedLevels: Set<LogLevelFilter>,
-        searchText: String,
-        searchTextContent: (AppErrorLogEntry) -> String,
-        normalizedLevel: (String) -> String,
-        levelFilter: (String) -> LogLevelFilter) -> [AppErrorLogEntry]
-    {
-        let source = logs.prefix(120)
-        let trimmedKeyword = searchText.trimmed
-        let allSources = Set(AppLogSource.allCases)
-        let allLevels = Set(LogLevelFilter.allCases)
-        let isShowingAllSources = selectedSources == allSources
-        let isShowingAllLevels = selectedLevels == allLevels
+    struct Input {
+        let logs: [AppErrorLogEntry]
+        let selectedSources: Set<AppLogSource>
+        let selectedLevels: Set<LogLevelFilter>
+        let searchText: String
+        let searchTextContent: (AppErrorLogEntry) -> String
+        let normalizedLevel: (String) -> String
+        let levelFilter: (String) -> LogLevelFilter
+    }
+
+    func execute(_ input: Input) -> [AppErrorLogEntry] {
+        let source = input.logs.prefix(120)
+        let trimmedKeyword = input.searchText.trimmed
+        let isShowingAllSources = input.selectedSources.isEmpty
+        let isShowingAllLevels = input.selectedLevels.isEmpty
 
         if trimmedKeyword.isEmpty, isShowingAllSources, isShowingAllLevels {
             return Array(source)
         }
 
         return source.filter { log in
-            guard selectedSources.contains(log.source) else { return false }
-            guard trimmedKeyword.isEmpty || searchTextContent(log).localizedStandardContains(trimmedKeyword) else {
+            guard isShowingAllSources || input.selectedSources.contains(log.source) else { return false }
+            guard trimmedKeyword.isEmpty || input.searchTextContent(log).localizedStandardContains(trimmedKeyword)
+            else {
                 return false
             }
-            return selectedLevels.contains(levelFilter(normalizedLevel(log.level)))
+            return isShowingAllLevels || input.selectedLevels
+                .contains(input.levelFilter(input.normalizedLevel(log.level)))
         }
     }
 }

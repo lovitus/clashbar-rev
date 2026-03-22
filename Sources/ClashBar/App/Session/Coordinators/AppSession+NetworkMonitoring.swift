@@ -64,6 +64,7 @@ extension AppSession {
     }
 
     private func scheduleAutoStopForNetworkLossIfNeeded() {
+        guard !self.isRemoteTarget else { return }
         self.networkAutoStartTask?.cancel()
         self.networkAutoStartTask = nil
 
@@ -104,6 +105,7 @@ extension AppSession {
     }
 
     private func scheduleAutoStartForNetworkRecoveryIfNeeded() {
+        guard !self.isRemoteTarget else { return }
         self.networkAutoStopTask?.cancel()
         self.networkAutoStopTask = nil
 

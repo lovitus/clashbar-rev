@@ -13,12 +13,12 @@ struct SystemFeedbackState: Equatable {
 }
 
 @MainActor
-final class SystemTabViewModel: ObservableObject {
-    func maintenanceActionEnabled(session: AppSession) -> Bool {
-        session.coreRepository.isRunning || session.statusText.lowercased() == "running"
+enum SystemTabViewModel {
+    static func maintenanceActionEnabled(session: AppSession) -> Bool {
+        session.isRemoteTarget || session.coreRepository.isRunning || session.statusText.lowercased() == "running"
     }
 
-    func feedbackState(session: AppSession) -> SystemFeedbackState? {
+    static func feedbackState(session: AppSession) -> SystemFeedbackState? {
         if let error = session.settingsErrorMessage.trimmedNonEmpty {
             return SystemFeedbackState(
                 message: error,

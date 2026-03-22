@@ -28,7 +28,7 @@ extension MenuBarRootView {
             case .mode:
                 0
             case .tab:
-                0
+                16
             }
         }
 
@@ -37,7 +37,7 @@ extension MenuBarRootView {
             case .mode:
                 0
             case .tab:
-                0
+                2
             }
         }
 
@@ -53,38 +53,43 @@ extension MenuBarRootView {
         var cornerRadius: CGFloat {
             switch self {
             case .mode:
-                12
+                10
             case .tab:
-                14
+                0
             }
         }
 
         var rowHeight: CGFloat {
             switch self {
             case .mode:
-                28
+                38
             case .tab:
-                40
+                26
             }
         }
 
         var stackSpacing: CGFloat {
             switch self {
             case .mode:
-                MenuBarLayoutTokens.space2
-            case .tab:
                 MenuBarLayoutTokens.space1
+            case .tab:
+                0
             }
         }
 
         var contentVerticalPadding: CGFloat {
-            2
+            switch self {
+            case .mode:
+                3
+            case .tab:
+                2
+            }
         }
 
         func selectedFillOpacity(isDark: Bool) -> CGFloat {
             switch self {
             case .mode:
-                isDark ? 0.96 : 1.0
+                isDark ? 0.10 : 0.045
             case .tab:
                 isDark ? 0.22 : 0.12
             }
@@ -93,7 +98,7 @@ extension MenuBarRootView {
         func selectedBorderOpacity(isDark: Bool) -> CGFloat {
             switch self {
             case .mode:
-                isDark ? 0.22 : 0.10
+                isDark ? 0.14 : 0.08
             case .tab:
                 isDark ? 0.20 : 0.14
             }
@@ -102,16 +107,16 @@ extension MenuBarRootView {
         func hoverFillOpacity(isDark: Bool) -> CGFloat {
             switch self {
             case .mode:
-                isDark ? 0.10 : 0.04
+                isDark ? 0.06 : 0.035
             case .tab:
-                isDark ? 0.08 : 0.03
+                0
             }
         }
 
         func selectedForegroundOpacity(isDark: Bool) -> CGFloat {
             switch self {
             case .mode:
-                isDark ? 0.98 : 0.96
+                isDark ? 0.96 : 0.88
             case .tab:
                 isDark ? 0.96 : 0.92
             }
@@ -120,7 +125,7 @@ extension MenuBarRootView {
         func selectedIconOpacity(isDark: Bool) -> CGFloat {
             switch self {
             case .mode:
-                isDark ? 0.96 : 0.90
+                isDark ? 0.88 : 0.80
             case .tab:
                 isDark ? 0.98 : 0.94
             }
@@ -129,7 +134,7 @@ extension MenuBarRootView {
         func shadowOpacity(isDark: Bool) -> CGFloat {
             switch self {
             case .mode:
-                isDark ? 0.18 : 0.10
+                0
             case .tab:
                 isDark ? 0.0 : 0.0
             }
@@ -138,7 +143,7 @@ extension MenuBarRootView {
         func shadowRadius(isDark _: Bool) -> CGFloat {
             switch self {
             case .mode:
-                10
+                0
             case .tab:
                 0
             }
@@ -147,7 +152,7 @@ extension MenuBarRootView {
         func shadowYOffset(isDark _: Bool) -> CGFloat {
             switch self {
             case .mode:
-                2
+                0
             case .tab:
                 0
             }
@@ -160,6 +165,92 @@ extension MenuBarRootView {
             self.topTabs
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    var machineSwitcherLabel: String {
+        switch remoteMachineStore.activeTarget {
+        case .local:
+            tr("ui.machine.local")
+        case let .remote(machine):
+            machine.name
+        }
+    }
+
+    var machineSwitcherSubtitle: String {
+        switch remoteMachineStore.activeTarget {
+        case .local:
+            appSession.externalControllerDisplay
+        case let .remote(machine):
+            machine.displayAddress
+        }
+    }
+
+    var machineSwitcherTint: Color {
+        switch self.machineSwitcherStatus {
+        case .unknown, nil:
+            remoteMachineStore.activeTarget.isLocal
+                ? nativeInfo.opacity(MenuBarLayoutTokens.Opacity.solid)
+                : nativeSecondaryLabel
+        case .checking:
+            nativeWarning.opacity(MenuBarLayoutTokens.Opacity.solid)
+        case .connected:
+            nativePositive.opacity(MenuBarLayoutTokens.Opacity.solid)
+        case .failed:
+            nativeCritical.opacity(MenuBarLayoutTokens.Opacity.solid)
+        }
+    }
+
+    var machineSwitcherStatus: MachineConnectionStatus? {
+        guard case let .remote(machine) = remoteMachineStore.activeTarget else { return nil }
+        return remoteMachineStore.statusFor(machine.id)
+    }
+
+    func machineSwitcherStatusBadge(_ status: MachineConnectionStatus) -> some View {
+        HStack(spacing: 6) {
+            switch status {
+            case .checking:
+                ProgressView()
+                    .controlSize(.mini)
+            default:
+                Circle()
+                    .fill(self.machineStatusTint(status))
+                    .frame(width: 6, height: 6)
+            }
+
+            Text(self.machineStatusText(status))
+                .font(.app(size: 10, weight: .semibold))
+                .foregroundStyle(self.machineStatusTint(status))
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .background(self.machineStatusTint(status).opacity(0.12), in: Capsule())
+    }
+
+    func machineStatusText(_ status: MachineConnectionStatus) -> String {
+        switch status {
+        case .unknown:
+            "?"
+        case .checking:
+            "…"
+        case let .connected(version):
+            version
+        case let .failed(reason):
+            reason
+        }
+    }
+
+    func machineStatusTint(_ status: MachineConnectionStatus) -> Color {
+        switch status {
+        case .unknown:
+            nativeSecondaryLabel
+        case .checking:
+            nativeWarning.opacity(MenuBarLayoutTokens.Opacity.solid)
+        case .connected:
+            nativePositive.opacity(MenuBarLayoutTokens.Opacity.solid)
+        case .failed:
+            nativeCritical.opacity(MenuBarLayoutTokens.Opacity.solid)
+        }
     }
 
     var modeSwitcher: some View {
@@ -180,12 +271,10 @@ extension MenuBarRootView {
         .padding(MenuBarLayoutTokens.space1)
         .frame(width: contentWidth)
         .background(
-            RoundedRectangle(cornerRadius: SegmentedControlStyle.mode.cornerRadius, style: .continuous)
-                .fill(self.modeSwitcherBackgroundFill))
-        .overlay {
-            RoundedRectangle(cornerRadius: SegmentedControlStyle.mode.cornerRadius, style: .continuous)
-                .stroke(self.modeSwitcherBorderColor, lineWidth: MenuBarLayoutTokens.stroke)
-        }
+            AppMaterialSurface(
+                cornerRadius: SegmentedControlStyle.mode.cornerRadius,
+                fallbackStyle: .color(self.modeSwitcherBackgroundFill),
+                stroke: self.modeSwitcherBorderColor))
     }
 
     func modeSegmentButton(title: String, mode: CoreMode, symbol: String) -> some View {
@@ -203,27 +292,41 @@ extension MenuBarRootView {
                 switchingMode = nil
             }
         } label: {
-            HStack(spacing: style.stackSpacing) {
-                if switchingThisMode {
-                    ProgressView()
-                        .controlSize(.small)
-                        .tint(self.segmentedAccentColor(style: style))
-                } else {
-                    Image(systemName: symbol)
-                        .font(.app(size: MenuBarLayoutTokens.FontSize.body, weight: .bold))
-                        .foregroundStyle(self.segmentedIconColor(style: style, selected: selected, hovered: hovered))
-                }
+            ZStack(alignment: .bottom) {
+                VStack(spacing: style.stackSpacing) {
+                    if switchingThisMode {
+                        ProgressView()
+                            .controlSize(.small)
+                            .tint(self.segmentedAccentColor(style: style))
+                    } else {
+                        Image(systemName: symbol)
+                            .font(.app(size: MenuBarLayoutTokens.FontSize.caption, weight: .bold))
+                            .foregroundStyle(self.segmentedIconColor(
+                                style: style,
+                                selected: selected,
+                                hovered: hovered))
+                    }
 
-                Text(title)
-                    .font(.app(size: MenuBarLayoutTokens.FontSize.body, weight: .semibold))
-                    .lineLimit(1)
-                    .foregroundStyle(self.segmentedLabelColor(style: style, selected: selected, hovered: hovered))
+                    Text(title)
+                        .font(.app(size: MenuBarLayoutTokens.FontSize.caption, weight: .semibold))
+                        .lineLimit(1)
+                        .foregroundStyle(self.segmentedLabelColor(style: style, selected: selected, hovered: hovered))
+                }
+                .padding(.vertical, style.contentVerticalPadding)
+                .frame(maxWidth: .infinity)
+                .frame(height: style.rowHeight)
+                .offset(y: style.contentVerticalOffset)
+                .background(self.segmentedButtonBackground(style: style, selected: selected, hovered: hovered))
+                .contentShape(RoundedRectangle(cornerRadius: style.cornerRadius, style: .continuous))
+
+                if selected, style == .mode, style.indicatorWidth > 0 {
+                    Capsule(style: .continuous)
+                        .fill(self.segmentedAccentColor(style: style))
+                        .frame(width: style.indicatorWidth, height: 2.5)
+                        .padding(.bottom, style.indicatorBottomPadding)
+                        .matchedGeometryEffect(id: style.selectionIndicatorID, in: self.segmentedSelectionNamespace)
+                }
             }
-            .padding(.vertical, style.contentVerticalPadding)
-            .frame(maxWidth: .infinity)
-            .frame(height: style.rowHeight)
-            .background(self.segmentedButtonBackground(style: style, selected: selected, hovered: hovered))
-            .contentShape(RoundedRectangle(cornerRadius: style.cornerRadius, style: .continuous))
         }
         .buttonStyle(.plain)
         .onHover { hoveredMode = self.nextHovered(current: hoveredMode, target: mode, isHovering: $0) }
@@ -251,23 +354,24 @@ extension MenuBarRootView {
                 self.rootViewModel.syncCurrentTab(tab)
             }
         } label: {
-            VStack(spacing: style.stackSpacing) {
-                Image(systemName: tab.symbolName)
-                    .font(.app(size: MenuBarLayoutTokens.FontSize.subhead, weight: .bold))
-                    .foregroundStyle(self.segmentedIconColor(style: style, selected: selected, hovered: hovered))
-
+            ZStack(alignment: .bottom) {
                 Text(self.tr(tab.titleKey))
-                    .font(.app(size: MenuBarLayoutTokens.FontSize.body, weight: .semibold))
+                    .font(.app(size: MenuBarLayoutTokens.FontSize.body, weight: selected ? .semibold : .medium))
                     .lineLimit(1)
                     .minimumScaleFactor(MenuBarLayoutTokens.minimumScale)
                     .foregroundStyle(self.segmentedLabelColor(style: style, selected: selected, hovered: hovered))
+                    .frame(maxWidth: .infinity)
+                    .frame(height: style.rowHeight)
+
+                if selected {
+                    Capsule(style: .continuous)
+                        .fill(self.segmentedAccentColor(style: style))
+                        .frame(width: style.indicatorWidth, height: 2)
+                        .padding(.bottom, style.indicatorBottomPadding)
+                        .matchedGeometryEffect(id: style.selectionIndicatorID, in: self.segmentedSelectionNamespace)
+                }
             }
-            .padding(.horizontal, MenuBarLayoutTokens.space2)
-            .padding(.vertical, style.contentVerticalPadding)
-            .frame(maxWidth: .infinity)
-            .frame(height: style.rowHeight)
-            .background(self.segmentedButtonBackground(style: style, selected: selected, hovered: hovered))
-            .contentShape(RoundedRectangle(cornerRadius: style.cornerRadius, style: .continuous))
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .onHover { hoveredTab = self.nextHovered(current: hoveredTab, target: tab, isHovering: $0) }
@@ -311,17 +415,33 @@ extension MenuBarRootView {
 
     private func segmentedLabelColor(style: SegmentedControlStyle, selected: Bool, hovered: Bool) -> Color {
         if selected {
-            return self.segmentedSelectedForeground(style: style)
+            switch style {
+            case .mode:
+                return self.nativePrimaryLabel.opacity(style.selectedForegroundOpacity(isDark: self.isDarkAppearance))
+            case .tab:
+                return self.nativePrimaryLabel
+            }
         }
         if hovered {
-            return self.nativePrimaryLabel.opacity(self.isDarkAppearance ? 0.82 : 0.72)
+            switch style {
+            case .mode:
+                return self.nativePrimaryLabel.opacity(self.isDarkAppearance ? 0.82 : 0.72)
+            case .tab:
+                return self.nativePrimaryLabel.opacity(self.isDarkAppearance ? 0.82 : 0.74)
+            }
         }
         return self.nativeSecondaryLabel
     }
 
     private func segmentedIconColor(style: SegmentedControlStyle, selected: Bool, hovered: Bool) -> Color {
         if selected {
-            return self.segmentedSelectedForeground(style: style)
+            switch style {
+            case .mode:
+                return self.segmentedAccentColor(style: style)
+                    .opacity(style.selectedIconOpacity(isDark: self.isDarkAppearance))
+            case .tab:
+                return self.segmentedSelectedForeground(style: style)
+            }
         }
         if hovered {
             return self.nativeSecondaryLabel.opacity(self.isDarkAppearance ? 0.96 : 0.84)
@@ -349,20 +469,20 @@ extension MenuBarRootView {
 
     private var modeSwitcherBackgroundFill: Color {
         Color(nsColor: self.isDarkAppearance ? .controlBackgroundColor : .windowBackgroundColor)
-            .opacity(self.isDarkAppearance ? 0.70 : 0.92)
+            .opacity(self.isDarkAppearance ? 0.54 : 0.38)
     }
 
     private var modeSwitcherBorderColor: Color {
-        self.nativeControlBorder.opacity(self.isDarkAppearance ? 0.40 : 0.18)
+        self.nativeControlBorder.opacity(self.isDarkAppearance ? 0.40 : 0.12)
     }
 
     private func segmentedSelectionFill(style: SegmentedControlStyle) -> Color {
         switch style {
         case .mode:
-            return Color(nsColor: self.isDarkAppearance ? .windowBackgroundColor : .white)
+            self.segmentedAccentColor(style: style)
                 .opacity(style.selectedFillOpacity(isDark: self.isDarkAppearance))
         case .tab:
-            return self.segmentedAccentColor(style: style)
+            self.segmentedAccentColor(style: style)
                 .opacity(style.selectedFillOpacity(isDark: self.isDarkAppearance))
         }
     }
@@ -370,9 +490,10 @@ extension MenuBarRootView {
     private func segmentedSelectionBorder(style: SegmentedControlStyle) -> Color {
         switch style {
         case .mode:
-            return self.nativeControlBorder.opacity(style.selectedBorderOpacity(isDark: self.isDarkAppearance))
+            self.segmentedAccentColor(style: style)
+                .opacity(style.selectedBorderOpacity(isDark: self.isDarkAppearance))
         case .tab:
-            return self.segmentedAccentColor(style: style)
+            self.segmentedAccentColor(style: style)
                 .opacity(style.selectedBorderOpacity(isDark: self.isDarkAppearance))
         }
     }
@@ -384,9 +505,9 @@ extension MenuBarRootView {
     private func segmentedHoverFill(style: SegmentedControlStyle) -> Color {
         switch style {
         case .mode:
-            return self.nativeHoverFill.opacity(style.hoverFillOpacity(isDark: self.isDarkAppearance))
+            self.nativeHoverFill.opacity(style.hoverFillOpacity(isDark: self.isDarkAppearance))
         case .tab:
-            return self.nativeHoverFill.opacity(style.hoverFillOpacity(isDark: self.isDarkAppearance))
+            self.nativeHoverFill.opacity(style.hoverFillOpacity(isDark: self.isDarkAppearance))
         }
     }
 

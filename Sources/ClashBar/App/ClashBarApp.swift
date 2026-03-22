@@ -25,7 +25,7 @@ struct ClashBarApp: App {
                     Task { await self.commandsViewModel.stopCore() }
                 }
                 .keyboardShortcut(".", modifiers: [.command, .shift])
-                .disabled(self.commandsViewModel.isCoreActionProcessing)
+                .disabled(!self.commandsViewModel.isStopCoreEnabled)
 
                 Divider()
 
