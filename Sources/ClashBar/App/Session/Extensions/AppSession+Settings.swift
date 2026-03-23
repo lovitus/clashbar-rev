@@ -92,9 +92,6 @@ extension AppSession {
             return
         }
 
-        suppressSettingsPersistence = true
-        self[keyPath: keyPath] = normalized
-        suppressSettingsPersistence = false
         await self.patchSingleConfig(setting.configKey, value: .string(normalized))
     }
 
@@ -330,18 +327,22 @@ extension AppSession {
         let previousSystemProxyPorts =
             await previousSystemProxyPortsForSyncIfNeeded(shouldSync: shouldSyncSystemProxyPort)
 
+        let patchKeysDescription = body.keys.sorted().joined(separator: ", ")
         do {
             ensureAPIClient()
+            appendLog(level: "info", message: "PATCH /configs [\(patchKeysDescription)]")
             try await self.patchRuntimeConfigUseCase().execute(body: body.mapValues(\.jsonValue))
-            settingsSavedMessage = successMessage
-            self.scheduleSettingsFeedbackAutoClearIfNeeded(message: successMessage)
+            appendLog(level: "info", message: "PATCH /configs succeeded [\(patchKeysDescription)]")
             await refreshFromAPI(includeSlowCalls: false)
             await self.reconcileEditableSettingsWithRuntimeConfig()
+            settingsSavedMessage = successMessage
+            self.scheduleSettingsFeedbackAutoClearIfNeeded(message: successMessage)
             await self.syncSystemProxyPortIfNeeded(
                 shouldSync: shouldSyncSystemProxyPort,
                 previousPorts: previousSystemProxyPorts)
             return true
         } catch {
+            appendLog(level: "error", message: "PATCH /configs failed [\(patchKeysDescription)]: \(error.localizedDescription)")
             let message = tr("app.settings.error.save_failed", syncingKey, error.localizedDescription)
             if self.isOverlaySyncingKey(syncingKey) {
                 appendLog(level: "error", message: message)
@@ -474,18 +475,19 @@ extension AppSession {
         configKey: String,
         value: Bool) async
     {
-        suppressSettingsPersistence = true
-        self[keyPath: keyPath] = value
-        suppressSettingsPersistence = false
         await self.applySettingBool(key: configKey, value: value)
     }
 
     private func reconcileEditableSettingsWithRuntimeConfig() async {
-        guard let config = try? await self.fetchRuntimeConfigSnapshot() else { return }
-        let incoming = EditableSettingsSnapshot(config: config)
-        self.applyEditableSettingsSnapshotToUI(incoming)
-        self.lastSyncedEditableSettings = incoming
-        self.persistEditableSettingsSnapshot()
+        do {
+            let config = try await self.fetchRuntimeConfigSnapshot()
+            let incoming = EditableSettingsSnapshot(config: config)
+            self.applyEditableSettingsSnapshotToUI(incoming)
+            self.lastSyncedEditableSettings = incoming
+            self.persistEditableSettingsSnapshot()
+        } catch {
+            appendLog(level: "error", message: "Settings reconciliation failed: \(error.localizedDescription)")
+        }
     }
 
     private var proxyPortFields: [SettingsPortField] {

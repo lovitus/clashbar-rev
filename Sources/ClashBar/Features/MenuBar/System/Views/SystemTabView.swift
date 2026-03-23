@@ -42,7 +42,7 @@ extension MenuBarRootView {
         }
     }
 
-    func settingsToggleRow(_ title: String, symbol: String, isOn: Binding<Bool>) -> some View {
+    func settingsToggleRow(_ title: String, symbol: String, isOn: Binding<Bool>, isDisabled: Bool = false) -> some View {
         HStack(spacing: T.space8) {
             self.settingsRowLabel(symbol: symbol, title: title)
                 .layoutPriority(1)
@@ -51,6 +51,7 @@ extension MenuBarRootView {
                 .labelsHidden()
                 .toggleStyle(.switch)
                 .controlSize(.small)
+                .disabled(isDisabled)
         }
         .menuRowPadding(vertical: T.space4)
     }
@@ -343,7 +344,7 @@ extension MenuBarRootView {
                     isRemote ? tr("ui.section.core_settings_remote") : tr("ui.section.core_settings"),
                     symbol: "gearshape.2")
                 ForEach(coreToggleItems, id: \.id) { item in
-                    self.settingsToggleRow(item.title, symbol: item.symbol, isOn: item.isOn)
+                    self.settingsToggleRow(item.title, symbol: item.symbol, isOn: item.isOn, isDisabled: appSession.isCoreSettingSyncing)
                 }
             }
 

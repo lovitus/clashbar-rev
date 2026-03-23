@@ -109,6 +109,7 @@ final class AppSession: ObservableObject {
     @Published var settingsTProxyPort: String = "0"
 
     @Published var settingsSyncingKey: String?
+    var isCoreSettingSyncing: Bool { settingsSyncingKey != nil }
     @Published var settingsErrorMessage: String?
     @Published var settingsSavedMessage: String?
     var lastSyncedEditableSettings: EditableSettingsSnapshot?
