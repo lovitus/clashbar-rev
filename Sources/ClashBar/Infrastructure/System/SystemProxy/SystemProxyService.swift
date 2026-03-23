@@ -68,10 +68,20 @@ private final class ContinuationBox<Value: Sendable>: @unchecked Sendable {
     }
 }
 
-struct SystemProxyService {
-    private static let helperMigrationLock = NSLock()
-    private static var helperMigrationAttemptedKeys: Set<String> = []
+private actor HelperMigrationAttemptRegistry {
+    static let shared = HelperMigrationAttemptRegistry()
+    private var attemptedKeys: Set<String> = []
 
+    func consume(_ key: String) -> Bool {
+        if self.attemptedKeys.contains(key) {
+            return false
+        }
+        self.attemptedKeys.insert(key)
+        return true
+    }
+}
+
+struct SystemProxyService {
     private let helperRecoveryMaxAttempts = 3
     private let helperRecoveryDelayNanoseconds: UInt64 = 1_500_000_000
     private let helperResponseTimeoutNanoseconds: UInt64 = 4_000_000_000
@@ -455,7 +465,7 @@ struct SystemProxyService {
         let shouldMigrate = self.shouldAttemptHelperMigration(previousError)
         if shouldMigrate {
             let migrationKey = self.helperMigrationKey()
-            let migrationAllowed = Self.consumeHelperMigrationAttempt(for: migrationKey)
+            let migrationAllowed = await HelperMigrationAttemptRegistry.shared.consume(migrationKey)
             guard migrationAllowed else {
                 throw SystemProxyServiceError.helperRecoveryFailed(
                     "\(previousError.localizedDescription) -> Helper migration already attempted in this app session.")
@@ -517,16 +527,6 @@ struct SystemProxyService {
         let appTeam = self.signingTeamIdentifier(at: appURL) ?? "unknown-app-team"
         let helperTeam = self.signingTeamIdentifier(at: helperURL) ?? "unknown-helper-team"
         return "\(ProxyHelperConstants.allowedClientBundleIdentifier)#\(appTeam)#\(helperTeam)"
-    }
-
-    private static func consumeHelperMigrationAttempt(for key: String) -> Bool {
-        Self.helperMigrationLock.lock()
-        defer { Self.helperMigrationLock.unlock() }
-        if Self.helperMigrationAttemptedKeys.contains(key) {
-            return false
-        }
-        Self.helperMigrationAttemptedKeys.insert(key)
-        return true
     }
 
     private func invokeMutation(
