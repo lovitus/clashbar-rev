@@ -44,10 +44,11 @@ extension AppSession {
         defer { isProxySyncing = false }
 
         await self.refreshSystemProxyHelperStatus(autoRepair: true)
-        guard self.systemProxyHelperState != .failed else {
+        if self.systemProxyHelperState == .failed {
             let reason = self.systemProxyHelperFailureMessage ?? tr("ui.common.unknown")
-            appendLog(level: "error", message: tr("log.system_proxy.toggle_failed", reason))
-            return
+            appendLog(
+                level: "warning",
+                message: tr("log.system_proxy.helper_fallback", reason))
         }
 
         do {

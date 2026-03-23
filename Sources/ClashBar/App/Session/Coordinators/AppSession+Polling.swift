@@ -360,7 +360,7 @@ extension AppSession {
             } else {
                 systemProxyActiveDisplay = nil
             }
-            if self.systemProxyHelperState != .repairing && self.systemProxyHelperState != .fallback {
+            if self.systemProxyHelperState == .unknown || self.systemProxyHelperState == .running {
                 self.systemProxyHelperState = .running
                 self.systemProxyHelperIssue = .none
                 self.systemProxyHelperFailureMessage = nil
