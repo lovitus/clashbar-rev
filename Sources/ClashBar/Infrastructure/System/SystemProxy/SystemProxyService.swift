@@ -174,7 +174,7 @@ struct SystemProxyService {
     }
 
     func installHelperManually() async -> SystemProxyHelperDiagnosis {
-        await self.manualRepairHelper(forceReinstall: false)
+        await self.manualInstallHelper(forceReinstall: false)
     }
 
     func reinstallHelperManually() async -> SystemProxyHelperDiagnosis {
