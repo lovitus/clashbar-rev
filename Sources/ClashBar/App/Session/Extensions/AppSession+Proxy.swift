@@ -141,6 +141,18 @@ extension AppSession {
         return host
     }
 
+    var systemProxyTargetDisplay: String {
+        let host = controllerHost()
+        let primaryPort = mixedPort > 0 ? mixedPort : (port ?? 0)
+        guard primaryPort > 0 else { return "" }
+        return "\(host):\(primaryPort)"
+    }
+
+    var isSystemProxyTargetNonLocal: Bool {
+        let host = controllerHost().trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return host != "127.0.0.1" && host != "localhost" && host != "::1"
+    }
+
     func makeControllerUIURL(_ controller: String) -> String {
         "\(normalizedControllerAddress(controller))/ui"
     }

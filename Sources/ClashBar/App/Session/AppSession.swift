@@ -11,6 +11,7 @@ final class AppSession: ObservableObject {
     @Published var version: String = "-"
     @Published var controller: String = "127.0.0.1:9090"
     @Published var externalControllerDisplay: String = "127.0.0.1:9090"
+    var localExternalControllerDisplay: String = "127.0.0.1:9090"
     @Published var controllerUIURL: String = "http://127.0.0.1:9090/ui"
     @Published var controllerSecret: String?
 

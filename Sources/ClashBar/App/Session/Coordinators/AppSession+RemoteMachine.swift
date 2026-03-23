@@ -23,6 +23,7 @@ extension AppSession {
                 self.controller = fallback
                 self.controllerSecret = nil
                 self.externalControllerDisplay = fallback
+                self.localExternalControllerDisplay = fallback
                 self.controllerUIURL = self.makeControllerUIURL(fallback)
                 self.ensureAPIClient()
             }

@@ -191,18 +191,39 @@ extension MenuBarRootView {
                 .buttonStyle(.plain)
             }
 
-            self.quickToggleRow(
+            self.quickRowContent(
                 title: appSession.isRemoteTarget
                     ? "\(tr("ui.quick.system_proxy")) (\(tr("ui.machine.local_label")))"
                     : tr("ui.quick.system_proxy"),
                 symbol: "network",
-                foreground: nativeInfo,
-                isDisabled: appSession.isProxySyncing,
-                isOn: Binding(
-                    get: { appSession.isSystemProxyEnabled },
-                    set: { value in
-                        Task { await appSession.toggleSystemProxy(value) }
-                    }))
+                foreground: nativeInfo)
+            {
+                HStack(spacing: T.space2) {
+                    if !appSession.systemProxyTargetDisplay.isEmpty {
+                        HStack(spacing: 2) {
+                            Text(appSession.systemProxyTargetDisplay)
+                                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                                .foregroundStyle(nativeTertiaryLabel)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.7)
+                            if appSession.isSystemProxyTargetNonLocal {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .font(.system(size: 8, weight: .semibold))
+                                    .foregroundStyle(nativeWarning)
+                            }
+                        }
+                    }
+                    Toggle("", isOn: Binding(
+                        get: { appSession.isSystemProxyEnabled },
+                        set: { value in
+                            Task { await appSession.toggleSystemProxy(value) }
+                        }))
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .controlSize(.small)
+                        .disabled(appSession.isProxySyncing)
+                }
+            }
 
             self.quickToggleRow(
                 title: tr("ui.quick.tun_mode"),
