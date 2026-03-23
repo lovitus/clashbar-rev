@@ -41,13 +41,6 @@ enum SystemProxyHelperRuntimeState: Equatable {
     case failed
 }
 
-enum SystemProxyHelperRuntimeState: Equatable {
-    case unknown
-    case repairing
-    case running
-    case failed
-}
-
 enum ConfigLogLevel: String, CaseIterable {
     case silent
     case error

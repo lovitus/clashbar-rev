@@ -281,7 +281,7 @@ extension MenuBarRootView {
     }
 
     var systemProxyHelperStatusText: String {
-        switch appSession.systemProxyHelperState {
+        switch self.appSession.systemProxyHelperState {
         case .unknown:
             tr("ui.system_proxy.helper.unknown")
         case .running:
@@ -294,7 +294,7 @@ extension MenuBarRootView {
     }
 
     var systemProxyHelperStatusTint: Color {
-        switch appSession.systemProxyHelperState {
+        switch self.appSession.systemProxyHelperState {
         case .unknown:
             nativeSecondaryLabel
         case .running:
@@ -302,7 +302,7 @@ extension MenuBarRootView {
         case .repairing:
             nativeWarning
         case .failed:
-            nativeNegative
+            nativeCritical
         }
     }
 

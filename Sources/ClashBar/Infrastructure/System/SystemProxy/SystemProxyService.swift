@@ -373,7 +373,7 @@ struct SystemProxyService {
         if daemonService.status == .enabled {
             // Stale launchd registrations can point to outdated helper paths after upgrades.
             // Force a re-register before retrying to refresh launch metadata.
-            try? daemonService.unregister()
+            try? await daemonService.unregister()
             try? await Task.sleep(nanoseconds: 300_000_000)
         }
         do {
