@@ -368,14 +368,22 @@ struct SystemProxyService {
         let appURL = Bundle.main.bundleURL
         let helperURL = appURL.appendingPathComponent(ProxyHelperConstants.helperBundleProgram, isDirectory: false)
 
-        guard let appTeam = self.signingTeamIdentifier(at: appURL), !appTeam.isEmpty else {
-            throw SystemProxyServiceError.helperInvalidSignature(
-                "Main app is not signed with a valid TeamIdentifier. Use a signed .app/.dmg build.")
+        let appTeam = self.signingTeamIdentifier(at: appURL)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let helperTeam = self.signingTeamIdentifier(at: helperURL)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let appHasTeam = !appTeam.isEmpty
+        let helperHasTeam = !helperTeam.isEmpty
+
+        // Allow ad-hoc/local builds where both app and helper have no TeamIdentifier.
+        if !appHasTeam, !helperHasTeam {
+            return
         }
-        guard let helperTeam = self.signingTeamIdentifier(at: helperURL), !helperTeam.isEmpty else {
+
+        guard appHasTeam == helperHasTeam else {
             throw SystemProxyServiceError.helperInvalidSignature(
-                "Helper binary is not signed with a valid TeamIdentifier. Reinstall the signed app build.")
+                "App/helper signing mode mismatch (one has TeamIdentifier, the other does not).")
         }
+
         guard appTeam == helperTeam else {
             throw SystemProxyServiceError.helperInvalidSignature(
                 "App and helper TeamIdentifier mismatch (\(appTeam) != \(helperTeam)).")
