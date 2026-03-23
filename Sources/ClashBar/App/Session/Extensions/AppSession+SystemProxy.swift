@@ -39,15 +39,12 @@ extension AppSession {
         return .unknown
     }
 
-    private func applyHelperDiagnosis(_ diagnosis: SystemProxyHelperDiagnosis, autoRepair: Bool) {
+    private func applyHelperDiagnosis(_ diagnosis: SystemProxyHelperDiagnosis) {
         switch diagnosis {
         case .healthy:
             self.systemProxyHelperState = .running
             self.systemProxyHelperIssue = .none
             self.systemProxyHelperFailureMessage = nil
-            if autoRepair {
-                appendLog(level: "info", message: tr("log.system_proxy.helper_healthy"))
-            }
         case let .failed(message):
             self.systemProxyHelperState = .failed
             self.systemProxyHelperIssue = self.helperIssue(from: message)
@@ -88,37 +85,9 @@ extension AppSession {
         try await self.checkSystemProxyConfiguredUseCase.execute(host: host, ports: ports)
     }
 
-    func refreshSystemProxyHelperStatus(autoRepair: Bool) async {
-        if autoRepair {
-            let now = Date()
-            if self.systemProxyHelperAutoRepairInFlight {
-                return
-            }
-            if now.timeIntervalSince(self.lastSystemProxyHelperAutoRepairAt) < self.systemProxyHelperAutoRepairMinInterval {
-                return
-            }
-            self.systemProxyHelperAutoRepairInFlight = true
-            self.lastSystemProxyHelperAutoRepairAt = now
-            self.systemProxyHelperState = .repairing
-            self.systemProxyHelperIssue = .none
-            self.systemProxyHelperFailureMessage = nil
-            appendLog(level: "info", message: tr("log.system_proxy.helper_repairing"))
-        } else if self.systemProxyHelperAutoRepairInFlight {
-            return
-        }
-        defer {
-            if autoRepair {
-                self.systemProxyHelperAutoRepairInFlight = false
-            }
-        }
-
-        let diagnosis: SystemProxyHelperDiagnosis
-        if autoRepair {
-            diagnosis = await self.systemProxyRepository.diagnoseAndRepair()
-        } else {
-            diagnosis = await self.systemProxyRepository.diagnoseCurrentHelper()
-        }
-        self.applyHelperDiagnosis(diagnosis, autoRepair: autoRepair)
+    func refreshSystemProxyHelperStatus() async {
+        let diagnosis = await self.systemProxyRepository.diagnoseCurrentHelper()
+        self.applyHelperDiagnosis(diagnosis)
     }
 
     func installSystemProxyHelper() async {
@@ -132,7 +101,7 @@ extension AppSession {
 
         appendLog(level: "info", message: tr("log.system_proxy.helper_installing"))
         let diagnosis = await self.systemProxyRepository.installHelper()
-        self.applyHelperDiagnosis(diagnosis, autoRepair: false)
+        self.applyHelperDiagnosis(diagnosis)
     }
 
     func reinstallSystemProxyHelper() async {
@@ -146,7 +115,7 @@ extension AppSession {
 
         appendLog(level: "info", message: tr("log.system_proxy.helper_reinstalling"))
         let diagnosis = await self.systemProxyRepository.reinstallHelper()
-        self.applyHelperDiagnosis(diagnosis, autoRepair: false)
+        self.applyHelperDiagnosis(diagnosis)
     }
 
     func systemProxyPorts(from config: ConfigSnapshot) -> SystemProxyPorts {
@@ -200,7 +169,7 @@ extension AppSession {
             appendLog(
                 level: "error",
                 message: tr("log.system_proxy.startup_repair_failed", self.systemProxyErrorMessage(error)))
-            await self.refreshSystemProxyHelperStatus(autoRepair: false)
+            await self.refreshSystemProxyHelperStatus()
         }
     }
 
@@ -248,8 +217,6 @@ extension AppSession {
             return tr("app.system_proxy.error.helper_invalid_signature", message)
         case let .helperRegistrationFailed(message):
             return tr("app.system_proxy.error.helper_registration_failed", message)
-        case let .helperRecoveryFailed(message):
-            return tr("app.system_proxy.error.helper_recovery_failed", message)
         case let .helperConnectionFailed(message):
             return tr("app.system_proxy.error.helper_connection_failed", message)
         case let .helperOperationFailed(message):

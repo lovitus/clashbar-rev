@@ -178,13 +178,11 @@
 "ui.common.latency_ms" = "%dms";
 "ui.system_proxy.helper.unknown" = "Unknown";
 "ui.system_proxy.helper.running" = "Running";
-"ui.system_proxy.helper.repairing" = "Repairing...";
 "ui.system_proxy.helper.failed" = "Failed";
 "ui.system_proxy.helper.installing" = "Installing...";
 "ui.system_proxy.helper.reinstalling" = "Reinstalling...";
 "ui.system_proxy.helper.install" = "Install";
 "ui.system_proxy.helper.reinstall" = "Reinstall";
-"ui.system_proxy.helper.detail.auto_repair_failed" = "automatic repair failed";
 "ui.system_proxy.helper.detail.signature_mismatch" = "signature mismatch, reinstall helper";
 "ui.system_proxy.helper.detail.needs_approval" = "needs system approval";
 "ui.system_proxy.helper.detail.install_location_invalid" = "invalid install location";
@@ -302,11 +300,9 @@
 "log.system_proxy.port_sync_failed" = "Failed to sync system proxy port: %@";
 "log.system_proxy.startup_repaired" = "Startup check fixed system proxy to %@:%d";
 "log.system_proxy.startup_repair_failed" = "Startup system proxy check failed: %@";
-"log.system_proxy.helper_repairing" = "System proxy helper fault detected. Trying automatic recovery...";
 "log.system_proxy.helper_installing" = "Installing system proxy helper manually...";
 "log.system_proxy.helper_reinstalling" = "Reinstalling system proxy helper manually...";
-"log.system_proxy.helper_healthy" = "System proxy helper recovered and is running";
-"log.system_proxy.helper_failed" = "System proxy helper recovery failed: %@";
+"log.system_proxy.helper_failed" = "System proxy helper unhealthy: %@";
 "log.tun.toggled" = "TUN mode %@";
 "log.tun.enabled" = "enabled";
 "log.tun.disabled" = "disabled";

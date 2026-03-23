@@ -37,7 +37,6 @@ enum CoreUpgradeState: Equatable {
 enum SystemProxyHelperRuntimeState: Equatable {
     case unknown
     case running
-    case repairing
     case failed
 }
 

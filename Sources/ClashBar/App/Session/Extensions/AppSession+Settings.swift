@@ -470,7 +470,7 @@ extension AppSession {
             }
         } catch {
             appendLog(level: "error", message: tr("log.system_proxy.port_sync_failed", systemProxyErrorMessage(error)))
-            await self.refreshSystemProxyHelperStatus(autoRepair: false)
+            await self.refreshSystemProxyHelperStatus()
         }
     }
 

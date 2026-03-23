@@ -178,13 +178,11 @@
 "ui.common.latency_ms" = "%dms";
 "ui.system_proxy.helper.unknown" = "未知";
 "ui.system_proxy.helper.running" = "运行中";
-"ui.system_proxy.helper.repairing" = "修复中...";
 "ui.system_proxy.helper.failed" = "故障";
 "ui.system_proxy.helper.installing" = "安装中...";
 "ui.system_proxy.helper.reinstalling" = "重装中...";
 "ui.system_proxy.helper.install" = "安装";
 "ui.system_proxy.helper.reinstall" = "重装";
-"ui.system_proxy.helper.detail.auto_repair_failed" = "自动修复失败";
 "ui.system_proxy.helper.detail.signature_mismatch" = "签名不一致，请重装 helper";
 "ui.system_proxy.helper.detail.needs_approval" = "需要系统授权";
 "ui.system_proxy.helper.detail.install_location_invalid" = "安装位置不正确";
@@ -302,11 +300,9 @@
 "log.system_proxy.port_sync_failed" = "同步系统代理端口失败: %@";
 "log.system_proxy.startup_repaired" = "启动时发现系统代理与目标不一致，已修正为 %@:%d";
 "log.system_proxy.startup_repair_failed" = "启动时校验系统代理失败: %@";
-"log.system_proxy.helper_repairing" = "系统代理 helper 故障，正在尝试自动修复...";
 "log.system_proxy.helper_installing" = "正在手动安装系统代理 helper...";
 "log.system_proxy.helper_reinstalling" = "正在手动重装系统代理 helper...";
-"log.system_proxy.helper_healthy" = "系统代理 helper 已恢复运行";
-"log.system_proxy.helper_failed" = "系统代理 helper 修复失败: %@";
+"log.system_proxy.helper_failed" = "系统代理 helper 状态异常: %@";
 "log.tun.toggled" = "TUN 模式%@";
 "log.tun.enabled" = "已开启";
 "log.tun.disabled" = "已关闭";

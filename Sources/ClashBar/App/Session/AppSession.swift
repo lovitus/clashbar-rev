@@ -413,9 +413,6 @@ final class AppSession: ObservableObject {
     var shouldResumeCoreAfterNetworkRecovery = false
     var isNetworkReachabilityMonitoring = false
     var pendingCoreFeatureRecoveryState: CoreFeatureRecoveryState?
-    var systemProxyHelperAutoRepairInFlight = false
-    var lastSystemProxyHelperAutoRepairAt: Date = .distantPast
-    let systemProxyHelperAutoRepairMinInterval: TimeInterval = 8
     var deferredEditableSettingsOverlay: (snapshot: EditableSettingsSnapshot, syncingKey: String)?
     var remoteConfigSources: [String: String] = [:]
     var externalControllerWarningKeys: Set<String> = []
@@ -527,7 +524,7 @@ final class AppSession: ObservableObject {
                 await applyPendingAppLaunchSettingsOverlayIfNeeded()
                 // Register and ping the helper once so launchd can demand-launch it early.
                 await self.systemProxyRepository.warmUpHelperIfPossible()
-                await self.refreshSystemProxyHelperStatus(autoRepair: false)
+                await self.refreshSystemProxyHelperStatus()
                 await refreshSystemProxyStatus()
                 await ensureSystemProxyConsistencyOnFirstLaunchIfNeeded()
             }

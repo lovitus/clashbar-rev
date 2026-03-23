@@ -11,7 +11,6 @@ enum SystemProxyServiceError: LocalizedError {
     case helperNeedsApproval
     case helperInvalidSignature(String)
     case helperRegistrationFailed(String)
-    case helperRecoveryFailed(String)
     case helperConnectionFailed(String)
     case helperOperationFailed(String)
 
@@ -32,8 +31,6 @@ enum SystemProxyServiceError: LocalizedError {
             "Privileged helper signature invalid: \(message)"
         case let .helperRegistrationFailed(message):
             "Failed to register privileged helper: \(message)"
-        case let .helperRecoveryFailed(message):
-            "Failed to recover privileged helper: \(message)"
         case let .helperConnectionFailed(message):
             "Failed to connect privileged helper: \(message)"
         case let .helperOperationFailed(message):
@@ -68,39 +65,11 @@ private final class ContinuationBox<Value: Sendable>: @unchecked Sendable {
     }
 }
 
-private actor HelperPrivilegedRepairGate {
-    static let shared = HelperPrivilegedRepairGate()
-
-    private var inFlight = false
-    private var lastAttemptAt: Date = .distantPast
-
-    func begin(minInterval: TimeInterval) -> Bool {
-        let now = Date()
-        if self.inFlight {
-            return false
-        }
-        if now.timeIntervalSince(self.lastAttemptAt) < minInterval {
-            return false
-        }
-        self.inFlight = true
-        self.lastAttemptAt = now
-        return true
-    }
-
-    func end() {
-        self.inFlight = false
-    }
-}
-
 struct SystemProxyService {
     private let helperToolInstallPath = "/Library/PrivilegedHelperTools/com.clashbar.helper"
     private let helperPlistInstallPath = "/Library/LaunchDaemons/com.clashbar.helper.plist"
 
-    private let helperRecoveryMaxAttempts = 3
-    private let helperRecoveryDelayNanoseconds: UInt64 = 1_500_000_000
     private let helperResponseTimeoutNanoseconds: UInt64 = 4_000_000_000
-    private let helperPrivilegedRepairMinInterval: TimeInterval = 6
-
     private enum HelperRegistrationResult {
         case ready
         case needsApproval
@@ -129,7 +98,7 @@ struct SystemProxyService {
         }
 
         guard daemonService.status == .enabled else { return }
-        _ = try? await self.invokeStateQueryWithRecovery()
+        _ = try? await self.invokeStateQuery()
     }
 
     func applySystemProxy(enabled: Bool, host: String, ports: SystemProxyPorts) async throws {
@@ -137,7 +106,7 @@ struct SystemProxyService {
 
         if enabled {
             let resolvedPorts = try validateAndResolvePorts(ports, requiresEnabledPort: true)
-            try await invokeMutationWithRecovery { helper, completion in
+            try await invokeMutation { helper, completion in
                 helper.setSystemProxy(
                     host: host,
                     httpPort: resolvedPorts.httpPort,
@@ -146,7 +115,7 @@ struct SystemProxyService {
                     completion: completion)
             }
         } else {
-            try await self.invokeMutationWithRecovery { helper, completion in
+            try await self.invokeMutation { helper, completion in
                 helper.clearSystemProxy(completion: completion)
             }
         }
@@ -154,7 +123,7 @@ struct SystemProxyService {
 
     func isSystemProxyEnabled() async throws -> Bool {
         try self.ensureHelperReadyForRead()
-        return try await self.invokeStateQueryWithoutRecovery()
+        return try await self.invokeStateQuery()
     }
 
     func readSystemProxyActiveDisplay() async throws -> String? {
@@ -189,7 +158,7 @@ struct SystemProxyService {
 
         do {
             try self.ensureHelperReadyForRead()
-            _ = try await self.invokeStateQueryWithoutRecovery()
+            _ = try await self.invokeStateQuery()
             return .healthy
         } catch {
             return .failed(message: self.helperFailureMessage(error))
@@ -197,35 +166,8 @@ struct SystemProxyService {
     }
 
     func diagnoseAndRepairHelper() async -> SystemProxyHelperDiagnosis {
-        if !self.isHelperBundledInMainApp() {
-            return .failed(message: self.helperFailureMessage(SystemProxyServiceError.helperNotBundled))
-        }
-        if self.isRunningFromReadOnlyVolume() {
-            return .failed(message: self.helperFailureMessage(SystemProxyServiceError.helperRequiresInstallToApplications))
-        }
-
-        for attempt in 0..<self.helperRecoveryMaxAttempts {
-            do {
-                try await self.ensureHelperReadyForWrite()
-                _ = try await self.invokeStateQueryWithoutRecovery()
-                return .healthy
-            } catch {
-                let shouldRecoverNow = self.shouldRetryAfterRecovery(error) || self.shouldAttemptHelperMigration(error)
-                if shouldRecoverNow, attempt < self.helperRecoveryMaxAttempts - 1 {
-                    do {
-                        try await self.recoverHelperForRetry(error: error)
-                        continue
-                    } catch {
-                        return .failed(message: self.helperFailureMessage(error))
-                    }
-                }
-                if attempt == self.helperRecoveryMaxAttempts - 1 || !shouldRecoverNow {
-                    return .failed(message: self.helperFailureMessage(error))
-                }
-            }
-        }
-
-        return .failed(message: "Unknown helper failure.")
+        // Keep this path non-privileged. Real repair is user-triggered via install/reinstall.
+        await self.diagnoseCurrentHelper()
     }
 
     func installHelperManually() async -> SystemProxyHelperDiagnosis {
@@ -245,23 +187,10 @@ struct SystemProxyService {
         }
 
         do {
-            if forceReinstall {
-                try await self.forceReinstallInstalledHelper()
-            }
-            try await self.ensureHelperReadyForWrite()
-            _ = try await self.invokeStateQueryWithoutRecovery()
+            try await self.repairHelperWithLocalResign(forceReinstall: forceReinstall)
+            _ = try await self.invokeStateQuery()
             return .healthy
         } catch {
-            if !forceReinstall, self.shouldAttemptHelperMigration(error) {
-                do {
-                    try await self.forceReinstallInstalledHelper()
-                    try await self.ensureHelperReadyForWrite()
-                    _ = try await self.invokeStateQueryWithoutRecovery()
-                    return .healthy
-                } catch {
-                    return .failed(message: self.helperFailureMessage(error))
-                }
-            }
             return .failed(message: self.helperFailureMessage(error))
         }
     }
@@ -305,43 +234,15 @@ struct SystemProxyService {
         }
         try self.validateHelperSigningRequirements()
 
-        let firstAttempt = self.attemptHelperRegistration()
-        switch firstAttempt {
-        case .ready:
+        let daemonService = self.helperService()
+        if daemonService.status == .enabled {
             return
-        case .needsApproval, .blocked, .failed:
-            break
+        }
+        if daemonService.status == .requiresApproval {
+            throw SystemProxyServiceError.helperNeedsApproval
         }
 
-        let permitPrivilegedRepair = await HelperPrivilegedRepairGate.shared.begin(
-            minInterval: self.helperPrivilegedRepairMinInterval)
-        guard permitPrivilegedRepair else {
-            switch firstAttempt {
-            case .ready:
-                return
-            case .needsApproval:
-                throw SystemProxyServiceError.helperNeedsApproval
-            case let .blocked(message), let .failed(message):
-                throw SystemProxyServiceError.helperRegistrationFailed(message)
-            }
-        }
-        defer {
-            Task {
-                await HelperPrivilegedRepairGate.shared.end()
-            }
-        }
-
-        // Always try one privileged cleanup+reinstall path before giving up. This handles
-        // stale/disallowed helper state across build signature changes.
-        do {
-            try self.forceCleanupInstalledHelperWithPrivileges()
-            Thread.sleep(forTimeInterval: 0.3)
-        } catch {
-            throw SystemProxyServiceError.helperRegistrationFailed(error.localizedDescription)
-        }
-
-        let secondAttempt = self.attemptHelperRegistration()
-        switch secondAttempt {
+        switch self.attemptHelperRegistration() {
         case .ready:
             return
         case .needsApproval:
@@ -439,106 +340,10 @@ struct SystemProxyService {
         return dict[kSecCodeInfoTeamIdentifier as String] as? String
     }
 
-    private func invokeMutationWithRecovery(
-        _ invoke: @escaping (ProxyHelperProtocol, @escaping (Bool, String?) -> Void) -> Void) async throws
-    {
-        var attempt = 0
-        var lastError: Error?
-
-        while attempt < self.helperRecoveryMaxAttempts {
-            do {
-                try await self.ensureHelperReadyForWrite()
-                try await self.invokeMutation(invoke)
-                return
-            } catch {
-                lastError = error
-                let shouldRetry = self.shouldRetryAfterRecovery(error)
-                if !shouldRetry || attempt == self.helperRecoveryMaxAttempts - 1 {
-                    throw error
-                }
-                try await self.recoverHelperForRetry(error: error)
-                attempt += 1
-            }
-        }
-
-        throw lastError ?? SystemProxyServiceError.helperOperationFailed("Unknown helper mutation failure.")
-    }
-
-    private func invokeStateQueryWithRecovery() async throws -> Bool {
-        try await self.invokeBooleanQueryWithRecovery { helper, completion in
-            helper.getSystemProxyState(completion: completion)
-        }
-    }
-
-    private func invokeStateQueryWithoutRecovery() async throws -> Bool {
+    private func invokeStateQuery() async throws -> Bool {
         try await self.invokeBooleanQuery { helper, completion in
             helper.getSystemProxyState(completion: completion)
         }
-    }
-
-    private func invokeActiveTargetQueryWithRecovery() async throws -> (host: String, port: Int)? {
-        var attempt = 0
-        var lastError: Error?
-
-        while attempt < self.helperRecoveryMaxAttempts {
-            do {
-                return try await self.invokeActiveTargetQuery()
-            } catch {
-                lastError = error
-                guard self.shouldRetryAfterRecovery(error) else { throw error }
-                guard attempt < self.helperRecoveryMaxAttempts - 1 else { throw error }
-                try await self.recoverHelperForRetry(error: error)
-                attempt += 1
-            }
-        }
-
-        throw lastError ?? SystemProxyServiceError.helperOperationFailed("Unknown helper query failure.")
-    }
-
-    private func invokeBooleanQueryWithRecovery(
-        _ invoke: @escaping (ProxyHelperProtocol, @escaping (Bool, Bool, String?) -> Void) -> Void) async throws -> Bool
-    {
-        var attempt = 0
-        var lastError: Error?
-
-        while attempt < self.helperRecoveryMaxAttempts {
-            do {
-                return try await self.invokeBooleanQuery(invoke)
-            } catch {
-                lastError = error
-                guard self.shouldRetryAfterRecovery(error) else { throw error }
-                guard attempt < self.helperRecoveryMaxAttempts - 1 else { throw error }
-                try await self.recoverHelperForRetry(error: error)
-                attempt += 1
-            }
-        }
-
-        throw lastError ?? SystemProxyServiceError.helperOperationFailed("Unknown helper query failure.")
-    }
-
-    private func shouldRetryAfterRecovery(_ error: Error) -> Bool {
-        guard let serviceError = error as? SystemProxyServiceError else {
-            return false
-        }
-
-        switch serviceError {
-        case .helperConnectionFailed, .helperOperationFailed, .helperRegistrationFailed:
-            return true
-        case .helperNeedsApproval, .helperNotBundled, .helperRequiresInstallToApplications, .helperInvalidSignature,
-             .invalidHost, .invalidPort, .helperRecoveryFailed:
-            return false
-        }
-    }
-
-    private func recoverHelperForRetry(error previousError: Error) async throws {
-        do {
-            try await self.ensureHelperReadyForWrite()
-        } catch {
-            throw SystemProxyServiceError.helperRecoveryFailed(
-                "\(previousError.localizedDescription) -> \(error.localizedDescription)")
-        }
-
-        try? await Task.sleep(nanoseconds: self.helperRecoveryDelayNanoseconds)
     }
 
     private func isLikelyBlockedBySystemPolicy(_ error: Error) -> Bool {
@@ -550,30 +355,12 @@ struct SystemProxyService {
             || normalized.contains("background item")
     }
 
-    private func shouldAttemptHelperMigration(_ error: Error) -> Bool {
-        guard let serviceError = error as? SystemProxyServiceError else {
-            return false
-        }
-
-        switch serviceError {
-        case .helperConnectionFailed, .helperRecoveryFailed, .helperRegistrationFailed:
-            return true
-        case let .helperOperationFailed(message):
-            let normalized = message.lowercased()
-            return normalized.contains("operation not permitted")
-                || normalized.contains("launch constraint")
-                || normalized.contains("codesigning")
-                || normalized.contains("code signing")
-        case .helperNeedsApproval:
-            return true
-        case .helperNotBundled, .helperRequiresInstallToApplications, .helperInvalidSignature,
-             .invalidHost, .invalidPort:
-            return false
-        }
-    }
-
     private func attemptHelperRegistration() -> HelperRegistrationResult {
         let daemonService = self.helperService()
+        if daemonService.status == .enabled {
+            return .ready
+        }
+
         do {
             try daemonService.register()
         } catch {
@@ -601,28 +388,53 @@ struct SystemProxyService {
         return .failed("Service remains unavailable after register call. status=\(daemonService.status.rawValue)")
     }
 
-    private func forceCleanupInstalledHelperWithPrivileges() throws {
+    private func repairHelperWithLocalResign(forceReinstall: Bool) async throws {
+        let daemonService = self.helperService()
+        if daemonService.status == .enabled {
+            try? daemonService.unregister()
+        }
+
+        let appPath = Bundle.main.bundleURL.path
+        let helperPath = Bundle.main.bundleURL
+            .appendingPathComponent(ProxyHelperConstants.helperBundleProgram, isDirectory: false)
+            .path
+        let escapedApp = self.shellQuoted(appPath)
+        let escapedHelper = self.shellQuoted(helperPath)
         let escapedPlist = self.shellQuoted(self.helperPlistInstallPath)
         let escapedTool = self.shellQuoted(self.helperToolInstallPath)
-        let shellCommand =
-            "/bin/launchctl bootout system/\(ProxyHelperConstants.machServiceName) >/dev/null 2>&1 || true" +
-            " && /bin/rm -f \(escapedPlist)" +
-            " && /bin/rm -f \(escapedTool)"
+
+        var commands: [String] = []
+        commands.append("/bin/launchctl bootout system/\(ProxyHelperConstants.machServiceName) >/dev/null 2>&1 || true")
+        if forceReinstall {
+            commands.append("/bin/rm -f \(escapedPlist)")
+            commands.append("/bin/rm -f \(escapedTool)")
+        }
+
+        // Re-sign helper first, then app using stable local ad-hoc signature.
+        commands.append(
+            "/usr/bin/codesign --force --sign - --timestamp=none --preserve-metadata=identifier,entitlements,requirements,flags \(escapedHelper)")
+        commands.append(
+            "/usr/bin/codesign --force --sign - --timestamp=none --deep --preserve-metadata=identifier,entitlements,requirements,flags \(escapedApp)")
+        commands.append("/usr/bin/codesign --verify --deep --strict --verbose=2 \(escapedApp)")
+
+        let shellCommand = commands.joined(separator: " && ")
         let appleScript = "do shell script \"\(self.appleScriptEscaped(shellCommand))\" with administrator privileges"
         try self.runAppleScriptSynchronously(appleScript)
-    }
 
-    private func forceReinstallInstalledHelper() async throws {
-        let daemonService = self.helperService()
-        try? await daemonService.unregister()
-        try? await Task.sleep(nanoseconds: 300_000_000)
-        try self.forceCleanupInstalledHelperWithPrivileges()
-        try? await Task.sleep(nanoseconds: 300_000_000)
+        switch self.attemptHelperRegistration() {
+        case .ready:
+            return
+        case .needsApproval:
+            throw SystemProxyServiceError.helperNeedsApproval
+        case let .blocked(message), let .failed(message):
+            throw SystemProxyServiceError.helperRegistrationFailed(message)
+        }
     }
 
     private func invokeMutation(
         _ invoke: @escaping (ProxyHelperProtocol, @escaping (Bool, String?) -> Void) -> Void) async throws
     {
+        try await self.ensureHelperReadyForWrite()
         try await self.invokeHelper { helper, completion in
             invoke(helper) { success, message in
                 if success {
