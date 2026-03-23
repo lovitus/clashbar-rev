@@ -538,13 +538,13 @@ struct SystemProxyService {
 
     private func recoverHelperForRetry(error previousError: Error) async throws {
         let daemonService = self.helperService()
-        let shouldMigrate = self.shouldAttemptHelperMigration(previousError)
+        var shouldMigrate = self.shouldAttemptHelperMigration(previousError)
         if shouldMigrate {
             let migrationKey = self.helperMigrationKey()
             let migrationAllowed = await HelperMigrationAttemptRegistry.shared.consume(migrationKey)
-            guard migrationAllowed else {
-                throw SystemProxyServiceError.helperRecoveryFailed(
-                    "\(previousError.localizedDescription) -> Helper migration already attempted in this app session.")
+            if !migrationAllowed {
+                // Migration should be one-shot, but recovery must continue for later operations in the same session.
+                shouldMigrate = false
             }
         }
 

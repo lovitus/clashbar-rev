@@ -202,40 +202,7 @@ extension MenuBarRootView {
                         Task { await appSession.toggleSystemProxy(value) }
                     }))
 
-            self.quickRowContent(
-                title: tr("ui.quick.system_proxy_helper"),
-                symbol: "wrench.and.screwdriver",
-                foreground: self.systemProxyHelperStatusTint)
-            {
-                VStack(alignment: .trailing, spacing: T.space1) {
-                    Text(self.systemProxyHelperStatusText)
-                        .font(.app(size: T.FontSize.caption, weight: .regular))
-                        .lineLimit(1)
-                        .foregroundStyle(nativeSecondaryLabel)
-                    if !appSession.isRemoteTarget {
-                        HStack(spacing: T.space2) {
-                            Button(tr("ui.system_proxy.helper.install")) {
-                                Task { await appSession.installSystemProxyHelper() }
-                            }
-                            .buttonStyle(.borderless)
-                            .disabled(appSession.systemProxyHelperActionInFlight)
-                            .font(.app(size: T.FontSize.caption, weight: .regular))
-
-                            Text("·")
-                                .font(.app(size: T.FontSize.caption, weight: .regular))
-                                .foregroundStyle(nativeTertiaryLabel)
-
-                            Button(tr("ui.system_proxy.helper.reinstall")) {
-                                Task { await appSession.reinstallSystemProxyHelper() }
-                            }
-                            .buttonStyle(.borderless)
-                            .disabled(appSession.systemProxyHelperActionInFlight)
-                            .font(.app(size: T.FontSize.caption, weight: .regular))
-                        }
-                        .foregroundStyle(nativeInfo)
-                    }
-                }
-            }
+            self.helperStatusRow
 
             self.quickToggleRow(
                 title: tr("ui.quick.tun_mode"),
@@ -395,5 +362,49 @@ extension MenuBarRootView {
             .font(.app(size: T.FontSize.body, weight: .semibold))
             .foregroundStyle(foreground)
             .frame(width: 18, height: 18, alignment: .center)
+    }
+
+    var helperStatusRow: some View {
+        HStack(spacing: T.space6) {
+            self.quickIcon(symbol: "wrench.and.screwdriver", foreground: self.systemProxyHelperStatusTint)
+            HStack(spacing: T.space2) {
+                Text(tr("ui.quick.system_proxy_helper"))
+                    .font(.app(size: T.FontSize.body, weight: .medium))
+                    .foregroundStyle(nativePrimaryLabel)
+                    .lineLimit(1)
+                    .minimumScaleFactor(T.minimumScale)
+
+                if !appSession.isRemoteTarget {
+                    Button(tr("ui.system_proxy.helper.install")) {
+                        Task { await appSession.installSystemProxyHelper() }
+                    }
+                    .buttonStyle(.borderless)
+                    .disabled(appSession.systemProxyHelperActionInFlight)
+                    .font(.app(size: T.FontSize.caption, weight: .regular))
+                    .foregroundStyle(nativeInfo)
+
+                    Text("/")
+                        .font(.app(size: T.FontSize.caption, weight: .regular))
+                        .foregroundStyle(nativeTertiaryLabel)
+
+                    Button(tr("ui.system_proxy.helper.reinstall")) {
+                        Task { await appSession.reinstallSystemProxyHelper() }
+                    }
+                    .buttonStyle(.borderless)
+                    .disabled(appSession.systemProxyHelperActionInFlight)
+                    .font(.app(size: T.FontSize.caption, weight: .regular))
+                    .foregroundStyle(nativeInfo)
+                }
+            }
+            Spacer(minLength: 0)
+            Text(self.systemProxyHelperStatusText)
+                .font(.app(size: T.FontSize.caption, weight: .regular))
+                .lineLimit(1)
+                .foregroundStyle(nativeSecondaryLabel)
+                .frame(width: self.quickRowTrailingColumnWidth, alignment: .trailing)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, T.space4)
+        .padding(.vertical, T.space2)
     }
 }
