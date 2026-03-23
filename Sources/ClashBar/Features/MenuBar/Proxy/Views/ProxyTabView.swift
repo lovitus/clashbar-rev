@@ -316,15 +316,16 @@ extension MenuBarRootView {
         let detail = self.systemProxyHelperDetailText
         switch self.appSession.systemProxyHelperState {
         case .unknown:
-            tr("ui.system_proxy.helper.unknown")
+            return tr("ui.system_proxy.helper.unknown")
         case .running:
-            tr("ui.system_proxy.helper.running")
+            return tr("ui.system_proxy.helper.running")
         case .fallback:
-            detail.map { "\(tr("ui.system_proxy.helper.fallback")) (\($0))" } ?? tr("ui.system_proxy.helper.fallback")
+            return detail.map { "\(tr("ui.system_proxy.helper.fallback")) (\($0))" }
+                ?? tr("ui.system_proxy.helper.fallback")
         case .repairing:
-            tr("ui.system_proxy.helper.repairing")
+            return tr("ui.system_proxy.helper.repairing")
         case .failed:
-            detail.map { "\(tr("ui.system_proxy.helper.failed")) (\($0))" } ?? tr("ui.system_proxy.helper.failed")
+            return detail.map { "\(tr("ui.system_proxy.helper.failed")) (\($0))" } ?? tr("ui.system_proxy.helper.failed")
         }
     }
 
