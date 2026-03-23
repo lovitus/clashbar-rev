@@ -69,6 +69,9 @@ private final class ContinuationBox<Value: Sendable>: @unchecked Sendable {
 }
 
 struct SystemProxyService {
+    private static let helperMigrationLock = NSLock()
+    private static var helperMigrationAttemptedKeys: Set<String> = []
+
     private let helperRecoveryMaxAttempts = 3
     private let helperRecoveryDelayNanoseconds: UInt64 = 1_500_000_000
     private let helperResponseTimeoutNanoseconds: UInt64 = 4_000_000_000
@@ -425,7 +428,7 @@ struct SystemProxyService {
                 lastError = error
                 guard self.shouldRetryAfterRecovery(error) else { throw error }
                 guard attempt < self.helperRecoveryMaxAttempts - 1 else { throw error }
-                try? await Task.sleep(nanoseconds: self.helperRecoveryDelayNanoseconds)
+                try await self.recoverHelperForRetry(error: error)
                 attempt += 1
             }
         }
@@ -449,7 +452,15 @@ struct SystemProxyService {
 
     private func recoverHelperForRetry(error previousError: Error) async throws {
         let daemonService = self.helperService()
-        if daemonService.status == .enabled {
+        let shouldMigrate = self.shouldAttemptHelperMigration(previousError)
+        if shouldMigrate {
+            let migrationKey = self.helperMigrationKey()
+            let migrationAllowed = Self.consumeHelperMigrationAttempt(for: migrationKey)
+            guard migrationAllowed else {
+                throw SystemProxyServiceError.helperRecoveryFailed(
+                    "\(previousError.localizedDescription) -> Helper migration already attempted in this app session.")
+            }
+
             // Stale launchd registrations can point to outdated helper paths after upgrades.
             // Force a re-register before retrying to refresh launch metadata.
             try? await daemonService.unregister()
@@ -478,6 +489,44 @@ struct SystemProxyService {
         }
 
         try? await Task.sleep(nanoseconds: self.helperRecoveryDelayNanoseconds)
+    }
+
+    private func shouldAttemptHelperMigration(_ error: Error) -> Bool {
+        guard let serviceError = error as? SystemProxyServiceError else {
+            return false
+        }
+
+        switch serviceError {
+        case .helperConnectionFailed, .helperRecoveryFailed, .helperRegistrationFailed:
+            return true
+        case let .helperOperationFailed(message):
+            let normalized = message.lowercased()
+            return normalized.contains("operation not permitted")
+                || normalized.contains("launch constraint")
+                || normalized.contains("codesigning")
+                || normalized.contains("code signing")
+        case .helperNeedsApproval, .helperNotBundled, .helperRequiresInstallToApplications, .helperInvalidSignature,
+             .invalidHost, .invalidPort:
+            return false
+        }
+    }
+
+    private func helperMigrationKey() -> String {
+        let appURL = Bundle.main.bundleURL
+        let helperURL = appURL.appendingPathComponent(ProxyHelperConstants.helperBundleProgram, isDirectory: false)
+        let appTeam = self.signingTeamIdentifier(at: appURL) ?? "unknown-app-team"
+        let helperTeam = self.signingTeamIdentifier(at: helperURL) ?? "unknown-helper-team"
+        return "\(ProxyHelperConstants.allowedClientBundleIdentifier)#\(appTeam)#\(helperTeam)"
+    }
+
+    private static func consumeHelperMigrationAttempt(for key: String) -> Bool {
+        Self.helperMigrationLock.lock()
+        defer { Self.helperMigrationLock.unlock() }
+        if Self.helperMigrationAttemptedKeys.contains(key) {
+            return false
+        }
+        Self.helperMigrationAttemptedKeys.insert(key)
+        return true
     }
 
     private func invokeMutation(
