@@ -191,39 +191,16 @@ extension MenuBarRootView {
                 .buttonStyle(.plain)
             }
 
-            self.quickRowContent(
-                title: appSession.isRemoteTarget
-                    ? "\(tr("ui.quick.system_proxy")) (\(tr("ui.machine.local_label")))"
-                    : tr("ui.quick.system_proxy"),
+            self.quickToggleRow(
+                title: self.systemProxyRowTitle,
                 symbol: "network",
-                foreground: nativeInfo)
-            {
-                HStack(spacing: T.space2) {
-                    if !appSession.systemProxyTargetDisplay.isEmpty {
-                        HStack(spacing: 2) {
-                            Text(appSession.systemProxyTargetDisplay)
-                                .font(.system(size: 10, weight: .medium, design: .monospaced))
-                                .foregroundStyle(nativeTertiaryLabel)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.7)
-                            if appSession.isSystemProxyTargetNonLocal {
-                                Image(systemName: "exclamationmark.triangle.fill")
-                                    .font(.system(size: 8, weight: .semibold))
-                                    .foregroundStyle(nativeWarning)
-                            }
-                        }
-                    }
-                    Toggle("", isOn: Binding(
-                        get: { appSession.isSystemProxyEnabled },
-                        set: { value in
-                            Task { await appSession.toggleSystemProxy(value) }
-                        }))
-                        .labelsHidden()
-                        .toggleStyle(.switch)
-                        .controlSize(.small)
-                        .disabled(appSession.isProxySyncing)
-                }
-            }
+                foreground: nativeInfo,
+                isDisabled: appSession.isProxySyncing,
+                isOn: Binding(
+                    get: { appSession.isSystemProxyEnabled },
+                    set: { value in
+                        Task { await appSession.toggleSystemProxy(value) }
+                    }))
 
             self.quickToggleRow(
                 title: tr("ui.quick.tun_mode"),
@@ -277,6 +254,19 @@ extension MenuBarRootView {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, T.space4)
         .padding(.vertical, T.space2)
+    }
+
+    var systemProxyRowTitle: String {
+        var base = appSession.isRemoteTarget
+            ? "\(tr("ui.quick.system_proxy")) (\(tr("ui.machine.local_label")))"
+            : tr("ui.quick.system_proxy")
+        if let display = appSession.systemProxyActiveDisplay {
+            base += " \(display)"
+            if appSession.isSystemProxyActiveNonLocal {
+                base += " \u{26A0}\u{FE0F}"
+            }
+        }
+        return base
     }
 
     func quickToggleRow(

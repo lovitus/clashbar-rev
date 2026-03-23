@@ -72,6 +72,13 @@ final class AppSession: ObservableObject {
     @Published var isRuleProvidersRefreshing: Bool = false
 
     @Published var isSystemProxyEnabled: Bool = false
+    @Published var systemProxyActiveDisplay: String?
+    var isSystemProxyActiveNonLocal: Bool {
+        guard let display = systemProxyActiveDisplay,
+              let host = display.components(separatedBy: ":").first?.trimmingCharacters(in: .whitespaces).lowercased()
+        else { return false }
+        return host != "127.0.0.1" && host != "localhost" && host != "::1"
+    }
     @Published var isProxySyncing: Bool = false
     @Published var isTunEnabled: Bool = false
     @Published var isTunSyncing: Bool = false

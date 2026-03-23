@@ -70,6 +70,7 @@ extension AppSession {
                     level: "info",
                     message: tr("log.system_proxy.startup_repaired", target.host, target.ports.primaryPort ?? 0))
             }
+            systemProxyActiveDisplay = buildSystemProxyDisplayString(host: target.host, ports: target.ports)
 
             didCheckSystemProxyConsistencyOnLaunch = true
             await refreshSystemProxyStatus()

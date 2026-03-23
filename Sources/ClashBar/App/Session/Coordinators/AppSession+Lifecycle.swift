@@ -438,6 +438,7 @@ extension AppSession {
         do {
             try await self.applySystemProxy(enabled: false, host: self.controllerHost(), ports: .disabled)
             self.isSystemProxyEnabled = false
+            self.systemProxyActiveDisplay = nil
             self.appendLog(
                 level: "info",
                 message: self.tr("log.system_proxy.toggled", self.tr("log.system_proxy.disabled")))
@@ -508,6 +509,7 @@ extension AppSession {
                 let target = try await self.resolveSystemProxyTargetFromRuntimeConfig()
                 try await self.applySystemProxy(enabled: true, host: target.host, ports: target.ports)
                 self.isSystemProxyEnabled = true
+                self.systemProxyActiveDisplay = self.buildSystemProxyDisplayString(host: target.host, ports: target.ports)
                 remainingSystemProxyRecovery = false
                 self.appendLog(
                     level: "info",

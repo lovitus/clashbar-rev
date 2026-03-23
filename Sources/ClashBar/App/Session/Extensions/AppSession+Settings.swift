@@ -460,6 +460,7 @@ extension AppSession {
         do {
             let target = try await resolveSystemProxyTargetFromRuntimeConfig()
             try await applySystemProxy(enabled: true, host: target.host, ports: target.ports)
+            systemProxyActiveDisplay = buildSystemProxyDisplayString(host: target.host, ports: target.ports)
             appendLog(level: "info", message: tr("log.system_proxy.port_synced", target.ports.primaryPort ?? 0))
 
             if let previousPorts, previousPorts != target.ports {

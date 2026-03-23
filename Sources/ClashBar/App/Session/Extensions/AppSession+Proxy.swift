@@ -47,8 +47,10 @@ extension AppSession {
             if enabled {
                 let target = try await resolveSystemProxyTargetFromRuntimeConfig()
                 try await applySystemProxy(enabled: true, host: target.host, ports: target.ports)
+                systemProxyActiveDisplay = buildSystemProxyDisplayString(host: target.host, ports: target.ports)
             } else {
                 try await applySystemProxy(enabled: false, host: self.controllerHost(), ports: .disabled)
+                systemProxyActiveDisplay = nil
             }
 
             // Keep a core-side sync call so proxy toggle and runtime config stay aligned.
@@ -141,16 +143,9 @@ extension AppSession {
         return host
     }
 
-    var systemProxyTargetDisplay: String {
-        let host = controllerHost()
-        let primaryPort = mixedPort > 0 ? mixedPort : (port ?? 0)
-        guard primaryPort > 0 else { return "" }
-        return "\(host):\(primaryPort)"
-    }
-
-    var isSystemProxyTargetNonLocal: Bool {
-        let host = controllerHost().trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        return host != "127.0.0.1" && host != "localhost" && host != "::1"
+    func buildSystemProxyDisplayString(host: String, ports: SystemProxyPorts) -> String? {
+        guard let port = ports.primaryPort, port > 0 else { return nil }
+        return "\(host):\(port)"
     }
 
     func makeControllerUIURL(_ controller: String) -> String {
