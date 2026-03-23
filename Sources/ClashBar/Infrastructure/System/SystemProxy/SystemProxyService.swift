@@ -68,19 +68,6 @@ private final class ContinuationBox<Value: Sendable>: @unchecked Sendable {
     }
 }
 
-private actor HelperMigrationAttemptRegistry {
-    static let shared = HelperMigrationAttemptRegistry()
-    private var attemptedKeys: Set<String> = []
-
-    func consume(_ key: String) -> Bool {
-        if self.attemptedKeys.contains(key) {
-            return false
-        }
-        self.attemptedKeys.insert(key)
-        return true
-    }
-}
-
 struct SystemProxyService {
     private let helperToolInstallPath = "/Library/PrivilegedHelperTools/com.clashbar.helper"
     private let helperPlistInstallPath = "/Library/LaunchDaemons/com.clashbar.helper.plist"
@@ -88,6 +75,13 @@ struct SystemProxyService {
     private let helperRecoveryMaxAttempts = 3
     private let helperRecoveryDelayNanoseconds: UInt64 = 1_500_000_000
     private let helperResponseTimeoutNanoseconds: UInt64 = 4_000_000_000
+
+    private enum HelperRegistrationResult {
+        case ready
+        case needsApproval
+        case blocked(String)
+        case failed(String)
+    }
 
     func warmUpHelperIfPossible() async {
         guard self.isHelperBundledInMainApp() else { return }
@@ -289,35 +283,32 @@ struct SystemProxyService {
         }
         try self.validateHelperSigningRequirements()
 
-        let daemonService = self.helperService()
+        let firstAttempt = self.attemptHelperRegistration(openSettingsOnApproval: false)
+        switch firstAttempt {
+        case .ready:
+            return
+        case .needsApproval, .blocked, .failed:
+            break
+        }
+
+        // Always try one privileged cleanup+reinstall path before giving up. This handles
+        // stale/disallowed helper state across build signature changes.
         do {
-            try daemonService.register()
+            try self.forceCleanupInstalledHelperWithPrivileges()
+            Thread.sleep(forTimeInterval: 0.3)
         } catch {
-            if daemonService.status == .enabled {
-                return
-            }
-            if daemonService.status == .requiresApproval {
-                if self.isLikelyBlockedBySystemPolicy(error) {
-                    throw SystemProxyServiceError.helperRegistrationFailed(error.localizedDescription)
-                }
-                SMAppService.openSystemSettingsLoginItems()
-                throw SystemProxyServiceError.helperNeedsApproval
-            }
             throw SystemProxyServiceError.helperRegistrationFailed(error.localizedDescription)
         }
 
-        if daemonService.status == .enabled {
+        let secondAttempt = self.attemptHelperRegistration(openSettingsOnApproval: true)
+        switch secondAttempt {
+        case .ready:
             return
-        }
-
-        if daemonService.status == .requiresApproval {
-            SMAppService.openSystemSettingsLoginItems()
+        case .needsApproval:
             throw SystemProxyServiceError.helperNeedsApproval
+        case let .blocked(message), let .failed(message):
+            throw SystemProxyServiceError.helperRegistrationFailed(message)
         }
-
-        throw SystemProxyServiceError
-            .helperRegistrationFailed(
-                "Service remains unavailable after register call. status=\(daemonService.status.rawValue)")
     }
 
     private func ensureHelperReadyForRead() throws {
@@ -500,61 +491,11 @@ struct SystemProxyService {
     }
 
     private func recoverHelperForRetry(error previousError: Error) async throws {
-        let daemonService = self.helperService()
-        var shouldMigrate = self.shouldAttemptHelperMigration(previousError)
-        if shouldMigrate {
-            let migrationKey = self.helperMigrationKey()
-            let migrationAllowed = await HelperMigrationAttemptRegistry.shared.consume(migrationKey)
-            if !migrationAllowed {
-                // Migration should be one-shot, but recovery must continue for later operations in the same session.
-                shouldMigrate = false
-            }
-        }
-
-        if daemonService.status == .enabled {
-            try? await daemonService.unregister()
-            try? await Task.sleep(nanoseconds: 300_000_000)
-        }
-
-        if shouldMigrate {
-            do {
-                try self.forceCleanupInstalledHelperWithPrivileges()
-                try? await Task.sleep(nanoseconds: 300_000_000)
-            } catch {
-                throw SystemProxyServiceError.helperRecoveryFailed(
-                    "\(previousError.localizedDescription) -> Helper migration cleanup failed: \(error.localizedDescription)")
-            }
-        }
-
         do {
-            try daemonService.register()
+            try self.ensureHelperReadyForWrite()
         } catch {
-            switch daemonService.status {
-            case .enabled:
-                // Helper 已注册且已批准，register() 抛出 "already registered" 属于正常情况，
-                // 此时 daemon 可能正由 launchd 启动中，等待即可
-                break
-            case .requiresApproval:
-                if self.isLikelyBlockedBySystemPolicy(error) {
-                    throw SystemProxyServiceError.helperRecoveryFailed(
-                        "\(previousError.localizedDescription) -> \(error.localizedDescription)")
-                }
-                SMAppService.openSystemSettingsLoginItems()
-                throw SystemProxyServiceError.helperNeedsApproval
-            default:
-                throw SystemProxyServiceError.helperRecoveryFailed(
-                    "\(previousError.localizedDescription) -> \(error.localizedDescription)")
-            }
-        }
-
-        if daemonService.status == .requiresApproval {
-            SMAppService.openSystemSettingsLoginItems()
-            throw SystemProxyServiceError.helperNeedsApproval
-        }
-
-        guard daemonService.status == .enabled else {
             throw SystemProxyServiceError.helperRecoveryFailed(
-                "\(previousError.localizedDescription) -> Helper service unavailable after migration. status=\(daemonService.status.rawValue)")
+                "\(previousError.localizedDescription) -> \(error.localizedDescription)")
         }
 
         try? await Task.sleep(nanoseconds: self.helperRecoveryDelayNanoseconds)
@@ -583,18 +524,47 @@ struct SystemProxyService {
                 || normalized.contains("launch constraint")
                 || normalized.contains("codesigning")
                 || normalized.contains("code signing")
-        case .helperNeedsApproval, .helperNotBundled, .helperRequiresInstallToApplications, .helperInvalidSignature,
+        case .helperNeedsApproval:
+            return true
+        case .helperNotBundled, .helperRequiresInstallToApplications, .helperInvalidSignature,
              .invalidHost, .invalidPort:
             return false
         }
     }
 
-    private func helperMigrationKey() -> String {
-        let appURL = Bundle.main.bundleURL
-        let helperURL = appURL.appendingPathComponent(ProxyHelperConstants.helperBundleProgram, isDirectory: false)
-        let appTeam = self.signingTeamIdentifier(at: appURL) ?? "unknown-app-team"
-        let helperTeam = self.signingTeamIdentifier(at: helperURL) ?? "unknown-helper-team"
-        return "\(ProxyHelperConstants.allowedClientBundleIdentifier)#\(appTeam)#\(helperTeam)"
+    private func attemptHelperRegistration(openSettingsOnApproval: Bool) -> HelperRegistrationResult {
+        let daemonService = self.helperService()
+        do {
+            try daemonService.register()
+        } catch {
+            if daemonService.status == .enabled {
+                return .ready
+            }
+            if daemonService.status == .requiresApproval {
+                if self.isLikelyBlockedBySystemPolicy(error) {
+                    return .blocked(error.localizedDescription)
+                }
+                if openSettingsOnApproval {
+                    SMAppService.openSystemSettingsLoginItems()
+                }
+                return .needsApproval
+            }
+            if self.isLikelyBlockedBySystemPolicy(error) {
+                return .blocked(error.localizedDescription)
+            }
+            return .failed(error.localizedDescription)
+        }
+
+        if daemonService.status == .enabled {
+            return .ready
+        }
+        if daemonService.status == .requiresApproval {
+            if openSettingsOnApproval {
+                SMAppService.openSystemSettingsLoginItems()
+            }
+            return .needsApproval
+        }
+        return .failed("Service remains unavailable after register call. status=\(daemonService.status.rawValue)")
     }
 
     private func forceCleanupInstalledHelperWithPrivileges() throws {
