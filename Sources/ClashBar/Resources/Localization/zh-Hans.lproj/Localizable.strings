@@ -178,6 +178,7 @@
 "ui.common.latency_ms" = "%dms";
 "ui.system_proxy.helper.unknown" = "未知";
 "ui.system_proxy.helper.running" = "运行中";
+"ui.system_proxy.helper.fallback" = "降级模式";
 "ui.system_proxy.helper.repairing" = "修复中...";
 "ui.system_proxy.helper.failed" = "故障";
 
@@ -291,6 +292,7 @@
 "log.system_proxy.startup_repair_failed" = "启动时校验系统代理失败: %@";
 "log.system_proxy.helper_repairing" = "系统代理 helper 故障，正在尝试自动修复...";
 "log.system_proxy.helper_healthy" = "系统代理 helper 已恢复运行";
+"log.system_proxy.helper_fallback" = "系统代理 helper 不可用，已切换到降级模式: %@";
 "log.system_proxy.helper_failed" = "系统代理 helper 修复失败: %@";
 "log.tun.toggled" = "TUN 模式%@";
 "log.tun.enabled" = "已开启";

@@ -286,6 +286,8 @@ extension MenuBarRootView {
             tr("ui.system_proxy.helper.unknown")
         case .running:
             tr("ui.system_proxy.helper.running")
+        case .fallback:
+            tr("ui.system_proxy.helper.fallback")
         case .repairing:
             tr("ui.system_proxy.helper.repairing")
         case .failed:
@@ -299,6 +301,8 @@ extension MenuBarRootView {
             nativeSecondaryLabel
         case .running:
             nativePositive
+        case .fallback:
+            nativeInfo
         case .repairing:
             nativeWarning
         case .failed:

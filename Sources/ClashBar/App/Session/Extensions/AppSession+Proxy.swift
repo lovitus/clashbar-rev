@@ -64,8 +64,10 @@ extension AppSession {
             try await self.patchRuntimeConfigUseCase().execute(body: ["mode": .string(currentMode.rawValue)])
 
             isSystemProxyEnabled = enabled
-            self.systemProxyHelperState = .running
-            self.systemProxyHelperFailureMessage = nil
+            if self.systemProxyHelperState != .fallback {
+                self.systemProxyHelperState = .running
+                self.systemProxyHelperFailureMessage = nil
+            }
             let state = enabled ? tr("log.system_proxy.enabled") : tr("log.system_proxy.disabled")
             appendLog(level: "info", message: tr("log.system_proxy.toggled", state))
         } catch {

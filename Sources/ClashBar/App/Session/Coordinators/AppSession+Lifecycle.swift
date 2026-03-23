@@ -204,9 +204,9 @@ extension AppSession {
 
     func quitApp() async {
         self.prepareForTermination()
-        try? await applySystemProxy(enabled: false, host: controllerHost(), ports: .disabled)
-        if coreRepository.isRunning {
-            await self.stopCoreUseCase.execute()
+        self.isPanelPresented = false
+        NSApplication.shared.windows.forEach { window in
+            window.orderOut(nil)
         }
         NSApplication.shared.terminate(nil)
     }

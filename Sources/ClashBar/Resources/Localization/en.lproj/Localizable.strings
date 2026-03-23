@@ -178,6 +178,7 @@
 "ui.common.latency_ms" = "%dms";
 "ui.system_proxy.helper.unknown" = "Unknown";
 "ui.system_proxy.helper.running" = "Running";
+"ui.system_proxy.helper.fallback" = "Fallback";
 "ui.system_proxy.helper.repairing" = "Repairing...";
 "ui.system_proxy.helper.failed" = "Failed";
 
@@ -291,6 +292,7 @@
 "log.system_proxy.startup_repair_failed" = "Startup system proxy check failed: %@";
 "log.system_proxy.helper_repairing" = "System proxy helper fault detected. Trying automatic recovery...";
 "log.system_proxy.helper_healthy" = "System proxy helper recovered and is running";
+"log.system_proxy.helper_fallback" = "System proxy helper unavailable. Using fallback mode: %@";
 "log.system_proxy.helper_failed" = "System proxy helper recovery failed: %@";
 "log.tun.toggled" = "TUN mode %@";
 "log.tun.enabled" = "enabled";

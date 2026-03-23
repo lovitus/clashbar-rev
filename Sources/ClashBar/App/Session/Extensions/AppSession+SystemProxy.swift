@@ -49,6 +49,10 @@ extension AppSession {
             if autoRepair {
                 appendLog(level: "info", message: tr("log.system_proxy.helper_healthy"))
             }
+        case let .fallback(message):
+            self.systemProxyHelperState = .fallback
+            self.systemProxyHelperFailureMessage = message
+            appendLog(level: "warning", message: tr("log.system_proxy.helper_fallback", message))
         case let .failed(message):
             self.systemProxyHelperState = .failed
             self.systemProxyHelperFailureMessage = message
