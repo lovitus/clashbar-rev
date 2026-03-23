@@ -43,7 +43,9 @@ extension AppSession {
         isProxySyncing = true
         defer { isProxySyncing = false }
 
-        await self.refreshSystemProxyHelperStatus(autoRepair: true)
+        // Avoid forcing helper auto-repair on disable path, so users can still turn proxy off
+        // via fallback even when helper is unhealthy.
+        await self.refreshSystemProxyHelperStatus(autoRepair: enabled)
         if self.systemProxyHelperState == .failed {
             let reason = self.systemProxyHelperFailureMessage ?? tr("ui.common.unknown")
             appendLog(
@@ -65,7 +67,10 @@ extension AppSession {
             try await self.patchRuntimeConfigUseCase().execute(body: ["mode": .string(currentMode.rawValue)])
 
             isSystemProxyEnabled = enabled
-            if self.systemProxyHelperState != .fallback {
+            if self.systemProxyHelperState == .unknown
+                || self.systemProxyHelperState == .running
+                || self.systemProxyHelperState == .repairing
+            {
                 self.systemProxyHelperState = .running
                 self.systemProxyHelperIssue = .none
                 self.systemProxyHelperFailureMessage = nil
@@ -74,7 +79,10 @@ extension AppSession {
             appendLog(level: "info", message: tr("log.system_proxy.toggled", state))
         } catch {
             appendLog(level: "error", message: tr("log.system_proxy.toggle_failed", systemProxyErrorMessage(error)))
-            await self.refreshSystemProxyHelperStatus(autoRepair: true)
+            let shouldAutoRepair = enabled
+                && self.systemProxyHelperState != .fallback
+                && self.systemProxyHelperState != .failed
+            await self.refreshSystemProxyHelperStatus(autoRepair: shouldAutoRepair)
             await refreshSystemProxyStatus()
         }
     }

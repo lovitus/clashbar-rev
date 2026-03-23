@@ -367,7 +367,10 @@ extension AppSession {
             }
         } catch {
             appendLog(level: "error", message: tr("log.system_proxy.read_failed", systemProxyErrorMessage(error)))
-            await self.refreshSystemProxyHelperStatus(autoRepair: self.systemProxyHelperState != .failed)
+            let shouldAutoRepair = self.systemProxyHelperState == .unknown
+                || self.systemProxyHelperState == .running
+                || self.systemProxyHelperState == .repairing
+            await self.refreshSystemProxyHelperStatus(autoRepair: shouldAutoRepair)
         }
     }
 
