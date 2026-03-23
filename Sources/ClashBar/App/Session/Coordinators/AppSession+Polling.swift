@@ -355,11 +355,18 @@ extension AppSession {
         do {
             let enabled = try await readSystemProxyEnabledState()
             isSystemProxyEnabled = enabled
-            if !enabled {
+            if enabled {
+                systemProxyActiveDisplay = try await readSystemProxyActiveDisplay()
+            } else {
                 systemProxyActiveDisplay = nil
+            }
+            if self.systemProxyHelperState != .repairing {
+                self.systemProxyHelperState = .running
+                self.systemProxyHelperFailureMessage = nil
             }
         } catch {
             appendLog(level: "error", message: tr("log.system_proxy.read_failed", systemProxyErrorMessage(error)))
+            await self.refreshSystemProxyHelperStatus(autoRepair: self.systemProxyHelperState != .failed)
         }
     }
 

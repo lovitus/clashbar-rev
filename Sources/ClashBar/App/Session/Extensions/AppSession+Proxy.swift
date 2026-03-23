@@ -43,11 +43,18 @@ extension AppSession {
         isProxySyncing = true
         defer { isProxySyncing = false }
 
+        await self.refreshSystemProxyHelperStatus(autoRepair: true)
+        guard self.systemProxyHelperState != .failed else {
+            let reason = self.systemProxyHelperFailureMessage ?? tr("ui.common.unknown")
+            appendLog(level: "error", message: tr("log.system_proxy.toggle_failed", reason))
+            return
+        }
+
         do {
             if enabled {
                 let target = try await resolveSystemProxyTargetFromRuntimeConfig()
                 try await applySystemProxy(enabled: true, host: target.host, ports: target.ports)
-                systemProxyActiveDisplay = buildSystemProxyDisplayString(host: target.host, ports: target.ports)
+                systemProxyActiveDisplay = self.buildSystemProxyDisplayString(host: target.host, ports: target.ports)
             } else {
                 try await applySystemProxy(enabled: false, host: self.controllerHost(), ports: .disabled)
                 systemProxyActiveDisplay = nil
@@ -57,10 +64,13 @@ extension AppSession {
             try await self.patchRuntimeConfigUseCase().execute(body: ["mode": .string(currentMode.rawValue)])
 
             isSystemProxyEnabled = enabled
+            self.systemProxyHelperState = .running
+            self.systemProxyHelperFailureMessage = nil
             let state = enabled ? tr("log.system_proxy.enabled") : tr("log.system_proxy.disabled")
             appendLog(level: "info", message: tr("log.system_proxy.toggled", state))
         } catch {
             appendLog(level: "error", message: tr("log.system_proxy.toggle_failed", systemProxyErrorMessage(error)))
+            await self.refreshSystemProxyHelperStatus(autoRepair: true)
             await refreshSystemProxyStatus()
         }
     }
@@ -145,7 +155,11 @@ extension AppSession {
 
     func buildSystemProxyDisplayString(host: String, ports: SystemProxyPorts) -> String? {
         guard let port = ports.primaryPort, port > 0 else { return nil }
-        return "\(host):\(port)"
+        let trimmedHost = host.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmedHost.contains(":"), !trimmedHost.hasPrefix("[") {
+            return "[\(trimmedHost)]:\(port)"
+        }
+        return "\(trimmedHost):\(port)"
     }
 
     func makeControllerUIURL(_ controller: String) -> String {

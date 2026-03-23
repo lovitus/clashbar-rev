@@ -119,10 +119,24 @@ struct SystemProxyService {
     func isSystemProxyEnabled() async throws -> Bool {
         let daemonService = self.helperService()
         guard daemonService.status == .enabled else {
-            return false
+            throw SystemProxyServiceError.helperRegistrationFailed(
+                "Helper service not enabled. status=\(daemonService.status.rawValue)")
         }
 
         return try await self.invokeStateQueryWithRecovery()
+    }
+
+    func readSystemProxyActiveDisplay() async throws -> String? {
+        let daemonService = self.helperService()
+        guard daemonService.status == .enabled else {
+            throw SystemProxyServiceError.helperRegistrationFailed(
+                "Helper service not enabled. status=\(daemonService.status.rawValue)")
+        }
+
+        guard let target = try await self.invokeActiveTargetQueryWithRecovery() else {
+            return nil
+        }
+        return self.formatProxyDisplay(host: target.host, port: target.port)
     }
 
     func isSystemProxyConfigured(host: String, ports: SystemProxyPorts) async throws -> Bool {
@@ -141,6 +155,34 @@ struct SystemProxyService {
                 socksPort: resolvedPorts.socksPort,
                 completion: completion)
         }
+    }
+
+    func diagnoseAndRepairHelper() async -> SystemProxyHelperDiagnosis {
+        if !self.isHelperBundledInMainApp() {
+            return .failed(message: SystemProxyServiceError.helperNotBundled.localizedDescription)
+        }
+        if self.isRunningFromReadOnlyVolume() {
+            return .failed(message: SystemProxyServiceError.helperRequiresInstallToApplications.localizedDescription)
+        }
+
+        for attempt in 0..<self.helperRecoveryMaxAttempts {
+            do {
+                try self.ensureHelperReadyForWrite()
+                _ = try await self.invokeStateQueryWithoutRecovery()
+                return .healthy
+            } catch {
+                if attempt == self.helperRecoveryMaxAttempts - 1 {
+                    return .failed(message: self.helperFailureMessage(error))
+                }
+                do {
+                    try await self.recoverHelperForRetry(error: error)
+                } catch {
+                    return .failed(message: self.helperFailureMessage(error))
+                }
+            }
+        }
+
+        return .failed(message: "Unknown helper failure.")
     }
 
     private func validateHost(_ host: String) throws {
@@ -266,6 +308,31 @@ struct SystemProxyService {
         }
     }
 
+    private func invokeStateQueryWithoutRecovery() async throws -> Bool {
+        try await self.invokeBooleanQuery { helper, completion in
+            helper.getSystemProxyState(completion: completion)
+        }
+    }
+
+    private func invokeActiveTargetQueryWithRecovery() async throws -> (host: String, port: Int)? {
+        var attempt = 0
+        var lastError: Error?
+
+        while attempt < self.helperRecoveryMaxAttempts {
+            do {
+                return try await self.invokeActiveTargetQuery()
+            } catch {
+                lastError = error
+                guard self.shouldRetryAfterRecovery(error) else { throw error }
+                guard attempt < self.helperRecoveryMaxAttempts - 1 else { throw error }
+                try await self.recoverHelperForRetry(error: error)
+                attempt += 1
+            }
+        }
+
+        throw lastError ?? SystemProxyServiceError.helperOperationFailed("Unknown helper query failure.")
+    }
+
     private func invokeBooleanQueryWithRecovery(
         _ invoke: @escaping (ProxyHelperProtocol, @escaping (Bool, Bool, String?) -> Void) -> Void) async throws -> Bool
     {
@@ -303,6 +370,12 @@ struct SystemProxyService {
 
     private func recoverHelperForRetry(error previousError: Error) async throws {
         let daemonService = self.helperService()
+        if daemonService.status == .enabled {
+            // Stale launchd registrations can point to outdated helper paths after upgrades.
+            // Force a re-register before retrying to refresh launch metadata.
+            try? daemonService.unregister()
+            try? await Task.sleep(nanoseconds: 300_000_000)
+        }
         do {
             try daemonService.register()
         } catch {
@@ -354,6 +427,37 @@ struct SystemProxyService {
                 completion(.failure(SystemProxyServiceError.helperOperationFailed(message ?? "Unknown helper error.")))
             }
         }
+    }
+
+    private func invokeActiveTargetQuery() async throws -> (host: String, port: Int)? {
+        try await self.invokeHelper { helper, completion in
+            helper.getSystemProxyActiveTarget { success, host, port, message in
+                if success {
+                    guard let host, !host.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, port > 0 else {
+                        completion(.success(nil))
+                        return
+                    }
+                    completion(.success((host: host, port: port)))
+                    return
+                }
+                completion(.failure(SystemProxyServiceError.helperOperationFailed(message ?? "Unknown helper error.")))
+            }
+        }
+    }
+
+    private func formatProxyDisplay(host: String, port: Int) -> String {
+        let trimmedHost = host.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmedHost.contains(":"), !trimmedHost.hasPrefix("[") {
+            return "[\(trimmedHost)]:\(port)"
+        }
+        return "\(trimmedHost):\(port)"
+    }
+
+    private func helperFailureMessage(_ error: Error) -> String {
+        if let serviceError = error as? SystemProxyServiceError {
+            return serviceError.localizedDescription
+        }
+        return error.localizedDescription
     }
 
     private func invokeHelper<Value: Sendable>(

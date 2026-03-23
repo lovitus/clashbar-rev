@@ -76,6 +76,7 @@
 
 "ui.quick.switch_config" = "Switch Config";
 "ui.quick.system_proxy" = "System Proxy";
+"ui.quick.system_proxy_helper" = "Proxy Helper";
 "ui.quick.tun_mode" = "TUN Mode";
 "ui.quick.copy_terminal" = "Copy Terminal Command";
 "ui.quick.reload_config_list" = "Reload Config List";
@@ -175,6 +176,10 @@
 "ui.common.timeout" = "Timeout";
 "ui.common.testing" = "Testing...";
 "ui.common.latency_ms" = "%dms";
+"ui.system_proxy.helper.unknown" = "Unknown";
+"ui.system_proxy.helper.running" = "Running";
+"ui.system_proxy.helper.repairing" = "Repairing...";
+"ui.system_proxy.helper.failed" = "Failed";
 
 "app.runtime.starting" = "Starting";
 "app.runtime.running" = "Running";
@@ -283,6 +288,9 @@
 "log.system_proxy.port_sync_failed" = "Failed to sync system proxy port: %@";
 "log.system_proxy.startup_repaired" = "Startup check fixed system proxy to %@:%d";
 "log.system_proxy.startup_repair_failed" = "Startup system proxy check failed: %@";
+"log.system_proxy.helper_repairing" = "System proxy helper fault detected. Trying automatic recovery...";
+"log.system_proxy.helper_healthy" = "System proxy helper recovered and is running";
+"log.system_proxy.helper_failed" = "System proxy helper recovery failed: %@";
 "log.tun.toggled" = "TUN mode %@";
 "log.tun.enabled" = "enabled";
 "log.tun.disabled" = "disabled";

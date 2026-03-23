@@ -202,6 +202,17 @@ extension MenuBarRootView {
                         Task { await appSession.toggleSystemProxy(value) }
                     }))
 
+            self.quickRowContent(
+                title: tr("ui.quick.system_proxy_helper"),
+                symbol: "wrench.and.screwdriver",
+                foreground: self.systemProxyHelperStatusTint)
+            {
+                Text(self.systemProxyHelperStatusText)
+                    .font(.app(size: T.FontSize.caption, weight: .regular))
+                    .lineLimit(1)
+                    .foregroundStyle(nativeSecondaryLabel)
+            }
+
             self.quickToggleRow(
                 title: tr("ui.quick.tun_mode"),
                 symbol: "shield.lefthalf.filled",
@@ -267,6 +278,32 @@ extension MenuBarRootView {
             }
         }
         return base
+    }
+
+    var systemProxyHelperStatusText: String {
+        switch appSession.systemProxyHelperState {
+        case .unknown:
+            tr("ui.system_proxy.helper.unknown")
+        case .running:
+            tr("ui.system_proxy.helper.running")
+        case .repairing:
+            tr("ui.system_proxy.helper.repairing")
+        case .failed:
+            tr("ui.system_proxy.helper.failed")
+        }
+    }
+
+    var systemProxyHelperStatusTint: Color {
+        switch appSession.systemProxyHelperState {
+        case .unknown:
+            nativeSecondaryLabel
+        case .running:
+            nativePositive
+        case .repairing:
+            nativeWarning
+        case .failed:
+            nativeNegative
+        }
     }
 
     func quickToggleRow(

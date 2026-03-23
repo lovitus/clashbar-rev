@@ -26,8 +26,34 @@ extension AppSession {
         try await self.readSystemProxyEnabledStateUseCase.execute()
     }
 
+    func readSystemProxyActiveDisplay() async throws -> String? {
+        try await self.systemProxyRepository.readActiveDisplay()
+    }
+
     func isSystemProxyConfigured(host: String, ports: SystemProxyPorts) async throws -> Bool {
         try await self.checkSystemProxyConfiguredUseCase.execute(host: host, ports: ports)
+    }
+
+    func refreshSystemProxyHelperStatus(autoRepair: Bool) async {
+        if autoRepair {
+            self.systemProxyHelperState = .repairing
+            self.systemProxyHelperFailureMessage = nil
+            appendLog(level: "info", message: tr("log.system_proxy.helper_repairing"))
+        }
+
+        let diagnosis = await self.systemProxyRepository.diagnoseAndRepair()
+        switch diagnosis {
+        case .healthy:
+            self.systemProxyHelperState = .running
+            self.systemProxyHelperFailureMessage = nil
+            if autoRepair {
+                appendLog(level: "info", message: tr("log.system_proxy.helper_healthy"))
+            }
+        case let .failed(message):
+            self.systemProxyHelperState = .failed
+            self.systemProxyHelperFailureMessage = message
+            appendLog(level: "error", message: tr("log.system_proxy.helper_failed", message))
+        }
     }
 
     func systemProxyPorts(from config: ConfigSnapshot) -> SystemProxyPorts {
@@ -70,6 +96,8 @@ extension AppSession {
                     level: "info",
                     message: tr("log.system_proxy.startup_repaired", target.host, target.ports.primaryPort ?? 0))
             }
+            self.systemProxyHelperState = .running
+            self.systemProxyHelperFailureMessage = nil
             systemProxyActiveDisplay = buildSystemProxyDisplayString(host: target.host, ports: target.ports)
 
             didCheckSystemProxyConsistencyOnLaunch = true
@@ -78,6 +106,7 @@ extension AppSession {
             appendLog(
                 level: "error",
                 message: tr("log.system_proxy.startup_repair_failed", self.systemProxyErrorMessage(error)))
+            await self.refreshSystemProxyHelperStatus(autoRepair: true)
         }
     }
 

@@ -342,7 +342,9 @@ extension AppSession {
                 previousPorts: previousSystemProxyPorts)
             return true
         } catch {
-            appendLog(level: "error", message: "PATCH /configs failed [\(patchKeysDescription)]: \(error.localizedDescription)")
+            appendLog(
+                level: "error",
+                message: "PATCH /configs failed [\(patchKeysDescription)]: \(error.localizedDescription)")
             let message = tr("app.settings.error.save_failed", syncingKey, error.localizedDescription)
             if self.isOverlaySyncingKey(syncingKey) {
                 appendLog(level: "error", message: message)
@@ -468,6 +470,7 @@ extension AppSession {
             }
         } catch {
             appendLog(level: "error", message: tr("log.system_proxy.port_sync_failed", systemProxyErrorMessage(error)))
+            await self.refreshSystemProxyHelperStatus(autoRepair: true)
         }
     }
 
