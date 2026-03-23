@@ -527,7 +527,7 @@ final class AppSession: ObservableObject {
                 await applyPendingAppLaunchSettingsOverlayIfNeeded()
                 // Register and ping the helper once so launchd can demand-launch it early.
                 await self.systemProxyRepository.warmUpHelperIfPossible()
-                await self.refreshSystemProxyHelperStatus(autoRepair: true)
+                await self.refreshSystemProxyHelperStatus(autoRepair: false)
                 await refreshSystemProxyStatus()
                 await ensureSystemProxyConsistencyOnFirstLaunchIfNeeded()
             }

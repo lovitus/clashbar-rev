@@ -197,7 +197,7 @@ extension AppSession {
             appendLog(
                 level: "error",
                 message: tr("log.system_proxy.startup_repair_failed", self.systemProxyErrorMessage(error)))
-            await self.refreshSystemProxyHelperStatus(autoRepair: true)
+            await self.refreshSystemProxyHelperStatus(autoRepair: false)
         }
     }
 

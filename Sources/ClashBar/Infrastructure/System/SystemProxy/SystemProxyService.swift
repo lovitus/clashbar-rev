@@ -68,6 +68,30 @@ private final class ContinuationBox<Value: Sendable>: @unchecked Sendable {
     }
 }
 
+private actor HelperPrivilegedRepairGate {
+    static let shared = HelperPrivilegedRepairGate()
+
+    private var inFlight = false
+    private var lastAttemptAt: Date = .distantPast
+
+    func begin(minInterval: TimeInterval) -> Bool {
+        let now = Date()
+        if self.inFlight {
+            return false
+        }
+        if now.timeIntervalSince(self.lastAttemptAt) < minInterval {
+            return false
+        }
+        self.inFlight = true
+        self.lastAttemptAt = now
+        return true
+    }
+
+    func end() {
+        self.inFlight = false
+    }
+}
+
 struct SystemProxyService {
     private let helperToolInstallPath = "/Library/PrivilegedHelperTools/com.clashbar.helper"
     private let helperPlistInstallPath = "/Library/LaunchDaemons/com.clashbar.helper.plist"
@@ -75,6 +99,7 @@ struct SystemProxyService {
     private let helperRecoveryMaxAttempts = 3
     private let helperRecoveryDelayNanoseconds: UInt64 = 1_500_000_000
     private let helperResponseTimeoutNanoseconds: UInt64 = 4_000_000_000
+    private let helperPrivilegedRepairMinInterval: TimeInterval = 6
 
     private enum HelperRegistrationResult {
         case ready
@@ -112,9 +137,6 @@ struct SystemProxyService {
 
         if enabled {
             let resolvedPorts = try validateAndResolvePorts(ports, requiresEnabledPort: true)
-            try await invokeMutationWithRecovery { helper, completion in
-                helper.clearSystemProxy(completion: completion)
-            }
             try await invokeMutationWithRecovery { helper, completion in
                 helper.setSystemProxy(
                     host: host,
@@ -184,7 +206,7 @@ struct SystemProxyService {
 
         for attempt in 0..<self.helperRecoveryMaxAttempts {
             do {
-                try self.ensureHelperReadyForWrite()
+                try await self.ensureHelperReadyForWrite()
                 _ = try await self.invokeStateQueryWithoutRecovery()
                 return .healthy
             } catch {
@@ -226,14 +248,14 @@ struct SystemProxyService {
             if forceReinstall {
                 try await self.forceReinstallInstalledHelper()
             }
-            try self.ensureHelperReadyForWrite()
+            try await self.ensureHelperReadyForWrite()
             _ = try await self.invokeStateQueryWithoutRecovery()
             return .healthy
         } catch {
             if !forceReinstall, self.shouldAttemptHelperMigration(error) {
                 do {
                     try await self.forceReinstallInstalledHelper()
-                    try self.ensureHelperReadyForWrite()
+                    try await self.ensureHelperReadyForWrite()
                     _ = try await self.invokeStateQueryWithoutRecovery()
                     return .healthy
                 } catch {
@@ -274,7 +296,7 @@ struct SystemProxyService {
         return value
     }
 
-    private func ensureHelperReadyForWrite() throws {
+    private func ensureHelperReadyForWrite() async throws {
         guard self.isHelperBundledInMainApp() else {
             throw SystemProxyServiceError.helperNotBundled
         }
@@ -289,6 +311,24 @@ struct SystemProxyService {
             return
         case .needsApproval, .blocked, .failed:
             break
+        }
+
+        let permitPrivilegedRepair = await HelperPrivilegedRepairGate.shared.begin(
+            minInterval: self.helperPrivilegedRepairMinInterval)
+        guard permitPrivilegedRepair else {
+            switch firstAttempt {
+            case .ready:
+                return
+            case .needsApproval:
+                throw SystemProxyServiceError.helperNeedsApproval
+            case let .blocked(message), let .failed(message):
+                throw SystemProxyServiceError.helperRegistrationFailed(message)
+            }
+        }
+        defer {
+            Task {
+                await HelperPrivilegedRepairGate.shared.end()
+            }
         }
 
         // Always try one privileged cleanup+reinstall path before giving up. This handles
@@ -407,7 +447,7 @@ struct SystemProxyService {
 
         while attempt < self.helperRecoveryMaxAttempts {
             do {
-                try self.ensureHelperReadyForWrite()
+                try await self.ensureHelperReadyForWrite()
                 try await self.invokeMutation(invoke)
                 return
             } catch {
@@ -492,7 +532,7 @@ struct SystemProxyService {
 
     private func recoverHelperForRetry(error previousError: Error) async throws {
         do {
-            try self.ensureHelperReadyForWrite()
+            try await self.ensureHelperReadyForWrite()
         } catch {
             throw SystemProxyServiceError.helperRecoveryFailed(
                 "\(previousError.localizedDescription) -> \(error.localizedDescription)")

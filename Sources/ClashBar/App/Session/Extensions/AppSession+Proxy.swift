@@ -45,7 +45,7 @@ extension AppSession {
 
         // Avoid forcing helper auto-repair on disable path, so users can still turn proxy off
         // even when helper is unhealthy.
-        await self.refreshSystemProxyHelperStatus(autoRepair: enabled)
+        await self.refreshSystemProxyHelperStatus(autoRepair: false)
         if self.systemProxyHelperState == .failed {
             let reason = self.systemProxyHelperFailureMessage ?? tr("ui.common.unknown")
             appendLog(level: "error", message: tr("log.system_proxy.toggle_failed", reason))
@@ -77,9 +77,7 @@ extension AppSession {
             appendLog(level: "info", message: tr("log.system_proxy.toggled", state))
         } catch {
             appendLog(level: "error", message: tr("log.system_proxy.toggle_failed", systemProxyErrorMessage(error)))
-            let shouldAutoRepair = enabled
-                && self.systemProxyHelperState != .failed
-            await self.refreshSystemProxyHelperStatus(autoRepair: shouldAutoRepair)
+            await self.refreshSystemProxyHelperStatus(autoRepair: false)
             await refreshSystemProxyStatus()
         }
     }
