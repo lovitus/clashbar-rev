@@ -11,6 +11,7 @@ protocol SystemProxyRepository: AnyObject {
     func isEnabled() async throws -> Bool
     func readActiveDisplay() async throws -> String?
     func isConfigured(host: String, ports: SystemProxyPorts) async throws -> Bool
+    func diagnoseCurrentHelper() async -> SystemProxyHelperDiagnosis
     func diagnoseAndRepair() async -> SystemProxyHelperDiagnosis
     func installHelper() async -> SystemProxyHelperDiagnosis
     func reinstallHelper() async -> SystemProxyHelperDiagnosis

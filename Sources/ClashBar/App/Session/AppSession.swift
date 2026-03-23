@@ -413,6 +413,9 @@ final class AppSession: ObservableObject {
     var shouldResumeCoreAfterNetworkRecovery = false
     var isNetworkReachabilityMonitoring = false
     var pendingCoreFeatureRecoveryState: CoreFeatureRecoveryState?
+    var systemProxyHelperAutoRepairInFlight = false
+    var lastSystemProxyHelperAutoRepairAt: Date = .distantPast
+    let systemProxyHelperAutoRepairMinInterval: TimeInterval = 8
     var deferredEditableSettingsOverlay: (snapshot: EditableSettingsSnapshot, syncingKey: String)?
     var remoteConfigSources: [String: String] = [:]
     var externalControllerWarningKeys: Set<String> = []

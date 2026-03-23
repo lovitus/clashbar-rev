@@ -137,49 +137,46 @@ struct SystemProxyService {
     }
 
     func isSystemProxyEnabled() async throws -> Bool {
-        try await self.withHelperStateReadRecovery {
-            let daemonService = self.helperService()
-            guard daemonService.status == .enabled else {
-                throw SystemProxyServiceError.helperRegistrationFailed(
-                    "Helper service not enabled. status=\(daemonService.status.rawValue)")
-            }
-            return try await self.invokeStateQueryWithRecovery()
-        }
+        try self.ensureHelperReadyForRead()
+        return try await self.invokeStateQueryWithoutRecovery()
     }
 
     func readSystemProxyActiveDisplay() async throws -> String? {
-        try await self.withHelperStateReadRecovery {
-            let daemonService = self.helperService()
-            guard daemonService.status == .enabled else {
-                throw SystemProxyServiceError.helperRegistrationFailed(
-                    "Helper service not enabled. status=\(daemonService.status.rawValue)")
-            }
-
-            guard let target = try await self.invokeActiveTargetQueryWithRecovery() else {
-                return nil
-            }
-            return self.formatProxyDisplay(host: target.host, port: target.port)
+        try self.ensureHelperReadyForRead()
+        guard let target = try await self.invokeActiveTargetQuery() else {
+            return nil
         }
+        return self.formatProxyDisplay(host: target.host, port: target.port)
     }
 
     func isSystemProxyConfigured(host: String, ports: SystemProxyPorts) async throws -> Bool {
         try self.validateHost(host)
         let resolvedPorts = try validateAndResolvePorts(ports, requiresEnabledPort: true)
-        return try await self.withHelperStateReadRecovery {
-            let daemonService = self.helperService()
-            guard daemonService.status == .enabled else {
-                throw SystemProxyServiceError.helperRegistrationFailed(
-                    "Helper service not enabled. status=\(daemonService.status.rawValue)")
-            }
+        try self.ensureHelperReadyForRead()
+        return try await self.invokeBooleanQuery { helper, completion in
+            helper.isSystemProxyConfigured(
+                host: host,
+                httpPort: resolvedPorts.httpPort,
+                httpsPort: resolvedPorts.httpsPort,
+                socksPort: resolvedPorts.socksPort,
+                completion: completion)
+        }
+    }
 
-            return try await self.invokeBooleanQueryWithRecovery { helper, completion in
-                helper.isSystemProxyConfigured(
-                    host: host,
-                    httpPort: resolvedPorts.httpPort,
-                    httpsPort: resolvedPorts.httpsPort,
-                    socksPort: resolvedPorts.socksPort,
-                    completion: completion)
-            }
+    func diagnoseCurrentHelper() async -> SystemProxyHelperDiagnosis {
+        if !self.isHelperBundledInMainApp() {
+            return .failed(message: self.helperFailureMessage(SystemProxyServiceError.helperNotBundled))
+        }
+        if self.isRunningFromReadOnlyVolume() {
+            return .failed(message: self.helperFailureMessage(SystemProxyServiceError.helperRequiresInstallToApplications))
+        }
+
+        do {
+            try self.ensureHelperReadyForRead()
+            _ = try await self.invokeStateQueryWithoutRecovery()
+            return .healthy
+        } catch {
+            return .failed(message: self.helperFailureMessage(error))
         }
     }
 
@@ -221,23 +218,6 @@ struct SystemProxyService {
 
     func reinstallHelperManually() async -> SystemProxyHelperDiagnosis {
         await self.manualRepairHelper(forceReinstall: true)
-    }
-
-    private func withHelperStateReadRecovery<T: Sendable>(_ operation: @escaping () async throws -> T) async throws -> T {
-        var lastError: Error?
-        for attempt in 0..<self.helperRecoveryMaxAttempts {
-            do {
-                return try await operation()
-            } catch {
-                lastError = error
-                let shouldRecoverNow = self.shouldRetryAfterRecovery(error) || self.shouldAttemptHelperMigration(error)
-                guard shouldRecoverNow, attempt < self.helperRecoveryMaxAttempts - 1 else {
-                    throw error
-                }
-                try await self.recoverHelperForRetry(error: error)
-            }
-        }
-        throw lastError ?? SystemProxyServiceError.helperOperationFailed("Unknown helper state query failure.")
     }
 
     private func manualRepairHelper(forceReinstall: Bool) async -> SystemProxyHelperDiagnosis {
@@ -317,6 +297,9 @@ struct SystemProxyService {
                 return
             }
             if daemonService.status == .requiresApproval {
+                if self.isLikelyBlockedBySystemPolicy(error) {
+                    throw SystemProxyServiceError.helperRegistrationFailed(error.localizedDescription)
+                }
                 SMAppService.openSystemSettingsLoginItems()
                 throw SystemProxyServiceError.helperNeedsApproval
             }
@@ -335,6 +318,25 @@ struct SystemProxyService {
         throw SystemProxyServiceError
             .helperRegistrationFailed(
                 "Service remains unavailable after register call. status=\(daemonService.status.rawValue)")
+    }
+
+    private func ensureHelperReadyForRead() throws {
+        guard self.isHelperBundledInMainApp() else {
+            throw SystemProxyServiceError.helperNotBundled
+        }
+        guard !self.isRunningFromReadOnlyVolume() else {
+            throw SystemProxyServiceError.helperRequiresInstallToApplications
+        }
+
+        let daemonService = self.helperService()
+        if daemonService.status == .enabled {
+            return
+        }
+        if daemonService.status == .requiresApproval {
+            throw SystemProxyServiceError.helperNeedsApproval
+        }
+        throw SystemProxyServiceError.helperRegistrationFailed(
+            "Helper service not enabled. status=\(daemonService.status.rawValue)")
     }
 
     private func isHelperBundledInMainApp() -> Bool {
@@ -533,6 +535,10 @@ struct SystemProxyService {
                 // 此时 daemon 可能正由 launchd 启动中，等待即可
                 break
             case .requiresApproval:
+                if self.isLikelyBlockedBySystemPolicy(error) {
+                    throw SystemProxyServiceError.helperRecoveryFailed(
+                        "\(previousError.localizedDescription) -> \(error.localizedDescription)")
+                }
                 SMAppService.openSystemSettingsLoginItems()
                 throw SystemProxyServiceError.helperNeedsApproval
             default:
@@ -552,6 +558,15 @@ struct SystemProxyService {
         }
 
         try? await Task.sleep(nanoseconds: self.helperRecoveryDelayNanoseconds)
+    }
+
+    private func isLikelyBlockedBySystemPolicy(_ error: Error) -> Bool {
+        let normalized = error.localizedDescription.lowercased()
+        return normalized.contains("operation not permitted")
+            || normalized.contains("disallowed")
+            || normalized.contains("denied")
+            || normalized.contains("launch constraint")
+            || normalized.contains("background item")
     }
 
     private func shouldAttemptHelperMigration(_ error: Error) -> Bool {

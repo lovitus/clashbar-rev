@@ -24,6 +24,10 @@ final class DefaultSystemProxyRepository: SystemProxyRepository {
         try await self.service.isSystemProxyConfigured(host: host, ports: ports)
     }
 
+    func diagnoseCurrentHelper() async -> SystemProxyHelperDiagnosis {
+        await self.service.diagnoseCurrentHelper()
+    }
+
     func diagnoseAndRepair() async -> SystemProxyHelperDiagnosis {
         await self.service.diagnoseAndRepairHelper()
     }

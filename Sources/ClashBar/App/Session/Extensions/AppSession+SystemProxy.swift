@@ -13,6 +13,9 @@ extension AppSession {
         if normalized.contains("requires approval") || normalized.contains("login items") {
             return .needsApproval
         }
+        if normalized.contains("disallowed") || normalized.contains("background item") {
+            return .permissionDenied
+        }
         if normalized.contains("/applications") || normalized.contains("read-only") {
             return .installLocationInvalid
         }
@@ -84,13 +87,34 @@ extension AppSession {
 
     func refreshSystemProxyHelperStatus(autoRepair: Bool) async {
         if autoRepair {
+            let now = Date()
+            if self.systemProxyHelperAutoRepairInFlight {
+                return
+            }
+            if now.timeIntervalSince(self.lastSystemProxyHelperAutoRepairAt) < self.systemProxyHelperAutoRepairMinInterval {
+                return
+            }
+            self.systemProxyHelperAutoRepairInFlight = true
+            self.lastSystemProxyHelperAutoRepairAt = now
             self.systemProxyHelperState = .repairing
             self.systemProxyHelperIssue = .none
             self.systemProxyHelperFailureMessage = nil
             appendLog(level: "info", message: tr("log.system_proxy.helper_repairing"))
+        } else if self.systemProxyHelperAutoRepairInFlight {
+            return
+        }
+        defer {
+            if autoRepair {
+                self.systemProxyHelperAutoRepairInFlight = false
+            }
         }
 
-        let diagnosis = await self.systemProxyRepository.diagnoseAndRepair()
+        let diagnosis: SystemProxyHelperDiagnosis
+        if autoRepair {
+            diagnosis = await self.systemProxyRepository.diagnoseAndRepair()
+        } else {
+            diagnosis = await self.systemProxyRepository.diagnoseCurrentHelper()
+        }
         self.applyHelperDiagnosis(diagnosis, autoRepair: autoRepair)
     }
 
