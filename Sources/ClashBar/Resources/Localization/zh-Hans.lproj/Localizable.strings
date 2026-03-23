@@ -207,6 +207,7 @@
 "app.system_proxy.error.helper_not_bundled" = "未找到系统代理 helper。请使用打包后的应用（.app/.dmg）";
 "app.system_proxy.error.helper_install_location" = "请先将 ClashBar.app 拖到“应用程序”目录后重试";
 "app.system_proxy.error.helper_needs_approval" = "需要在系统设置 > 通用 > 登录项中允许 ClashBar 后台项目，然后重试";
+"app.system_proxy.error.helper_invalid_signature" = "系统代理 helper 签名无效: %@";
 "app.system_proxy.error.helper_registration_failed" = "注册系统代理 helper 失败: %@";
 "app.system_proxy.error.helper_recovery_failed" = "恢复系统代理 helper 失败: %@";
 "app.system_proxy.error.helper_connection_failed" = "连接系统代理 helper 失败: %@";

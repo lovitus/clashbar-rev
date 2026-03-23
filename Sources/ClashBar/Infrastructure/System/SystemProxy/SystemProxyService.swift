@@ -1,5 +1,6 @@
 import Foundation
 import ProxyHelperShared
+import Security
 import ServiceManagement
 
 enum SystemProxyServiceError: LocalizedError {
@@ -8,6 +9,7 @@ enum SystemProxyServiceError: LocalizedError {
     case helperNotBundled
     case helperRequiresInstallToApplications
     case helperNeedsApproval
+    case helperInvalidSignature(String)
     case helperRegistrationFailed(String)
     case helperRecoveryFailed(String)
     case helperConnectionFailed(String)
@@ -26,6 +28,8 @@ enum SystemProxyServiceError: LocalizedError {
                 "Move ClashBar.app to /Applications and reopen it."
         case .helperNeedsApproval:
             "Privileged helper requires approval in System Settings > Login Items."
+        case let .helperInvalidSignature(message):
+            "Privileged helper signature invalid: \(message)"
         case let .helperRegistrationFailed(message):
             "Failed to register privileged helper: \(message)"
         case let .helperRecoveryFailed(message):
@@ -222,6 +226,7 @@ struct SystemProxyService {
         guard !self.isRunningFromReadOnlyVolume() else {
             throw SystemProxyServiceError.helperRequiresInstallToApplications
         }
+        try self.validateHelperSigningRequirements()
 
         let daemonService = self.helperService()
         do {
@@ -275,6 +280,41 @@ struct SystemProxyService {
 
     private func helperService() -> SMAppService {
         SMAppService.daemon(plistName: ProxyHelperConstants.daemonPlistName)
+    }
+
+    private func validateHelperSigningRequirements() throws {
+        let appURL = Bundle.main.bundleURL
+        let helperURL = appURL.appendingPathComponent(ProxyHelperConstants.helperBundleProgram, isDirectory: false)
+
+        guard let appTeam = self.signingTeamIdentifier(at: appURL), !appTeam.isEmpty else {
+            throw SystemProxyServiceError.helperInvalidSignature(
+                "Main app is not signed with a valid TeamIdentifier. Use a signed .app/.dmg build.")
+        }
+        guard let helperTeam = self.signingTeamIdentifier(at: helperURL), !helperTeam.isEmpty else {
+            throw SystemProxyServiceError.helperInvalidSignature(
+                "Helper binary is not signed with a valid TeamIdentifier. Reinstall the signed app build.")
+        }
+        guard appTeam == helperTeam else {
+            throw SystemProxyServiceError.helperInvalidSignature(
+                "App and helper TeamIdentifier mismatch (\(appTeam) != \(helperTeam)).")
+        }
+    }
+
+    private func signingTeamIdentifier(at url: URL) -> String? {
+        var staticCode: SecStaticCode?
+        guard SecStaticCodeCreateWithPath(url as CFURL, SecCSFlags(), &staticCode) == errSecSuccess,
+              let staticCode
+        else { return nil }
+
+        var info: CFDictionary?
+        guard SecCodeCopySigningInformation(
+            staticCode,
+            SecCSFlags(rawValue: kSecCSSigningInformation),
+            &info) == errSecSuccess,
+            let dict = info as? [String: Any]
+        else { return nil }
+
+        return dict[kSecCodeInfoTeamIdentifier as String] as? String
     }
 
     private func invokeMutationWithRecovery(
@@ -362,8 +402,8 @@ struct SystemProxyService {
         switch serviceError {
         case .helperConnectionFailed, .helperOperationFailed, .helperRegistrationFailed:
             return true
-        case .helperNeedsApproval, .helperNotBundled, .helperRequiresInstallToApplications, .invalidHost, .invalidPort,
-             .helperRecoveryFailed:
+        case .helperNeedsApproval, .helperNotBundled, .helperRequiresInstallToApplications, .helperInvalidSignature,
+             .invalidHost, .invalidPort, .helperRecoveryFailed:
             return false
         }
     }

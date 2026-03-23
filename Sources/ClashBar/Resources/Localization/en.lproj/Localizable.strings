@@ -207,6 +207,7 @@
 "app.system_proxy.error.helper_not_bundled" = "Privileged helper not found in app bundle. Use the packaged .app/.dmg build";
 "app.system_proxy.error.helper_install_location" = "Move ClashBar.app to /Applications and reopen it before enabling system proxy";
 "app.system_proxy.error.helper_needs_approval" = "Allow ClashBar background item in System Settings > General > Login Items, then try again";
+"app.system_proxy.error.helper_invalid_signature" = "Privileged helper signature invalid: %@";
 "app.system_proxy.error.helper_registration_failed" = "Failed to register privileged helper: %@";
 "app.system_proxy.error.helper_recovery_failed" = "Failed to recover privileged helper: %@";
 "app.system_proxy.error.helper_connection_failed" = "Failed to connect privileged helper: %@";

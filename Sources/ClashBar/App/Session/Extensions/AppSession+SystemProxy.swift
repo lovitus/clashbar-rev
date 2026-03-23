@@ -150,6 +150,8 @@ extension AppSession {
             return tr("app.system_proxy.error.helper_install_location")
         case .helperNeedsApproval:
             return tr("app.system_proxy.error.helper_needs_approval")
+        case let .helperInvalidSignature(message):
+            return tr("app.system_proxy.error.helper_invalid_signature", message)
         case let .helperRegistrationFailed(message):
             return tr("app.system_proxy.error.helper_registration_failed", message)
         case let .helperRecoveryFailed(message):
