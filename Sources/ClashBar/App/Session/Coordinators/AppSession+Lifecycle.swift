@@ -420,10 +420,8 @@ extension AppSession {
         transitionKind: CoreTransitionKind) async
     {
         let runtimeRunningBeforeTransition = self.isRuntimeRunning
-        let shouldSkipProxyFlipForFallbackRestart = transitionKind == .restart && self.systemProxyHelperState == .fallback
         let capturedRecovery = CoreFeatureRecoveryState(
-            systemProxyEnabled: runtimeRunningBeforeTransition && self.isSystemProxyEnabled
-                && !shouldSkipProxyFlipForFallbackRestart,
+            systemProxyEnabled: runtimeRunningBeforeTransition && self.isSystemProxyEnabled,
             tunEnabled: runtimeRunningBeforeTransition && self.isTunEnabled)
 
         let baseRecovery: CoreFeatureRecoveryState = if capturedRecovery.shouldRecoverAnyFeature {
@@ -442,7 +440,6 @@ extension AppSession {
         }
 
         guard self.isSystemProxyEnabled else { return }
-        guard !shouldSkipProxyFlipForFallbackRestart else { return }
         self.isProxySyncing = true
         defer { self.isProxySyncing = false }
 

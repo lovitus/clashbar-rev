@@ -2,7 +2,6 @@ import Foundation
 
 enum SystemProxyHelperDiagnosis: Equatable {
     case healthy
-    case fallback(message: String)
     case failed(message: String)
 }
 

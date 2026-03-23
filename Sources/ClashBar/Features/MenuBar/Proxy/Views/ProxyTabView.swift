@@ -286,9 +286,6 @@ extension MenuBarRootView {
             return tr("ui.system_proxy.helper.unknown")
         case .running:
             return tr("ui.system_proxy.helper.running")
-        case .fallback:
-            return detail.map { "\(tr("ui.system_proxy.helper.fallback")) (\($0))" }
-                ?? tr("ui.system_proxy.helper.fallback")
         case .repairing:
             return tr("ui.system_proxy.helper.repairing")
         case .failed:
@@ -300,8 +297,6 @@ extension MenuBarRootView {
         switch self.appSession.systemProxyHelperIssue {
         case .none:
             nil
-        case .autoRepairFailed:
-            tr("ui.system_proxy.helper.detail.auto_repair_failed")
         case .signatureMismatch:
             tr("ui.system_proxy.helper.detail.signature_mismatch")
         case .needsApproval:
@@ -327,8 +322,6 @@ extension MenuBarRootView {
             nativeSecondaryLabel
         case .running:
             nativePositive
-        case .fallback:
-            nativeInfo
         case .repairing:
             nativeWarning
         case .failed:

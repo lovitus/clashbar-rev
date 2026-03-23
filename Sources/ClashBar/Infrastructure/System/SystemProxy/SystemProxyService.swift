@@ -88,7 +88,6 @@ struct SystemProxyService {
     private let helperRecoveryMaxAttempts = 3
     private let helperRecoveryDelayNanoseconds: UInt64 = 1_500_000_000
     private let helperResponseTimeoutNanoseconds: UInt64 = 4_000_000_000
-    private let fallbackReasonPrefix = "Using elevated system command fallback."
 
     func warmUpHelperIfPossible() async {
         guard self.isHelperBundledInMainApp() else { return }
@@ -117,70 +116,46 @@ struct SystemProxyService {
     func applySystemProxy(enabled: Bool, host: String, ports: SystemProxyPorts) async throws {
         try self.validateHost(host)
 
-        do {
-            if enabled {
-                let resolvedPorts = try validateAndResolvePorts(ports, requiresEnabledPort: true)
-                try await invokeMutationWithRecovery { helper, completion in
-                    helper.clearSystemProxy(completion: completion)
-                }
-                try await invokeMutationWithRecovery { helper, completion in
-                    helper.setSystemProxy(
-                        host: host,
-                        httpPort: resolvedPorts.httpPort,
-                        httpsPort: resolvedPorts.httpsPort,
-                        socksPort: resolvedPorts.socksPort,
-                        completion: completion)
-                }
-            } else {
-                try await self.invokeMutationWithRecovery { helper, completion in
-                    helper.clearSystemProxy(completion: completion)
-                }
+        if enabled {
+            let resolvedPorts = try validateAndResolvePorts(ports, requiresEnabledPort: true)
+            try await invokeMutationWithRecovery { helper, completion in
+                helper.clearSystemProxy(completion: completion)
             }
-        } catch {
-            guard self.shouldUseFallbackMode(error) else {
-                throw error
+            try await invokeMutationWithRecovery { helper, completion in
+                helper.setSystemProxy(
+                    host: host,
+                    httpPort: resolvedPorts.httpPort,
+                    httpsPort: resolvedPorts.httpsPort,
+                    socksPort: resolvedPorts.socksPort,
+                    completion: completion)
             }
-            try self.applySystemProxyFallback(enabled: enabled, host: host, ports: ports)
+        } else {
+            try await self.invokeMutationWithRecovery { helper, completion in
+                helper.clearSystemProxy(completion: completion)
+            }
         }
     }
 
     func isSystemProxyEnabled() async throws -> Bool {
-        do {
-            return try await self.withHelperStateReadRecovery {
-                let daemonService = self.helperService()
-                guard daemonService.status == .enabled else {
-                    throw SystemProxyServiceError.helperRegistrationFailed(
-                        "Helper service not enabled. status=\(daemonService.status.rawValue)")
-                }
-                return try await self.invokeStateQueryWithRecovery()
+        try await self.withHelperStateReadRecovery {
+            let daemonService = self.helperService()
+            guard daemonService.status == .enabled else {
+                throw SystemProxyServiceError.helperRegistrationFailed(
+                    "Helper service not enabled. status=\(daemonService.status.rawValue)")
             }
-        } catch {
-            guard self.shouldUseFallbackMode(error) else {
-                throw error
-            }
-            return try self.readFallbackProxySnapshot().isEnabled
+            return try await self.invokeStateQueryWithRecovery()
         }
     }
 
     func readSystemProxyActiveDisplay() async throws -> String? {
-        do {
-            return try await self.withHelperStateReadRecovery {
-                let daemonService = self.helperService()
-                guard daemonService.status == .enabled else {
-                    throw SystemProxyServiceError.helperRegistrationFailed(
-                        "Helper service not enabled. status=\(daemonService.status.rawValue)")
-                }
+        try await self.withHelperStateReadRecovery {
+            let daemonService = self.helperService()
+            guard daemonService.status == .enabled else {
+                throw SystemProxyServiceError.helperRegistrationFailed(
+                    "Helper service not enabled. status=\(daemonService.status.rawValue)")
+            }
 
-                guard let target = try await self.invokeActiveTargetQueryWithRecovery() else {
-                    return nil
-                }
-                return self.formatProxyDisplay(host: target.host, port: target.port)
-            }
-        } catch {
-            guard self.shouldUseFallbackMode(error) else {
-                throw error
-            }
-            guard let target = try self.readFallbackProxySnapshot().activeTarget else {
+            guard let target = try await self.invokeActiveTargetQueryWithRecovery() else {
                 return nil
             }
             return self.formatProxyDisplay(host: target.host, port: target.port)
@@ -190,41 +165,30 @@ struct SystemProxyService {
     func isSystemProxyConfigured(host: String, ports: SystemProxyPorts) async throws -> Bool {
         try self.validateHost(host)
         let resolvedPorts = try validateAndResolvePorts(ports, requiresEnabledPort: true)
-        do {
-            return try await self.withHelperStateReadRecovery {
-                let daemonService = self.helperService()
-                guard daemonService.status == .enabled else {
-                    throw SystemProxyServiceError.helperRegistrationFailed(
-                        "Helper service not enabled. status=\(daemonService.status.rawValue)")
-                }
+        return try await self.withHelperStateReadRecovery {
+            let daemonService = self.helperService()
+            guard daemonService.status == .enabled else {
+                throw SystemProxyServiceError.helperRegistrationFailed(
+                    "Helper service not enabled. status=\(daemonService.status.rawValue)")
+            }
 
-                return try await self.invokeBooleanQueryWithRecovery { helper, completion in
-                    helper.isSystemProxyConfigured(
-                        host: host,
-                        httpPort: resolvedPorts.httpPort,
-                        httpsPort: resolvedPorts.httpsPort,
-                        socksPort: resolvedPorts.socksPort,
-                        completion: completion)
-                }
+            return try await self.invokeBooleanQueryWithRecovery { helper, completion in
+                helper.isSystemProxyConfigured(
+                    host: host,
+                    httpPort: resolvedPorts.httpPort,
+                    httpsPort: resolvedPorts.httpsPort,
+                    socksPort: resolvedPorts.socksPort,
+                    completion: completion)
             }
-        } catch {
-            guard self.shouldUseFallbackMode(error) else {
-                throw error
-            }
-            return try self.readFallbackProxySnapshot().matches(
-                expectedHost: host,
-                httpPort: resolvedPorts.httpPort,
-                httpsPort: resolvedPorts.httpsPort,
-                socksPort: resolvedPorts.socksPort)
         }
     }
 
     func diagnoseAndRepairHelper() async -> SystemProxyHelperDiagnosis {
         if !self.isHelperBundledInMainApp() {
-            return .fallback(message: self.fallbackDiagnosisMessage(SystemProxyServiceError.helperNotBundled))
+            return .failed(message: self.helperFailureMessage(SystemProxyServiceError.helperNotBundled))
         }
         if self.isRunningFromReadOnlyVolume() {
-            return .fallback(message: self.fallbackDiagnosisMessage(SystemProxyServiceError.helperRequiresInstallToApplications))
+            return .failed(message: self.helperFailureMessage(SystemProxyServiceError.helperRequiresInstallToApplications))
         }
 
         for attempt in 0..<self.helperRecoveryMaxAttempts {
@@ -241,9 +205,6 @@ struct SystemProxyService {
                     } catch {
                         return .failed(message: self.helperFailureMessage(error))
                     }
-                }
-                if self.shouldUseFallbackMode(error) {
-                    return .fallback(message: self.fallbackDiagnosisMessage(error))
                 }
                 if attempt == self.helperRecoveryMaxAttempts - 1 || !shouldRecoverNow {
                     return .failed(message: self.helperFailureMessage(error))
@@ -699,227 +660,6 @@ struct SystemProxyService {
         return error.localizedDescription
     }
 
-    private func fallbackDiagnosisMessage(_ error: Error) -> String {
-        "\(self.fallbackReasonPrefix) \(self.helperFailureMessage(error))"
-    }
-
-    private func shouldUseFallbackMode(_ error: Error) -> Bool {
-        guard let serviceError = error as? SystemProxyServiceError else {
-            return false
-        }
-
-        switch serviceError {
-        case .helperInvalidSignature, .helperRegistrationFailed, .helperRecoveryFailed, .helperConnectionFailed,
-             .helperNeedsApproval, .helperNotBundled, .helperRequiresInstallToApplications, .helperOperationFailed:
-            return true
-        case .invalidHost, .invalidPort:
-            return false
-        }
-    }
-
-    private func applySystemProxyFallback(enabled: Bool, host: String, ports: SystemProxyPorts) throws {
-        let resolvedPorts: (httpPort: Int, httpsPort: Int, socksPort: Int) = if enabled {
-            try self.validateAndResolvePorts(ports, requiresEnabledPort: true)
-        } else {
-            (0, 0, 0)
-        }
-        let services = try self.listAllNetworkServices()
-        guard !services.isEmpty else {
-            throw SystemProxyServiceError.helperOperationFailed("No enabled network services found.")
-        }
-
-        var commands: [String] = []
-        for service in services {
-            let escapedService = self.shellQuoted(service)
-            if enabled {
-                commands += self.proxyCommands(
-                    service: escapedService,
-                    host: host,
-                    httpPort: resolvedPorts.httpPort,
-                    httpsPort: resolvedPorts.httpsPort,
-                    socksPort: resolvedPorts.socksPort)
-            } else {
-                commands += self.clearProxyCommands(service: escapedService)
-            }
-        }
-
-        let shellCommand = commands.joined(separator: " && ")
-        let appleScript = "do shell script \"\(self.appleScriptEscaped(shellCommand))\" with administrator privileges"
-        try self.runAppleScriptSynchronously(appleScript)
-    }
-
-    private func proxyCommands(
-        service: String,
-        host: String,
-        httpPort: Int,
-        httpsPort: Int,
-        socksPort: Int) -> [String]
-    {
-        let escapedHost = self.shellQuoted(host)
-        var commands: [String] = []
-
-        if httpPort > 0 {
-            commands.append("/usr/sbin/networksetup -setwebproxy \(service) \(escapedHost) \(httpPort)")
-            commands.append("/usr/sbin/networksetup -setwebproxystate \(service) on")
-        } else {
-            commands.append("/usr/sbin/networksetup -setwebproxystate \(service) off")
-        }
-
-        if httpsPort > 0 {
-            commands.append("/usr/sbin/networksetup -setsecurewebproxy \(service) \(escapedHost) \(httpsPort)")
-            commands.append("/usr/sbin/networksetup -setsecurewebproxystate \(service) on")
-        } else {
-            commands.append("/usr/sbin/networksetup -setsecurewebproxystate \(service) off")
-        }
-
-        if socksPort > 0 {
-            commands.append("/usr/sbin/networksetup -setsocksfirewallproxy \(service) \(escapedHost) \(socksPort)")
-            commands.append("/usr/sbin/networksetup -setsocksfirewallproxystate \(service) on")
-        } else {
-            commands.append("/usr/sbin/networksetup -setsocksfirewallproxystate \(service) off")
-        }
-
-        return commands
-    }
-
-    private func clearProxyCommands(service: String) -> [String] {
-        [
-            "/usr/sbin/networksetup -setwebproxystate \(service) off",
-            "/usr/sbin/networksetup -setsecurewebproxystate \(service) off",
-            "/usr/sbin/networksetup -setsocksfirewallproxystate \(service) off",
-        ]
-    }
-
-    private func listAllNetworkServices() throws -> [String] {
-        let result = try self.runProcessSynchronously(
-            executable: "/usr/sbin/networksetup",
-            arguments: ["-listallnetworkservices"])
-        guard result.exitCode == 0 else {
-            throw SystemProxyServiceError.helperOperationFailed(result.combinedOutput)
-        }
-
-        return result.stdout
-            .components(separatedBy: .newlines)
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-            .filter { !$0.hasPrefix("An asterisk") }
-            .filter { !$0.hasPrefix("*") }
-    }
-
-    private struct FallbackProxySnapshot {
-        let httpEnabled: Bool
-        let httpHost: String
-        let httpPort: Int
-        let httpsEnabled: Bool
-        let httpsHost: String
-        let httpsPort: Int
-        let socksEnabled: Bool
-        let socksHost: String
-        let socksPort: Int
-
-        var isEnabled: Bool {
-            self.httpEnabled || self.httpsEnabled || self.socksEnabled
-        }
-
-        var activeTarget: (host: String, port: Int)? {
-            if self.httpEnabled, self.httpPort > 0, !self.httpHost.isEmpty {
-                return (self.httpHost, self.httpPort)
-            }
-            if self.httpsEnabled, self.httpsPort > 0, !self.httpsHost.isEmpty {
-                return (self.httpsHost, self.httpsPort)
-            }
-            if self.socksEnabled, self.socksPort > 0, !self.socksHost.isEmpty {
-                return (self.socksHost, self.socksPort)
-            }
-            return nil
-        }
-
-        func matches(expectedHost: String, httpPort: Int, httpsPort: Int, socksPort: Int) -> Bool {
-            let normalizedExpectedHost = expectedHost.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-            return self.matchesEntry(
-                enabled: self.httpEnabled,
-                host: self.httpHost,
-                port: self.httpPort,
-                expectedHost: normalizedExpectedHost,
-                expectedPort: httpPort)
-                && self.matchesEntry(
-                    enabled: self.httpsEnabled,
-                    host: self.httpsHost,
-                    port: self.httpsPort,
-                    expectedHost: normalizedExpectedHost,
-                    expectedPort: httpsPort)
-                && self.matchesEntry(
-                    enabled: self.socksEnabled,
-                    host: self.socksHost,
-                    port: self.socksPort,
-                    expectedHost: normalizedExpectedHost,
-                    expectedPort: socksPort)
-        }
-
-        private func matchesEntry(
-            enabled: Bool,
-            host: String,
-            port: Int,
-            expectedHost: String,
-            expectedPort: Int) -> Bool
-        {
-            if expectedPort == 0 {
-                return !enabled
-            }
-            guard enabled else { return false }
-            return host.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == expectedHost && port == expectedPort
-        }
-    }
-
-    private func readFallbackProxySnapshot() throws -> FallbackProxySnapshot {
-        let result = try self.runProcessSynchronously(
-            executable: "/usr/sbin/scutil",
-            arguments: ["--proxy"])
-        guard result.exitCode == 0 else {
-            throw SystemProxyServiceError.helperOperationFailed(result.combinedOutput)
-        }
-
-        let dict = self.parseScutilProxyOutput(result.stdout)
-        return FallbackProxySnapshot(
-            httpEnabled: self.boolValue(dict["HTTPEnable"]),
-            httpHost: self.stringValue(dict["HTTPProxy"]),
-            httpPort: self.intValue(dict["HTTPPort"]),
-            httpsEnabled: self.boolValue(dict["HTTPSEnable"]),
-            httpsHost: self.stringValue(dict["HTTPSProxy"]),
-            httpsPort: self.intValue(dict["HTTPSPort"]),
-            socksEnabled: self.boolValue(dict["SOCKSEnable"]),
-            socksHost: self.stringValue(dict["SOCKSProxy"]),
-            socksPort: self.intValue(dict["SOCKSPort"]))
-    }
-
-    private func parseScutilProxyOutput(_ text: String) -> [String: String] {
-        var output: [String: String] = [:]
-        for line in text.components(separatedBy: .newlines) {
-            let parts = line.split(separator: ":", maxSplits: 1).map(String.init)
-            guard parts.count == 2 else { continue }
-            let key = parts[0].trimmingCharacters(in: .whitespacesAndNewlines)
-            let value = parts[1].trimmingCharacters(in: .whitespacesAndNewlines)
-            if !key.isEmpty {
-                output[key] = value
-            }
-        }
-        return output
-    }
-
-    private func boolValue(_ value: String?) -> Bool {
-        guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() else {
-            return false
-        }
-        return value == "1" || value == "true" || value == "yes"
-    }
-
-    private func intValue(_ value: String?) -> Int {
-        Int(value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "") ?? 0
-    }
-
-    private func stringValue(_ value: String?) -> String {
-        value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-    }
 
     private struct ProcessResult {
         let exitCode: Int32

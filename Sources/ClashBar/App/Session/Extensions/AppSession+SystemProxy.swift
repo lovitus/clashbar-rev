@@ -5,9 +5,6 @@ extension AppSession {
     private func helperIssue(from message: String?) -> SystemProxyHelperIssue {
         let normalized = (message ?? "").trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         if normalized.isEmpty { return .none }
-        if normalized.contains("fallback") || normalized.contains("auto") {
-            return .autoRepairFailed
-        }
         if normalized.contains("teamidentifier") || normalized.contains("signature")
             || normalized.contains("codesign") || normalized.contains("code signing")
         {
@@ -45,11 +42,6 @@ extension AppSession {
             if autoRepair {
                 appendLog(level: "info", message: tr("log.system_proxy.helper_healthy"))
             }
-        case let .fallback(message):
-            self.systemProxyHelperState = .fallback
-            self.systemProxyHelperIssue = self.helperIssue(from: message)
-            self.systemProxyHelperFailureMessage = message
-            appendLog(level: "warning", message: tr("log.system_proxy.helper_fallback", message))
         case let .failed(message):
             self.systemProxyHelperState = .failed
             self.systemProxyHelperIssue = self.helperIssue(from: message)
