@@ -249,6 +249,7 @@ extension MenuBarRootView {
         title: String,
         symbol: String,
         foreground: Color,
+        trailingWidth: CGFloat? = nil,
         @ViewBuilder trailing: () -> some View) -> some View
     {
         HStack(spacing: T.space6) {
@@ -260,7 +261,7 @@ extension MenuBarRootView {
                 .minimumScaleFactor(T.minimumScale)
             Spacer(minLength: 0)
             trailing()
-                .frame(width: self.quickRowTrailingColumnWidth, alignment: .trailing)
+                .frame(width: trailingWidth ?? self.quickRowTrailingColumnWidth, alignment: .trailing)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, T.space4)
@@ -320,7 +321,8 @@ extension MenuBarRootView {
         self.quickRowContent(
             title: title,
             symbol: symbol,
-            foreground: foreground)
+            foreground: foreground,
+            trailingWidth: 50)
         {
             Toggle("", isOn: isOn)
                 .labelsHidden()

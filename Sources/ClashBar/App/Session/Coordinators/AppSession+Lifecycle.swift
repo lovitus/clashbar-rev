@@ -32,6 +32,11 @@ extension AppSession {
         let autoTestGroupLatencies: Bool
     }
 
+    private enum CoreTransitionKind {
+        case stop
+        case restart
+    }
+
     func startCore(trigger: StartTrigger = .manual) async {
         guard !self.isRemoteTarget else { return }
         guard !isCoreActionProcessing else { return }
@@ -119,7 +124,8 @@ extension AppSession {
         coreActionState = .stopping
         defer { coreActionState = .idle }
         await self.prepareCoreFeatureRecoveryBeforeCoreTransition(
-            fallbackRecovery: recoverySnapshotBeforeStop)
+            fallbackRecovery: recoverySnapshotBeforeStop,
+            transitionKind: .stop)
         self.cancelDeferredEditableSettingsOverlaySync()
         cancelProviderRefresh(reason: "stop requested")
         await self.stopCoreUseCase.execute()
@@ -155,7 +161,8 @@ extension AppSession {
             let launchController = applyExternalControllerFromSelectedConfigFile(configPath: configPath)
             let recoverySnapshotBeforeRestart = self.currentCoreFeatureRecoverySnapshot()
             await self.prepareCoreFeatureRecoveryBeforeCoreTransition(
-                fallbackRecovery: recoverySnapshotBeforeRestart)
+                fallbackRecovery: recoverySnapshotBeforeRestart,
+                transitionKind: .restart)
             let settingsOverlay = self.overlayApplyingPendingCoreFeatureRecovery(currentEditableSettingsSnapshot())
             _ = try await self.restartCoreUseCase.execute(configPath: configPath, controller: launchController)
             await self.completeCoreBootstrap(
@@ -409,11 +416,14 @@ extension AppSession {
     }
 
     private func prepareCoreFeatureRecoveryBeforeCoreTransition(
-        fallbackRecovery: CoreFeatureRecoveryState) async
+        fallbackRecovery: CoreFeatureRecoveryState,
+        transitionKind: CoreTransitionKind) async
     {
         let runtimeRunningBeforeTransition = self.isRuntimeRunning
+        let shouldSkipProxyFlipForFallbackRestart = transitionKind == .restart && self.systemProxyHelperState == .fallback
         let capturedRecovery = CoreFeatureRecoveryState(
-            systemProxyEnabled: runtimeRunningBeforeTransition && self.isSystemProxyEnabled,
+            systemProxyEnabled: runtimeRunningBeforeTransition && self.isSystemProxyEnabled
+                && !shouldSkipProxyFlipForFallbackRestart,
             tunEnabled: runtimeRunningBeforeTransition && self.isTunEnabled)
 
         let baseRecovery: CoreFeatureRecoveryState = if capturedRecovery.shouldRecoverAnyFeature {
@@ -432,6 +442,7 @@ extension AppSession {
         }
 
         guard self.isSystemProxyEnabled else { return }
+        guard !shouldSkipProxyFlipForFallbackRestart else { return }
         self.isProxySyncing = true
         defer { self.isProxySyncing = false }
 
@@ -508,7 +519,12 @@ extension AppSession {
 
             do {
                 let target = try await self.resolveSystemProxyTargetFromRuntimeConfig()
-                try await self.applySystemProxy(enabled: true, host: target.host, ports: target.ports)
+                let isAlreadyConfigured = try await self.isSystemProxyConfigured(
+                    host: target.host,
+                    ports: target.ports)
+                if !isAlreadyConfigured {
+                    try await self.applySystemProxy(enabled: true, host: target.host, ports: target.ports)
+                }
                 self.isSystemProxyEnabled = true
                 self.systemProxyActiveDisplay = self.buildSystemProxyDisplayString(
                     host: target.host,
