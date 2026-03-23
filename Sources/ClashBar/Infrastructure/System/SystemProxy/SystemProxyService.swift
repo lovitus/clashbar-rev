@@ -82,6 +82,9 @@ private actor HelperMigrationAttemptRegistry {
 }
 
 struct SystemProxyService {
+    private let helperToolInstallPath = "/Library/PrivilegedHelperTools/com.clashbar.helper"
+    private let helperPlistInstallPath = "/Library/LaunchDaemons/com.clashbar.helper.plist"
+
     private let helperRecoveryMaxAttempts = 3
     private let helperRecoveryDelayNanoseconds: UInt64 = 1_500_000_000
     private let helperResponseTimeoutNanoseconds: UInt64 = 4_000_000_000
@@ -497,12 +500,13 @@ struct SystemProxyService {
                 throw SystemProxyServiceError.helperRecoveryFailed(
                     "\(previousError.localizedDescription) -> Helper migration already attempted in this app session.")
             }
+        }
 
-            // Stale launchd registrations can point to outdated helper paths after upgrades.
-            // Force a re-register before retrying to refresh launch metadata.
+        if daemonService.status == .enabled {
             try? await daemonService.unregister()
             try? await Task.sleep(nanoseconds: 300_000_000)
         }
+
         do {
             try daemonService.register()
         } catch {
@@ -520,9 +524,25 @@ struct SystemProxyService {
             }
         }
 
+        if shouldMigrate, daemonService.status != .enabled {
+            do {
+                try self.forceCleanupInstalledHelperWithPrivileges()
+                try? await Task.sleep(nanoseconds: 300_000_000)
+                try daemonService.register()
+            } catch {
+                throw SystemProxyServiceError.helperRecoveryFailed(
+                    "\(previousError.localizedDescription) -> Helper migration cleanup failed: \(error.localizedDescription)")
+            }
+        }
+
         if daemonService.status == .requiresApproval {
             SMAppService.openSystemSettingsLoginItems()
             throw SystemProxyServiceError.helperNeedsApproval
+        }
+
+        guard daemonService.status == .enabled else {
+            throw SystemProxyServiceError.helperRecoveryFailed(
+                "\(previousError.localizedDescription) -> Helper service unavailable after migration. status=\(daemonService.status.rawValue)")
         }
 
         try? await Task.sleep(nanoseconds: self.helperRecoveryDelayNanoseconds)
@@ -554,6 +574,17 @@ struct SystemProxyService {
         let appTeam = self.signingTeamIdentifier(at: appURL) ?? "unknown-app-team"
         let helperTeam = self.signingTeamIdentifier(at: helperURL) ?? "unknown-helper-team"
         return "\(ProxyHelperConstants.allowedClientBundleIdentifier)#\(appTeam)#\(helperTeam)"
+    }
+
+    private func forceCleanupInstalledHelperWithPrivileges() throws {
+        let escapedPlist = self.shellQuoted(self.helperPlistInstallPath)
+        let escapedTool = self.shellQuoted(self.helperToolInstallPath)
+        let shellCommand =
+            "/bin/launchctl bootout system/\(ProxyHelperConstants.machServiceName) >/dev/null 2>&1 || true" +
+            " && /bin/rm -f \(escapedPlist)" +
+            " && /bin/rm -f \(escapedTool)"
+        let appleScript = "do shell script \"\(self.appleScriptEscaped(shellCommand))\" with administrator privileges"
+        try self.runAppleScriptSynchronously(appleScript)
     }
 
     private func invokeMutation(
