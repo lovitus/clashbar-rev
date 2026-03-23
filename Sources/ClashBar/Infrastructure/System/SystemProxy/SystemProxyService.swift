@@ -391,7 +391,7 @@ struct SystemProxyService {
     private func repairHelperWithLocalResign(forceReinstall: Bool) async throws {
         let daemonService = self.helperService()
         if daemonService.status == .enabled {
-            try? daemonService.unregister()
+            try? await daemonService.unregister()
         }
 
         let appPath = Bundle.main.bundleURL.path
