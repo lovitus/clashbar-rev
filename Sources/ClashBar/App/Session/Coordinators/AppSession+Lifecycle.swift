@@ -457,7 +457,7 @@ extension AppSession {
             self.appendLog(
                 level: "error",
                 message: self.tr("log.system_proxy.toggle_failed", self.systemProxyErrorMessage(error)))
-            await self.refreshSystemProxyHelperStatus(autoRepair: true)
+            await self.refreshSystemProxyHelperStatus(autoRepair: false)
             await self.refreshSystemProxyStatus()
         }
     }

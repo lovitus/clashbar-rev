@@ -25,13 +25,13 @@ extension AppSession {
         if normalized.contains("timed out") {
             return .timeout
         }
+        if normalized.contains("migration") || normalized.contains("reinstall") || normalized.contains("cleanup") {
+            return .migrationFailed
+        }
         if normalized.contains("operation not permitted") || normalized.contains("not permitted")
             || normalized.contains("permission")
         {
             return .permissionDenied
-        }
-        if normalized.contains("migration") || normalized.contains("reinstall") || normalized.contains("cleanup") {
-            return .migrationFailed
         }
         return .unknown
     }
