@@ -553,6 +553,16 @@ struct SystemProxyService {
             try? await Task.sleep(nanoseconds: 300_000_000)
         }
 
+        if shouldMigrate {
+            do {
+                try self.forceCleanupInstalledHelperWithPrivileges()
+                try? await Task.sleep(nanoseconds: 300_000_000)
+            } catch {
+                throw SystemProxyServiceError.helperRecoveryFailed(
+                    "\(previousError.localizedDescription) -> Helper migration cleanup failed: \(error.localizedDescription)")
+            }
+        }
+
         do {
             try daemonService.register()
         } catch {
@@ -567,17 +577,6 @@ struct SystemProxyService {
             default:
                 throw SystemProxyServiceError.helperRecoveryFailed(
                     "\(previousError.localizedDescription) -> \(error.localizedDescription)")
-            }
-        }
-
-        if shouldMigrate, daemonService.status != .enabled {
-            do {
-                try self.forceCleanupInstalledHelperWithPrivileges()
-                try? await Task.sleep(nanoseconds: 300_000_000)
-                try daemonService.register()
-            } catch {
-                throw SystemProxyServiceError.helperRecoveryFailed(
-                    "\(previousError.localizedDescription) -> Helper migration cleanup failed: \(error.localizedDescription)")
             }
         }
 
