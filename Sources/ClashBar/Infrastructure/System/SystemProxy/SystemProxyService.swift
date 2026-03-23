@@ -143,12 +143,14 @@ struct SystemProxyService {
 
     func isSystemProxyEnabled() async throws -> Bool {
         do {
-            let daemonService = self.helperService()
-            guard daemonService.status == .enabled else {
-                throw SystemProxyServiceError.helperRegistrationFailed(
-                    "Helper service not enabled. status=\(daemonService.status.rawValue)")
+            return try await self.withHelperStateReadRecovery {
+                let daemonService = self.helperService()
+                guard daemonService.status == .enabled else {
+                    throw SystemProxyServiceError.helperRegistrationFailed(
+                        "Helper service not enabled. status=\(daemonService.status.rawValue)")
+                }
+                return try await self.invokeStateQueryWithRecovery()
             }
-            return try await self.invokeStateQueryWithRecovery()
         } catch {
             guard self.shouldUseFallbackMode(error) else {
                 throw error
@@ -159,16 +161,18 @@ struct SystemProxyService {
 
     func readSystemProxyActiveDisplay() async throws -> String? {
         do {
-            let daemonService = self.helperService()
-            guard daemonService.status == .enabled else {
-                throw SystemProxyServiceError.helperRegistrationFailed(
-                    "Helper service not enabled. status=\(daemonService.status.rawValue)")
-            }
+            return try await self.withHelperStateReadRecovery {
+                let daemonService = self.helperService()
+                guard daemonService.status == .enabled else {
+                    throw SystemProxyServiceError.helperRegistrationFailed(
+                        "Helper service not enabled. status=\(daemonService.status.rawValue)")
+                }
 
-            guard let target = try await self.invokeActiveTargetQueryWithRecovery() else {
-                return nil
+                guard let target = try await self.invokeActiveTargetQueryWithRecovery() else {
+                    return nil
+                }
+                return self.formatProxyDisplay(host: target.host, port: target.port)
             }
-            return self.formatProxyDisplay(host: target.host, port: target.port)
         } catch {
             guard self.shouldUseFallbackMode(error) else {
                 throw error
@@ -184,19 +188,21 @@ struct SystemProxyService {
         try self.validateHost(host)
         let resolvedPorts = try validateAndResolvePorts(ports, requiresEnabledPort: true)
         do {
-            let daemonService = self.helperService()
-            guard daemonService.status == .enabled else {
-                throw SystemProxyServiceError.helperRegistrationFailed(
-                    "Helper service not enabled. status=\(daemonService.status.rawValue)")
-            }
+            return try await self.withHelperStateReadRecovery {
+                let daemonService = self.helperService()
+                guard daemonService.status == .enabled else {
+                    throw SystemProxyServiceError.helperRegistrationFailed(
+                        "Helper service not enabled. status=\(daemonService.status.rawValue)")
+                }
 
-            return try await self.invokeBooleanQueryWithRecovery { helper, completion in
-                helper.isSystemProxyConfigured(
-                    host: host,
-                    httpPort: resolvedPorts.httpPort,
-                    httpsPort: resolvedPorts.httpsPort,
-                    socksPort: resolvedPorts.socksPort,
-                    completion: completion)
+                return try await self.invokeBooleanQueryWithRecovery { helper, completion in
+                    helper.isSystemProxyConfigured(
+                        host: host,
+                        httpPort: resolvedPorts.httpPort,
+                        httpsPort: resolvedPorts.httpsPort,
+                        socksPort: resolvedPorts.socksPort,
+                        completion: completion)
+                }
             }
         } catch {
             guard self.shouldUseFallbackMode(error) else {
@@ -224,21 +230,42 @@ struct SystemProxyService {
                 _ = try await self.invokeStateQueryWithoutRecovery()
                 return .healthy
             } catch {
+                let shouldRecoverNow = self.shouldRetryAfterRecovery(error) || self.shouldAttemptHelperMigration(error)
+                if shouldRecoverNow, attempt < self.helperRecoveryMaxAttempts - 1 {
+                    do {
+                        try await self.recoverHelperForRetry(error: error)
+                        continue
+                    } catch {
+                        return .failed(message: self.helperFailureMessage(error))
+                    }
+                }
                 if self.shouldUseFallbackMode(error) {
                     return .fallback(message: self.fallbackDiagnosisMessage(error))
                 }
-                if attempt == self.helperRecoveryMaxAttempts - 1 {
-                    return .failed(message: self.helperFailureMessage(error))
-                }
-                do {
-                    try await self.recoverHelperForRetry(error: error)
-                } catch {
+                if attempt == self.helperRecoveryMaxAttempts - 1 || !shouldRecoverNow {
                     return .failed(message: self.helperFailureMessage(error))
                 }
             }
         }
 
         return .failed(message: "Unknown helper failure.")
+    }
+
+    private func withHelperStateReadRecovery<T: Sendable>(_ operation: @escaping () async throws -> T) async throws -> T {
+        var lastError: Error?
+        for attempt in 0..<self.helperRecoveryMaxAttempts {
+            do {
+                return try await operation()
+            } catch {
+                lastError = error
+                let shouldRecoverNow = self.shouldRetryAfterRecovery(error) || self.shouldAttemptHelperMigration(error)
+                guard shouldRecoverNow, attempt < self.helperRecoveryMaxAttempts - 1 else {
+                    throw error
+                }
+                try await self.recoverHelperForRetry(error: error)
+            }
+        }
+        throw lastError ?? SystemProxyServiceError.helperOperationFailed("Unknown helper state query failure.")
     }
 
     private func validateHost(_ host: String) throws {
