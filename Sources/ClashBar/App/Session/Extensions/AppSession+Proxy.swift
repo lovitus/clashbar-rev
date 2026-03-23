@@ -66,6 +66,7 @@ extension AppSession {
             isSystemProxyEnabled = enabled
             if self.systemProxyHelperState != .fallback {
                 self.systemProxyHelperState = .running
+                self.systemProxyHelperIssue = .none
                 self.systemProxyHelperFailureMessage = nil
             }
             let state = enabled ? tr("log.system_proxy.enabled") : tr("log.system_proxy.disabled")

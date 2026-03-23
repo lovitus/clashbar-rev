@@ -254,6 +254,14 @@ struct SystemProxyService {
         return .failed(message: "Unknown helper failure.")
     }
 
+    func installHelperManually() async -> SystemProxyHelperDiagnosis {
+        await self.manualRepairHelper(forceReinstall: false)
+    }
+
+    func reinstallHelperManually() async -> SystemProxyHelperDiagnosis {
+        await self.manualRepairHelper(forceReinstall: true)
+    }
+
     private func withHelperStateReadRecovery<T: Sendable>(_ operation: @escaping () async throws -> T) async throws -> T {
         var lastError: Error?
         for attempt in 0..<self.helperRecoveryMaxAttempts {
@@ -269,6 +277,36 @@ struct SystemProxyService {
             }
         }
         throw lastError ?? SystemProxyServiceError.helperOperationFailed("Unknown helper state query failure.")
+    }
+
+    private func manualRepairHelper(forceReinstall: Bool) async -> SystemProxyHelperDiagnosis {
+        if !self.isHelperBundledInMainApp() {
+            return .failed(message: SystemProxyServiceError.helperNotBundled.localizedDescription)
+        }
+        if self.isRunningFromReadOnlyVolume() {
+            return .failed(message: SystemProxyServiceError.helperRequiresInstallToApplications.localizedDescription)
+        }
+
+        do {
+            if forceReinstall {
+                try await self.forceReinstallInstalledHelper()
+            }
+            try self.ensureHelperReadyForWrite()
+            _ = try await self.invokeStateQueryWithoutRecovery()
+            return .healthy
+        } catch {
+            if !forceReinstall, self.shouldAttemptHelperMigration(error) {
+                do {
+                    try await self.forceReinstallInstalledHelper()
+                    try self.ensureHelperReadyForWrite()
+                    _ = try await self.invokeStateQueryWithoutRecovery()
+                    return .healthy
+                } catch {
+                    return .failed(message: self.helperFailureMessage(error))
+                }
+            }
+            return .failed(message: self.helperFailureMessage(error))
+        }
     }
 
     private func validateHost(_ host: String) throws {
@@ -593,6 +631,14 @@ struct SystemProxyService {
             " && /bin/rm -f \(escapedTool)"
         let appleScript = "do shell script \"\(self.appleScriptEscaped(shellCommand))\" with administrator privileges"
         try self.runAppleScriptSynchronously(appleScript)
+    }
+
+    private func forceReinstallInstalledHelper() async throws {
+        let daemonService = self.helperService()
+        try? await daemonService.unregister()
+        try? await Task.sleep(nanoseconds: 300_000_000)
+        try self.forceCleanupInstalledHelperWithPrivileges()
+        try? await Task.sleep(nanoseconds: 300_000_000)
     }
 
     private func invokeMutation(

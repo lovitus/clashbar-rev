@@ -13,6 +13,8 @@ protocol SystemProxyRepository: AnyObject {
     func readActiveDisplay() async throws -> String?
     func isConfigured(host: String, ports: SystemProxyPorts) async throws -> Bool
     func diagnoseAndRepair() async -> SystemProxyHelperDiagnosis
+    func installHelper() async -> SystemProxyHelperDiagnosis
+    func reinstallHelper() async -> SystemProxyHelperDiagnosis
     func warmUpHelperIfPossible() async
     func clearBlocking(timeout: TimeInterval)
 }

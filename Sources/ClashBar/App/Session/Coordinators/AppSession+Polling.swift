@@ -362,6 +362,7 @@ extension AppSession {
             }
             if self.systemProxyHelperState != .repairing && self.systemProxyHelperState != .fallback {
                 self.systemProxyHelperState = .running
+                self.systemProxyHelperIssue = .none
                 self.systemProxyHelperFailureMessage = nil
             }
         } catch {

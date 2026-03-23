@@ -207,10 +207,34 @@ extension MenuBarRootView {
                 symbol: "wrench.and.screwdriver",
                 foreground: self.systemProxyHelperStatusTint)
             {
-                Text(self.systemProxyHelperStatusText)
-                    .font(.app(size: T.FontSize.caption, weight: .regular))
-                    .lineLimit(1)
-                    .foregroundStyle(nativeSecondaryLabel)
+                VStack(alignment: .trailing, spacing: T.space1) {
+                    Text(self.systemProxyHelperStatusText)
+                        .font(.app(size: T.FontSize.caption, weight: .regular))
+                        .lineLimit(1)
+                        .foregroundStyle(nativeSecondaryLabel)
+                    if !appSession.isRemoteTarget {
+                        HStack(spacing: T.space2) {
+                            Button(tr("ui.system_proxy.helper.install")) {
+                                Task { await appSession.installSystemProxyHelper() }
+                            }
+                            .buttonStyle(.borderless)
+                            .disabled(appSession.systemProxyHelperActionInFlight)
+                            .font(.app(size: T.FontSize.caption, weight: .regular))
+
+                            Text("·")
+                                .font(.app(size: T.FontSize.caption, weight: .regular))
+                                .foregroundStyle(nativeTertiaryLabel)
+
+                            Button(tr("ui.system_proxy.helper.reinstall")) {
+                                Task { await appSession.reinstallSystemProxyHelper() }
+                            }
+                            .buttonStyle(.borderless)
+                            .disabled(appSession.systemProxyHelperActionInFlight)
+                            .font(.app(size: T.FontSize.caption, weight: .regular))
+                        }
+                        .foregroundStyle(nativeInfo)
+                    }
+                }
             }
 
             self.quickToggleRow(
@@ -282,17 +306,50 @@ extension MenuBarRootView {
     }
 
     var systemProxyHelperStatusText: String {
+        if self.appSession.systemProxyHelperActionState == .installing {
+            return tr("ui.system_proxy.helper.installing")
+        }
+        if self.appSession.systemProxyHelperActionState == .reinstalling {
+            return tr("ui.system_proxy.helper.reinstalling")
+        }
+
+        let detail = self.systemProxyHelperDetailText
         switch self.appSession.systemProxyHelperState {
         case .unknown:
             tr("ui.system_proxy.helper.unknown")
         case .running:
             tr("ui.system_proxy.helper.running")
         case .fallback:
-            tr("ui.system_proxy.helper.fallback")
+            detail.map { "\(tr("ui.system_proxy.helper.fallback")) (\($0))" } ?? tr("ui.system_proxy.helper.fallback")
         case .repairing:
             tr("ui.system_proxy.helper.repairing")
         case .failed:
-            tr("ui.system_proxy.helper.failed")
+            detail.map { "\(tr("ui.system_proxy.helper.failed")) (\($0))" } ?? tr("ui.system_proxy.helper.failed")
+        }
+    }
+
+    var systemProxyHelperDetailText: String? {
+        switch self.appSession.systemProxyHelperIssue {
+        case .none:
+            nil
+        case .autoRepairFailed:
+            tr("ui.system_proxy.helper.detail.auto_repair_failed")
+        case .signatureMismatch:
+            tr("ui.system_proxy.helper.detail.signature_mismatch")
+        case .needsApproval:
+            tr("ui.system_proxy.helper.detail.needs_approval")
+        case .installLocationInvalid:
+            tr("ui.system_proxy.helper.detail.install_location_invalid")
+        case .helperMissing:
+            tr("ui.system_proxy.helper.detail.helper_missing")
+        case .timeout:
+            tr("ui.system_proxy.helper.detail.timeout")
+        case .permissionDenied:
+            tr("ui.system_proxy.helper.detail.permission_denied")
+        case .migrationFailed:
+            tr("ui.system_proxy.helper.detail.migration_failed")
+        case .unknown:
+            tr("ui.system_proxy.helper.detail.unknown")
         }
     }
 

@@ -28,6 +28,14 @@ final class DefaultSystemProxyRepository: SystemProxyRepository {
         await self.service.diagnoseAndRepairHelper()
     }
 
+    func installHelper() async -> SystemProxyHelperDiagnosis {
+        await self.service.installHelperManually()
+    }
+
+    func reinstallHelper() async -> SystemProxyHelperDiagnosis {
+        await self.service.reinstallHelperManually()
+    }
+
     func warmUpHelperIfPossible() async {
         await self.service.warmUpHelperIfPossible()
     }

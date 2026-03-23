@@ -42,6 +42,25 @@ enum SystemProxyHelperRuntimeState: Equatable {
     case failed
 }
 
+enum SystemProxyHelperActionState: Equatable {
+    case idle
+    case installing
+    case reinstalling
+}
+
+enum SystemProxyHelperIssue: Equatable {
+    case none
+    case autoRepairFailed
+    case signatureMismatch
+    case needsApproval
+    case installLocationInvalid
+    case helperMissing
+    case timeout
+    case permissionDenied
+    case migrationFailed
+    case unknown
+}
+
 enum ConfigLogLevel: String, CaseIterable {
     case silent
     case error

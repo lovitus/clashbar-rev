@@ -2,6 +2,62 @@ import Foundation
 
 @MainActor
 extension AppSession {
+    private func helperIssue(from message: String?) -> SystemProxyHelperIssue {
+        let normalized = (message ?? "").trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if normalized.isEmpty { return .none }
+        if normalized.contains("fallback") || normalized.contains("auto") {
+            return .autoRepairFailed
+        }
+        if normalized.contains("teamidentifier") || normalized.contains("signature")
+            || normalized.contains("codesign") || normalized.contains("code signing")
+        {
+            return .signatureMismatch
+        }
+        if normalized.contains("requires approval") || normalized.contains("login items") {
+            return .needsApproval
+        }
+        if normalized.contains("/applications") || normalized.contains("read-only") {
+            return .installLocationInvalid
+        }
+        if normalized.contains("not found in app bundle") || normalized.contains("not bundled") {
+            return .helperMissing
+        }
+        if normalized.contains("timed out") {
+            return .timeout
+        }
+        if normalized.contains("operation not permitted") || normalized.contains("not permitted")
+            || normalized.contains("permission")
+        {
+            return .permissionDenied
+        }
+        if normalized.contains("migration") || normalized.contains("reinstall") || normalized.contains("cleanup") {
+            return .migrationFailed
+        }
+        return .unknown
+    }
+
+    private func applyHelperDiagnosis(_ diagnosis: SystemProxyHelperDiagnosis, autoRepair: Bool) {
+        switch diagnosis {
+        case .healthy:
+            self.systemProxyHelperState = .running
+            self.systemProxyHelperIssue = .none
+            self.systemProxyHelperFailureMessage = nil
+            if autoRepair {
+                appendLog(level: "info", message: tr("log.system_proxy.helper_healthy"))
+            }
+        case let .fallback(message):
+            self.systemProxyHelperState = .fallback
+            self.systemProxyHelperIssue = self.helperIssue(from: message)
+            self.systemProxyHelperFailureMessage = message
+            appendLog(level: "warning", message: tr("log.system_proxy.helper_fallback", message))
+        case let .failed(message):
+            self.systemProxyHelperState = .failed
+            self.systemProxyHelperIssue = self.helperIssue(from: message)
+            self.systemProxyHelperFailureMessage = message
+            appendLog(level: "error", message: tr("log.system_proxy.helper_failed", message))
+        }
+    }
+
     private var resolveSystemProxyPortsUseCase: ResolveSystemProxyPortsUseCase {
         ResolveSystemProxyPortsUseCase()
     }
@@ -37,27 +93,41 @@ extension AppSession {
     func refreshSystemProxyHelperStatus(autoRepair: Bool) async {
         if autoRepair {
             self.systemProxyHelperState = .repairing
+            self.systemProxyHelperIssue = .none
             self.systemProxyHelperFailureMessage = nil
             appendLog(level: "info", message: tr("log.system_proxy.helper_repairing"))
         }
 
         let diagnosis = await self.systemProxyRepository.diagnoseAndRepair()
-        switch diagnosis {
-        case .healthy:
-            self.systemProxyHelperState = .running
-            self.systemProxyHelperFailureMessage = nil
-            if autoRepair {
-                appendLog(level: "info", message: tr("log.system_proxy.helper_healthy"))
-            }
-        case let .fallback(message):
-            self.systemProxyHelperState = .fallback
-            self.systemProxyHelperFailureMessage = message
-            appendLog(level: "warning", message: tr("log.system_proxy.helper_fallback", message))
-        case let .failed(message):
-            self.systemProxyHelperState = .failed
-            self.systemProxyHelperFailureMessage = message
-            appendLog(level: "error", message: tr("log.system_proxy.helper_failed", message))
+        self.applyHelperDiagnosis(diagnosis, autoRepair: autoRepair)
+    }
+
+    func installSystemProxyHelper() async {
+        guard !self.systemProxyHelperActionInFlight else { return }
+        self.systemProxyHelperActionInFlight = true
+        self.systemProxyHelperActionState = .installing
+        defer {
+            self.systemProxyHelperActionInFlight = false
+            self.systemProxyHelperActionState = .idle
         }
+
+        appendLog(level: "info", message: tr("log.system_proxy.helper_installing"))
+        let diagnosis = await self.systemProxyRepository.installHelper()
+        self.applyHelperDiagnosis(diagnosis, autoRepair: false)
+    }
+
+    func reinstallSystemProxyHelper() async {
+        guard !self.systemProxyHelperActionInFlight else { return }
+        self.systemProxyHelperActionInFlight = true
+        self.systemProxyHelperActionState = .reinstalling
+        defer {
+            self.systemProxyHelperActionInFlight = false
+            self.systemProxyHelperActionState = .idle
+        }
+
+        appendLog(level: "info", message: tr("log.system_proxy.helper_reinstalling"))
+        let diagnosis = await self.systemProxyRepository.reinstallHelper()
+        self.applyHelperDiagnosis(diagnosis, autoRepair: false)
     }
 
     func systemProxyPorts(from config: ConfigSnapshot) -> SystemProxyPorts {
@@ -101,6 +171,7 @@ extension AppSession {
                     message: tr("log.system_proxy.startup_repaired", target.host, target.ports.primaryPort ?? 0))
             }
             self.systemProxyHelperState = .running
+            self.systemProxyHelperIssue = .none
             self.systemProxyHelperFailureMessage = nil
             systemProxyActiveDisplay = buildSystemProxyDisplayString(host: target.host, ports: target.ports)
 

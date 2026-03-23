@@ -73,7 +73,10 @@ final class AppSession: ObservableObject {
 
     @Published var isSystemProxyEnabled: Bool = false
     @Published var systemProxyHelperState: SystemProxyHelperRuntimeState = .unknown
+    @Published var systemProxyHelperActionState: SystemProxyHelperActionState = .idle
+    @Published var systemProxyHelperIssue: SystemProxyHelperIssue = .none
     @Published var systemProxyHelperFailureMessage: String?
+    @Published var systemProxyHelperActionInFlight: Bool = false
     @Published var systemProxyActiveDisplay: String?
     var isSystemProxyActiveNonLocal: Bool {
         guard let display = systemProxyActiveDisplay,
