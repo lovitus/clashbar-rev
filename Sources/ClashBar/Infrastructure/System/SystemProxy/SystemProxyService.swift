@@ -13,6 +13,7 @@ enum SystemProxyServiceError: LocalizedError {
     case helperRegistrationFailed(String)
     case helperConnectionFailed(String)
     case helperOperationFailed(String)
+    case missingSigningIdentity
 
     var errorDescription: String? {
         switch self {
@@ -35,6 +36,8 @@ enum SystemProxyServiceError: LocalizedError {
             "Failed to connect privileged helper: \(message)"
         case let .helperOperationFailed(message):
             "Privileged helper operation failed: \(message)"
+        case .missingSigningIdentity:
+            "No valid local code signing identity found. Install an Apple Development/Developer ID certificate, then use resign and reinstall."
         }
     }
 }
@@ -175,10 +178,14 @@ struct SystemProxyService {
     }
 
     func reinstallHelperManually() async -> SystemProxyHelperDiagnosis {
-        await self.manualRepairHelper(forceReinstall: true)
+        await self.manualInstallHelper(forceReinstall: true)
     }
 
-    private func manualRepairHelper(forceReinstall: Bool) async -> SystemProxyHelperDiagnosis {
+    func resignAndReinstallHelperManually() async -> SystemProxyHelperDiagnosis {
+        await self.manualRepairHelperWithResign(forceReinstall: true)
+    }
+
+    private func manualInstallHelper(forceReinstall: Bool) async -> SystemProxyHelperDiagnosis {
         if !self.isHelperBundledInMainApp() {
             return .failed(message: SystemProxyServiceError.helperNotBundled.localizedDescription)
         }
@@ -187,7 +194,25 @@ struct SystemProxyService {
         }
 
         do {
-            try await self.repairHelperWithLocalResign(forceReinstall: forceReinstall)
+            try await self.installOrReinstallHelper(forceReinstall: forceReinstall)
+            _ = try await self.invokeStateQuery()
+            return .healthy
+        } catch {
+            return .failed(message: self.helperFailureMessage(error))
+        }
+    }
+
+    private func manualRepairHelperWithResign(forceReinstall: Bool) async -> SystemProxyHelperDiagnosis {
+        if !self.isHelperBundledInMainApp() {
+            return .failed(message: SystemProxyServiceError.helperNotBundled.localizedDescription)
+        }
+        if self.isRunningFromReadOnlyVolume() {
+            return .failed(message: SystemProxyServiceError.helperRequiresInstallToApplications.localizedDescription)
+        }
+
+        do {
+            let identity = try self.findLocalCodeSigningIdentity()
+            try await self.repairHelperWithIdentity(identity, forceReinstall: forceReinstall)
             _ = try await self.invokeStateQuery()
             return .healthy
         } catch {
@@ -388,7 +413,38 @@ struct SystemProxyService {
         return .failed("Service remains unavailable after register call. status=\(daemonService.status.rawValue)")
     }
 
-    private func repairHelperWithLocalResign(forceReinstall: Bool) async throws {
+    private func installOrReinstallHelper(forceReinstall: Bool) async throws {
+        let daemonService = self.helperService()
+        if daemonService.status == .enabled {
+            try? await daemonService.unregister()
+        }
+
+        let escapedPlist = self.shellQuoted(self.helperPlistInstallPath)
+        let escapedTool = self.shellQuoted(self.helperToolInstallPath)
+
+        var commands: [String] = []
+        commands.append("/bin/launchctl bootout system/\(ProxyHelperConstants.machServiceName) >/dev/null 2>&1 || true")
+        if forceReinstall {
+            commands.append("/bin/rm -f \(escapedPlist)")
+            commands.append("/bin/rm -f \(escapedTool)")
+        }
+        if !commands.isEmpty {
+            let shellCommand = commands.joined(separator: " && ")
+            let appleScript = "do shell script \"\(self.appleScriptEscaped(shellCommand))\" with administrator privileges"
+            try self.runAppleScriptSynchronously(appleScript)
+        }
+
+        switch self.attemptHelperRegistration() {
+        case .ready:
+            return
+        case .needsApproval:
+            throw SystemProxyServiceError.helperNeedsApproval
+        case let .blocked(message), let .failed(message):
+            throw SystemProxyServiceError.helperRegistrationFailed(message)
+        }
+    }
+
+    private func repairHelperWithIdentity(_ identity: String, forceReinstall: Bool) async throws {
         let daemonService = self.helperService()
         if daemonService.status == .enabled {
             try? await daemonService.unregister()
@@ -400,6 +456,7 @@ struct SystemProxyService {
             .path
         let escapedApp = self.shellQuoted(appPath)
         let escapedHelper = self.shellQuoted(helperPath)
+        let escapedIdentity = self.shellQuoted(identity)
         let escapedPlist = self.shellQuoted(self.helperPlistInstallPath)
         let escapedTool = self.shellQuoted(self.helperToolInstallPath)
 
@@ -409,12 +466,10 @@ struct SystemProxyService {
             commands.append("/bin/rm -f \(escapedPlist)")
             commands.append("/bin/rm -f \(escapedTool)")
         }
-
-        // Re-sign helper first, then app using stable local ad-hoc signature.
         commands.append(
-            "/usr/bin/codesign --force --sign - --timestamp=none --preserve-metadata=identifier,entitlements,requirements,flags \(escapedHelper)")
+            "/usr/bin/codesign --force --sign \(escapedIdentity) --timestamp=none --preserve-metadata=identifier,entitlements,requirements,flags \(escapedHelper)")
         commands.append(
-            "/usr/bin/codesign --force --sign - --timestamp=none --deep --preserve-metadata=identifier,entitlements,requirements,flags \(escapedApp)")
+            "/usr/bin/codesign --force --sign \(escapedIdentity) --timestamp=none --deep --preserve-metadata=identifier,entitlements,requirements,flags \(escapedApp)")
         commands.append("/usr/bin/codesign --verify --deep --strict --verbose=2 \(escapedApp)")
 
         let shellCommand = commands.joined(separator: " && ")
@@ -429,6 +484,31 @@ struct SystemProxyService {
         case let .blocked(message), let .failed(message):
             throw SystemProxyServiceError.helperRegistrationFailed(message)
         }
+    }
+
+    private func findLocalCodeSigningIdentity() throws -> String {
+        let result = try self.runProcessSynchronously(
+            executable: "/usr/bin/security",
+            arguments: ["find-identity", "-v", "-p", "codesigning"])
+        guard result.exitCode == 0 else {
+            throw SystemProxyServiceError.helperOperationFailed(result.combinedOutput)
+        }
+
+        let lines = result.stdout.split(whereSeparator: \.isNewline)
+        for line in lines {
+            let text = String(line).trimmingCharacters(in: .whitespacesAndNewlines)
+            if text.lowercased().contains("valid identities found") { continue }
+            if text.contains("REVOKED") { continue }
+            let parts = text.components(separatedBy: .whitespaces).filter { !$0.isEmpty }
+            guard parts.count >= 2 else { continue }
+            let candidate = parts[1]
+            if candidate.count == 40,
+               candidate.allSatisfy({ $0.isHexDigit })
+            {
+                return candidate
+            }
+        }
+        throw SystemProxyServiceError.missingSigningIdentity
     }
 
     private func invokeMutation(

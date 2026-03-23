@@ -279,6 +279,9 @@ extension MenuBarRootView {
         if self.appSession.systemProxyHelperActionState == .reinstalling {
             return tr("ui.system_proxy.helper.reinstalling")
         }
+        if self.appSession.systemProxyHelperActionState == .resigningReinstalling {
+            return tr("ui.system_proxy.helper.resigning_reinstalling")
+        }
 
         let detail = self.systemProxyHelperDetailText
         switch self.appSession.systemProxyHelperState {
@@ -297,6 +300,8 @@ extension MenuBarRootView {
             nil
         case .signatureMismatch:
             tr("ui.system_proxy.helper.detail.signature_mismatch")
+        case .missingSigningIdentity:
+            tr("ui.system_proxy.helper.detail.missing_signing_identity")
         case .needsApproval:
             tr("ui.system_proxy.helper.detail.needs_approval")
         case .installLocationInvalid:
@@ -378,6 +383,18 @@ extension MenuBarRootView {
 
                     Button(tr("ui.system_proxy.helper.reinstall")) {
                         Task { await appSession.reinstallSystemProxyHelper() }
+                    }
+                    .buttonStyle(.borderless)
+                    .disabled(appSession.systemProxyHelperActionInFlight)
+                    .font(.app(size: T.FontSize.caption, weight: .regular))
+                    .foregroundStyle(nativeInfo)
+
+                    Text("/")
+                        .font(.app(size: T.FontSize.caption, weight: .regular))
+                        .foregroundStyle(nativeTertiaryLabel)
+
+                    Button(tr("ui.system_proxy.helper.resign_reinstall")) {
+                        Task { await appSession.resignAndReinstallSystemProxyHelper() }
                     }
                     .buttonStyle(.borderless)
                     .disabled(appSession.systemProxyHelperActionInFlight)

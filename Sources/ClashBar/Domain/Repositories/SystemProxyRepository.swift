@@ -15,6 +15,7 @@ protocol SystemProxyRepository: AnyObject {
     func diagnoseAndRepair() async -> SystemProxyHelperDiagnosis
     func installHelper() async -> SystemProxyHelperDiagnosis
     func reinstallHelper() async -> SystemProxyHelperDiagnosis
+    func resignAndReinstallHelper() async -> SystemProxyHelperDiagnosis
     func warmUpHelperIfPossible() async
     func clearBlocking(timeout: TimeInterval)
 }

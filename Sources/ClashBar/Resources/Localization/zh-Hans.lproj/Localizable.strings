@@ -181,9 +181,12 @@
 "ui.system_proxy.helper.failed" = "故障";
 "ui.system_proxy.helper.installing" = "安装中...";
 "ui.system_proxy.helper.reinstalling" = "重装中...";
+"ui.system_proxy.helper.resigning_reinstalling" = "重签重装中...";
 "ui.system_proxy.helper.install" = "安装";
 "ui.system_proxy.helper.reinstall" = "重装";
+"ui.system_proxy.helper.resign_reinstall" = "重签重装";
 "ui.system_proxy.helper.detail.signature_mismatch" = "签名不一致，请重装 helper";
+"ui.system_proxy.helper.detail.missing_signing_identity" = "本机无可用签名证书，请先安装证书";
 "ui.system_proxy.helper.detail.needs_approval" = "需要系统授权";
 "ui.system_proxy.helper.detail.install_location_invalid" = "安装位置不正确";
 "ui.system_proxy.helper.detail.helper_missing" = "helper 缺失";
@@ -223,6 +226,7 @@
 "app.system_proxy.error.helper_recovery_failed" = "恢复系统代理 helper 失败: %@";
 "app.system_proxy.error.helper_connection_failed" = "连接系统代理 helper 失败: %@";
 "app.system_proxy.error.helper_operation_failed" = "系统代理 helper 执行失败: %@";
+"app.system_proxy.error.helper_missing_signing_identity" = "本机未找到可用签名证书，无法执行重签重装。请先安装 Apple Development 或 Developer ID 证书。";
 "app.tun.error.binary_not_found" = "未找到 mihomo 二进制。请先将名为“mihomo”的可执行文件复制到以下目录：\n%@";
 "app.tun.error.permission_missing" = "TUN 模式需要 mihomo 二进制具备 root + setuid 权限。";
 "app.tun.error.authorization_cancelled" = "管理员授权已取消。";
@@ -302,6 +306,7 @@
 "log.system_proxy.startup_repair_failed" = "启动时校验系统代理失败: %@";
 "log.system_proxy.helper_installing" = "正在手动安装系统代理 helper...";
 "log.system_proxy.helper_reinstalling" = "正在手动重装系统代理 helper...";
+"log.system_proxy.helper_resigning_reinstalling" = "正在使用本机签名证书重签并重装系统代理 helper...";
 "log.system_proxy.helper_failed" = "系统代理 helper 状态异常: %@";
 "log.tun.toggled" = "TUN 模式%@";
 "log.tun.enabled" = "已开启";

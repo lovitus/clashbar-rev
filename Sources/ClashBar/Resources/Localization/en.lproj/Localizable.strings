@@ -181,9 +181,12 @@
 "ui.system_proxy.helper.failed" = "Failed";
 "ui.system_proxy.helper.installing" = "Installing...";
 "ui.system_proxy.helper.reinstalling" = "Reinstalling...";
+"ui.system_proxy.helper.resigning_reinstalling" = "Resigning & reinstalling...";
 "ui.system_proxy.helper.install" = "Install";
 "ui.system_proxy.helper.reinstall" = "Reinstall";
+"ui.system_proxy.helper.resign_reinstall" = "Resign+Reinstall";
 "ui.system_proxy.helper.detail.signature_mismatch" = "signature mismatch, reinstall helper";
+"ui.system_proxy.helper.detail.missing_signing_identity" = "no local signing identity, install a certificate first";
 "ui.system_proxy.helper.detail.needs_approval" = "needs system approval";
 "ui.system_proxy.helper.detail.install_location_invalid" = "invalid install location";
 "ui.system_proxy.helper.detail.helper_missing" = "helper missing";
@@ -223,6 +226,7 @@
 "app.system_proxy.error.helper_recovery_failed" = "Failed to recover privileged helper: %@";
 "app.system_proxy.error.helper_connection_failed" = "Failed to connect privileged helper: %@";
 "app.system_proxy.error.helper_operation_failed" = "Privileged helper operation failed: %@";
+"app.system_proxy.error.helper_missing_signing_identity" = "No local signing identity found. Resign+reinstall requires an Apple Development or Developer ID certificate.";
 "app.tun.error.binary_not_found" = "No mihomo core was found. Copy an executable named \"mihomo\" to %@ first.";
 "app.tun.error.permission_missing" = "TUN mode requires root + setuid permissions on mihomo binary.";
 "app.tun.error.authorization_cancelled" = "Administrator authorization was cancelled.";
@@ -302,6 +306,7 @@
 "log.system_proxy.startup_repair_failed" = "Startup system proxy check failed: %@";
 "log.system_proxy.helper_installing" = "Installing system proxy helper manually...";
 "log.system_proxy.helper_reinstalling" = "Reinstalling system proxy helper manually...";
+"log.system_proxy.helper_resigning_reinstalling" = "Resigning and reinstalling system proxy helper with local certificate...";
 "log.system_proxy.helper_failed" = "System proxy helper unhealthy: %@";
 "log.tun.toggled" = "TUN mode %@";
 "log.tun.enabled" = "enabled";

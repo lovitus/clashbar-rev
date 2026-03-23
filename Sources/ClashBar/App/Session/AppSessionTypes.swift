@@ -44,11 +44,13 @@ enum SystemProxyHelperActionState: Equatable {
     case idle
     case installing
     case reinstalling
+    case resigningReinstalling
 }
 
 enum SystemProxyHelperIssue: Equatable {
     case none
     case signatureMismatch
+    case missingSigningIdentity
     case needsApproval
     case installLocationInvalid
     case helperMissing

@@ -40,6 +40,10 @@ final class DefaultSystemProxyRepository: SystemProxyRepository {
         await self.service.reinstallHelperManually()
     }
 
+    func resignAndReinstallHelper() async -> SystemProxyHelperDiagnosis {
+        await self.service.resignAndReinstallHelperManually()
+    }
+
     func warmUpHelperIfPossible() async {
         await self.service.warmUpHelperIfPossible()
     }

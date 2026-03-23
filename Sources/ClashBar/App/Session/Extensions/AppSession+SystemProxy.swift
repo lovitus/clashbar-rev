@@ -10,6 +10,12 @@ extension AppSession {
         {
             return .signatureMismatch
         }
+        if normalized.contains("no valid local code signing identity")
+            || normalized.contains("no valid signing identity")
+            || normalized.contains("0 valid identities found")
+        {
+            return .missingSigningIdentity
+        }
         if normalized.contains("requires approval") || normalized.contains("login items") {
             return .needsApproval
         }
@@ -118,6 +124,20 @@ extension AppSession {
         self.applyHelperDiagnosis(diagnosis)
     }
 
+    func resignAndReinstallSystemProxyHelper() async {
+        guard !self.systemProxyHelperActionInFlight else { return }
+        self.systemProxyHelperActionInFlight = true
+        self.systemProxyHelperActionState = .resigningReinstalling
+        defer {
+            self.systemProxyHelperActionInFlight = false
+            self.systemProxyHelperActionState = .idle
+        }
+
+        appendLog(level: "info", message: tr("log.system_proxy.helper_resigning_reinstalling"))
+        let diagnosis = await self.systemProxyRepository.resignAndReinstallHelper()
+        self.applyHelperDiagnosis(diagnosis)
+    }
+
     func systemProxyPorts(from config: ConfigSnapshot) -> SystemProxyPorts {
         self.resolveSystemProxyPortsUseCase.execute(
             mixedPort: config.mixedPort,
@@ -221,6 +241,8 @@ extension AppSession {
             return tr("app.system_proxy.error.helper_connection_failed", message)
         case let .helperOperationFailed(message):
             return tr("app.system_proxy.error.helper_operation_failed", message)
+        case .missingSigningIdentity:
+            return tr("app.system_proxy.error.helper_missing_signing_identity")
         }
     }
 }
