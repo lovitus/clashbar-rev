@@ -305,7 +305,7 @@ struct SystemProxyService {
         }
         try self.validateHelperSigningRequirements()
 
-        let firstAttempt = self.attemptHelperRegistration(openSettingsOnApproval: false)
+        let firstAttempt = self.attemptHelperRegistration()
         switch firstAttempt {
         case .ready:
             return
@@ -340,7 +340,7 @@ struct SystemProxyService {
             throw SystemProxyServiceError.helperRegistrationFailed(error.localizedDescription)
         }
 
-        let secondAttempt = self.attemptHelperRegistration(openSettingsOnApproval: true)
+        let secondAttempt = self.attemptHelperRegistration()
         switch secondAttempt {
         case .ready:
             return
@@ -572,7 +572,7 @@ struct SystemProxyService {
         }
     }
 
-    private func attemptHelperRegistration(openSettingsOnApproval: Bool) -> HelperRegistrationResult {
+    private func attemptHelperRegistration() -> HelperRegistrationResult {
         let daemonService = self.helperService()
         do {
             try daemonService.register()
@@ -583,9 +583,6 @@ struct SystemProxyService {
             if daemonService.status == .requiresApproval {
                 if self.isLikelyBlockedBySystemPolicy(error) {
                     return .blocked(error.localizedDescription)
-                }
-                if openSettingsOnApproval {
-                    SMAppService.openSystemSettingsLoginItems()
                 }
                 return .needsApproval
             }
@@ -599,9 +596,6 @@ struct SystemProxyService {
             return .ready
         }
         if daemonService.status == .requiresApproval {
-            if openSettingsOnApproval {
-                SMAppService.openSystemSettingsLoginItems()
-            }
             return .needsApproval
         }
         return .failed("Service remains unavailable after register call. status=\(daemonService.status.rawValue)")

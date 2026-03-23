@@ -185,7 +185,7 @@
 "ui.system_proxy.helper.install" = "安装";
 "ui.system_proxy.helper.reinstall" = "重装";
 "ui.system_proxy.helper.detail.auto_repair_failed" = "自动修复失败";
-"ui.system_proxy.helper.detail.signature_mismatch" = "签名不一致";
+"ui.system_proxy.helper.detail.signature_mismatch" = "签名不一致，请重装 helper";
 "ui.system_proxy.helper.detail.needs_approval" = "需要系统授权";
 "ui.system_proxy.helper.detail.install_location_invalid" = "安装位置不正确";
 "ui.system_proxy.helper.detail.helper_missing" = "helper 缺失";

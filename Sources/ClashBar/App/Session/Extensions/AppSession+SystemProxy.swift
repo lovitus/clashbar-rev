@@ -14,7 +14,7 @@ extension AppSession {
             return .needsApproval
         }
         if normalized.contains("disallowed") || normalized.contains("background item") {
-            return .permissionDenied
+            return .signatureMismatch
         }
         if normalized.contains("/applications") || normalized.contains("read-only") {
             return .installLocationInvalid
@@ -31,7 +31,10 @@ extension AppSession {
         if normalized.contains("operation not permitted") || normalized.contains("not permitted")
             || normalized.contains("permission")
         {
-            return .permissionDenied
+            return .signatureMismatch
+        }
+        if normalized.contains("register") && normalized.contains("error: 1") {
+            return .signatureMismatch
         }
         return .unknown
     }

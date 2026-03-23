@@ -185,7 +185,7 @@
 "ui.system_proxy.helper.install" = "Install";
 "ui.system_proxy.helper.reinstall" = "Reinstall";
 "ui.system_proxy.helper.detail.auto_repair_failed" = "automatic repair failed";
-"ui.system_proxy.helper.detail.signature_mismatch" = "signature mismatch";
+"ui.system_proxy.helper.detail.signature_mismatch" = "signature mismatch, reinstall helper";
 "ui.system_proxy.helper.detail.needs_approval" = "needs system approval";
 "ui.system_proxy.helper.detail.install_location_invalid" = "invalid install location";
 "ui.system_proxy.helper.detail.helper_missing" = "helper missing";
