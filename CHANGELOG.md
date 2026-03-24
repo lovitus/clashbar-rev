@@ -1,3 +1,23 @@
+## beta (2026-03-24)
+
+![macOS](https://img.shields.io/badge/macOS-Supported-000000?style=flat-square&logo=apple) ![Channel](https://img.shields.io/badge/Channel-Beta-F59E0B?style=flat-square) ![Swift](https://img.shields.io/badge/Swift-6.2-F05138?style=flat-square&logo=swift)
+
+> 本轮主要是“清理错误修复路线 + 收敛 Helper 交互 + 修复远程切回本地时的系统代理误同步”。
+
+### 📝 更新日志 (Changelog)
+
+**🚀 优化改进 (Improvements)**
+
+- ![Optimize](https://img.shields.io/badge/Optimize-3B82F6?style=flat-square) **终端命令复制菜单**：`Proxy` 页“复制终端命令”改为二级菜单，分别提供 `127.0.0.1` 与“当前管理端点”两种目标地址，减少本地/远程管理切换时的误用。
+- ![Optimize](https://img.shields.io/badge/Optimize-3B82F6?style=flat-square) **菜单项可读性**：附着菜单项支持副标题展示，直接在菜单里显示命令目标地址与端口信息。
+- ![Optimize](https://img.shields.io/badge/Optimize-3B82F6?style=flat-square) **Helper 操作入口统一**：`代理 Helper` 行统一走菜单交互（安装/重装），远程场景不再出现入口缺失或行为不一致。
+
+**🐞 修复问题 (Bug Fixes)**
+
+- ![Fix](https://img.shields.io/badge/Fix-EF4444?style=flat-square) **远程切回本地误改系统代理**：修复“从远程管理切回本地后，系统代理被自动改回本地端口”的回归问题。切回本地时不再触发系统代理端口同步。
+- ![Fix](https://img.shields.io/badge/Fix-EF4444?style=flat-square) **Helper 恢复链路清理**：移除实验性的“运行时自动重签/自动创建证书”链路，避免无效重试、重复授权和不可预期状态污染。
+- ![Fix](https://img.shields.io/badge/Fix-EF4444?style=flat-square) **打包签名路径收敛**：移除 `package_app.sh` 中临时自签证书注入逻辑，回归可控的签名输入，避免发布物签名来源不透明。
+
 ## v0.2.0
 
 ![macOS](https://img.shields.io/badge/macOS-Supported-000000?style=flat-square&logo=apple) ![Version](https://img.shields.io/badge/Release-v0.2.0-10B981?style=flat-square) ![Core](https://img.shields.io/badge/Core-Mihomo-6366f1?style=flat-square)

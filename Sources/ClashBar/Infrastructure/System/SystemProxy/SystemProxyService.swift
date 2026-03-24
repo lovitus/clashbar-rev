@@ -16,7 +16,6 @@ enum SystemProxyServiceError: LocalizedError {
     case helperRegistrationFailed(String)
     case helperConnectionFailed(String)
     case helperOperationFailed(String)
-    case missingSigningIdentity
 
     var errorDescription: String? {
         switch self {
@@ -43,8 +42,6 @@ enum SystemProxyServiceError: LocalizedError {
             "Failed to connect privileged helper: \(message)"
         case let .helperOperationFailed(message):
             "Privileged helper operation failed: \(message)"
-        case .missingSigningIdentity:
-            "No valid local code signing identity found. Install an Apple Development/Developer ID certificate, then use resign and reinstall."
         }
     }
 }
@@ -78,7 +75,6 @@ private final class ContinuationBox<Value: Sendable>: @unchecked Sendable {
 struct SystemProxyService {
     private let helperToolInstallPath = "/Library/PrivilegedHelperTools/com.clashbar.helper"
     private let helperPlistInstallPath = "/Library/LaunchDaemons/com.clashbar.helper.plist"
-    private let managedSigningIdentityCommonName = "ClashBar Local Code Signing"
 
     private let helperResponseTimeoutNanoseconds: UInt64 = 4_000_000_000
 
@@ -104,12 +100,6 @@ struct SystemProxyService {
         case needsApproval
         case blocked(String)
         case failed(String)
-    }
-
-    private struct SigningIdentity {
-        let name: String
-        let keychainPath: String?
-        let keychainPassword: String?
     }
 
     func warmUpHelperIfPossible() async {
@@ -281,10 +271,6 @@ struct SystemProxyService {
         await self.manualInstallHelper(forceReinstall: true)
     }
 
-    func resignAndReinstallHelperManually() async -> SystemProxyHelperDiagnosis {
-        await self.manualRepairHelperWithResign(forceReinstall: true)
-    }
-
     private func manualInstallHelper(forceReinstall: Bool) async -> SystemProxyHelperDiagnosis {
         if !self.isHelperBundledInMainApp() {
             return .failed(message: SystemProxyServiceError.helperNotBundled.localizedDescription)
@@ -303,35 +289,7 @@ struct SystemProxyService {
                 _ = try await self.invokeStateQuery()
                 return .healthy
             } catch let legacyError {
-                return .failed(message: self.decorateFailureMessage(
-                    self.helperFailureMessage(legacyError),
-                    includeResignCommands: false))
-            }
-        }
-    }
-
-    private func manualRepairHelperWithResign(forceReinstall: Bool) async -> SystemProxyHelperDiagnosis {
-        if !self.isHelperBundledInMainApp() {
-            return .failed(message: SystemProxyServiceError.helperNotBundled.localizedDescription)
-        }
-        if self.isRunningFromReadOnlyVolume() {
-            return .failed(message: SystemProxyServiceError.helperRequiresInstallToApplications.localizedDescription)
-        }
-
-        do {
-            let identity = try self.findLocalCodeSigningIdentity()
-            try await self.repairHelperWithIdentity(identity, forceReinstall: forceReinstall)
-            _ = try await self.invokeStateQuery()
-            return .healthy
-        } catch {
-            do {
-                try await self.installHelperAsLegacyDaemon()
-                _ = try await self.invokeStateQuery()
-                return .healthy
-            } catch let legacyError {
-                return .failed(message: self.decorateFailureMessage(
-                    self.helperFailureMessage(legacyError),
-                    includeResignCommands: true))
+                return .failed(message: self.helperFailureMessage(legacyError))
             }
         }
     }
@@ -529,23 +487,6 @@ struct SystemProxyService {
         SMAppService.daemon(plistName: ProxyHelperConstants.daemonPlistName)
     }
 
-    private var workingDirectoryURL: URL {
-        FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support/clashbar", isDirectory: true)
-    }
-
-    private var managedSigningDirectoryURL: URL {
-        self.workingDirectoryURL.appendingPathComponent("security", isDirectory: true)
-    }
-
-    private var managedSigningKeychainURL: URL {
-        self.managedSigningDirectoryURL.appendingPathComponent("clashbar-signing.keychain-db", isDirectory: false)
-    }
-
-    private var managedSigningPasswordURL: URL {
-        self.managedSigningDirectoryURL.appendingPathComponent("clashbar-signing.pass", isDirectory: false)
-    }
-
     private func validateHelperSigningRequirements() throws {
         let appURL = Bundle.main.bundleURL
         let helperURL = appURL.appendingPathComponent(ProxyHelperConstants.helperBundleProgram, isDirectory: false)
@@ -657,60 +598,6 @@ struct SystemProxyService {
         }
     }
 
-    private func repairHelperWithIdentity(_ identity: SigningIdentity, forceReinstall: Bool) async throws {
-        let daemonService = self.helperService()
-        if daemonService.status == .enabled {
-            try? await daemonService.unregister()
-        }
-
-        let appPath = Bundle.main.bundleURL.path
-        let helperPath = Bundle.main.bundleURL
-            .appendingPathComponent(ProxyHelperConstants.helperBundleProgram, isDirectory: false)
-            .path
-        let escapedApp = self.shellQuoted(appPath)
-        let escapedHelper = self.shellQuoted(helperPath)
-        let escapedIdentity = self.shellQuoted(identity.name)
-
-        var codesignCommands: [String] = []
-        if let keychainPath = identity.keychainPath {
-            let escapedKeychainPath = self.shellQuoted(keychainPath)
-            if let keychainPassword = identity.keychainPassword {
-                codesignCommands.append(
-                    "/usr/bin/security unlock-keychain -p \(self.shellQuoted(keychainPassword)) \(escapedKeychainPath)")
-            }
-            codesignCommands.append(
-                "/usr/bin/codesign --force --keychain \(escapedKeychainPath) --sign \(escapedIdentity) --timestamp=none --preserve-metadata=identifier,entitlements,requirements,flags \(escapedHelper)")
-            codesignCommands.append(
-                "/usr/bin/codesign --force --keychain \(escapedKeychainPath) --sign \(escapedIdentity) --timestamp=none --deep --preserve-metadata=identifier,entitlements,requirements,flags \(escapedApp)")
-        } else {
-            codesignCommands.append(
-                "/usr/bin/codesign --force --sign \(escapedIdentity) --timestamp=none --preserve-metadata=identifier,entitlements,requirements,flags \(escapedHelper)")
-            codesignCommands.append(
-                "/usr/bin/codesign --force --sign \(escapedIdentity) --timestamp=none --deep --preserve-metadata=identifier,entitlements,requirements,flags \(escapedApp)")
-        }
-        codesignCommands.append("/usr/bin/codesign --verify --deep --strict --verbose=2 \(escapedApp)")
-
-        let codesignResult = try self.runProcessSynchronously(
-            executable: "/bin/zsh",
-            arguments: ["-lc", codesignCommands.joined(separator: " && ")])
-        guard codesignResult.exitCode == 0 else {
-            throw SystemProxyServiceError.helperOperationFailed(codesignResult.combinedOutput)
-        }
-
-        try self.cleanupInstalledHelper(forceReinstall: forceReinstall)
-
-        switch self.attemptHelperRegistration() {
-        case .ready:
-            return
-        case .needsApproval:
-            throw SystemProxyServiceError.helperNeedsApproval
-        case let .blocked(message):
-            throw SystemProxyServiceError.helperBlockedBySystemPolicy(message)
-        case let .failed(message):
-            throw SystemProxyServiceError.helperRegistrationFailed(message)
-        }
-    }
-
     private func cleanupInstalledHelper(forceReinstall: Bool) throws {
         let escapedPlist = self.shellQuoted(self.helperPlistInstallPath)
         let escapedTool = self.shellQuoted(self.helperToolInstallPath)
@@ -731,118 +618,6 @@ struct SystemProxyService {
         let shellCommand = commands.joined(separator: " && ")
         let appleScript = "do shell script \"\(self.appleScriptEscaped(shellCommand))\" with administrator privileges"
         try self.runAppleScriptSynchronously(appleScript)
-    }
-
-    private func findLocalCodeSigningIdentity() throws -> SigningIdentity {
-        try self.ensureManagedCodeSigningIdentity()
-    }
-
-    private func firstCodeSigningIdentity(in keychainPath: String? = nil) throws -> String? {
-        var arguments = ["find-identity", "-v", "-p", "codesigning"]
-        if let keychainPath {
-            arguments.append(keychainPath)
-        }
-        let result = try self.runProcessSynchronously(
-            executable: "/usr/bin/security",
-            arguments: arguments)
-        guard result.exitCode == 0 else {
-            throw SystemProxyServiceError.helperOperationFailed(result.combinedOutput)
-        }
-
-        let lines = result.stdout.split(whereSeparator: \.isNewline)
-        for line in lines {
-            let text = String(line).trimmingCharacters(in: .whitespacesAndNewlines)
-            if text.lowercased().contains("valid identities found") { continue }
-            if text.contains("REVOKED") { continue }
-            let parts = text.components(separatedBy: .whitespaces).filter { !$0.isEmpty }
-            guard parts.count >= 2 else { continue }
-            let candidate = parts[1]
-            if candidate.count == 40,
-               candidate.allSatisfy(\.isHexDigit)
-            {
-                if let quotedNameStart = text.firstIndex(of: "\""),
-                   let quotedNameEnd = text.lastIndex(of: "\""),
-                   quotedNameStart < quotedNameEnd
-                {
-                    return String(text[text.index(after: quotedNameStart)..<quotedNameEnd])
-                }
-                return candidate
-            }
-        }
-        return nil
-    }
-
-    private func ensureManagedCodeSigningIdentity() throws -> SigningIdentity {
-        let fileManager = FileManager.default
-        try fileManager.createDirectory(at: self.managedSigningDirectoryURL, withIntermediateDirectories: true)
-
-        let keychainPath = self.managedSigningKeychainURL.path
-        let keychainPassword = try self.loadOrCreateManagedSigningPassword()
-
-        if let identity = try self.firstCodeSigningIdentity(in: keychainPath) {
-            return SigningIdentity(name: identity, keychainPath: keychainPath, keychainPassword: keychainPassword)
-        }
-
-        let tempDirectoryURL = self.managedSigningDirectoryURL
-            .appendingPathComponent(UUID().uuidString, isDirectory: true)
-        try fileManager.createDirectory(at: tempDirectoryURL, withIntermediateDirectories: true)
-        defer { try? fileManager.removeItem(at: tempDirectoryURL) }
-
-        let opensslPath = fileManager.fileExists(atPath: "/opt/homebrew/bin/openssl")
-            ? "/opt/homebrew/bin/openssl"
-            : "/usr/bin/openssl"
-        let escapedTempDirectory = self.shellQuoted(tempDirectoryURL.path)
-        let escapedKeychainPath = self.shellQuoted(keychainPath)
-        let escapedKeychainPassword = self.shellQuoted(keychainPassword)
-
-        var commands: [String] = []
-        commands.append("cd \(escapedTempDirectory)")
-        commands
-            .append(
-                "cat > openssl.cnf <<'EOF'\n[ req ]\ndistinguished_name = dn\nx509_extensions = v3_req\nprompt = no\n[ dn ]\nCN = \(self.managedSigningIdentityCommonName)\nO = ClashBar Local\n[ v3_req ]\nkeyUsage = critical,digitalSignature\nextendedKeyUsage = codeSigning\nbasicConstraints = critical,CA:false\nsubjectKeyIdentifier = hash\nauthorityKeyIdentifier = keyid,issuer\nEOF")
-        commands.append(
-            "\(self.shellQuoted(opensslPath)) req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 3650 -nodes -config openssl.cnf >/dev/null 2>&1")
-        commands.append(
-            "\(self.shellQuoted(opensslPath)) pkcs12 -export -inkey key.pem -in cert.pem -out identity.p12 -passout pass:clashbar-local >/dev/null 2>&1")
-        commands
-            .append(
-                "if [ ! -f \(escapedKeychainPath) ]; then /usr/bin/security create-keychain -p \(escapedKeychainPassword) \(escapedKeychainPath) >/dev/null; fi")
-        commands.append("/usr/bin/security unlock-keychain -p \(escapedKeychainPassword) \(escapedKeychainPath)")
-        commands.append("/usr/bin/security set-keychain-settings -lut 21600 \(escapedKeychainPath)")
-        commands
-            .append(
-                "/usr/bin/security import identity.p12 -k \(escapedKeychainPath) -f pkcs12 -P clashbar-local -A -T /usr/bin/codesign >/dev/null")
-        commands
-            .append("/usr/bin/security add-trusted-cert -d -r trustRoot -k \(escapedKeychainPath) cert.pem >/dev/null")
-        commands.append(
-            "/usr/bin/security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k \(escapedKeychainPassword) \(escapedKeychainPath) >/dev/null")
-
-        let shellCommand = commands.joined(separator: " && ")
-        let result = try self.runProcessSynchronously(executable: "/bin/zsh", arguments: ["-lc", shellCommand])
-        guard result.exitCode == 0 else {
-            throw SystemProxyServiceError.helperOperationFailed(result.combinedOutput)
-        }
-
-        if let identity = try self.firstCodeSigningIdentity(in: keychainPath) {
-            return SigningIdentity(name: identity, keychainPath: keychainPath, keychainPassword: keychainPassword)
-        }
-        throw SystemProxyServiceError.missingSigningIdentity
-    }
-
-    private func loadOrCreateManagedSigningPassword() throws -> String {
-        let fileManager = FileManager.default
-        if fileManager.fileExists(atPath: self.managedSigningPasswordURL.path) {
-            let existing = try String(contentsOf: self.managedSigningPasswordURL, encoding: .utf8)
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            if !existing.isEmpty {
-                return existing
-            }
-        }
-
-        let password = UUID().uuidString + UUID().uuidString
-        try password.write(to: self.managedSigningPasswordURL, atomically: true, encoding: .utf8)
-        try fileManager.setAttributes([.posixPermissions: 0o600], ofItemAtPath: self.managedSigningPasswordURL.path)
-        return password
     }
 
     private func invokeMutation(
@@ -903,46 +678,6 @@ struct SystemProxyService {
             return serviceError.localizedDescription
         }
         return error.localizedDescription
-    }
-
-    private func decorateFailureMessage(_ base: String, includeResignCommands: Bool) -> String {
-        let guide = self.commandLineRecoveryGuide(includeResignCommands: includeResignCommands)
-        guard !guide.isEmpty else { return base }
-        return "\(base)\n\nManual recovery via Terminal:\n\(guide)"
-    }
-
-    private func commandLineRecoveryGuide(includeResignCommands: Bool) -> String {
-        let appPath = Bundle.main.bundleURL.path
-        let helperPath = Bundle.main.bundleURL
-            .appendingPathComponent(ProxyHelperConstants.helperBundleProgram, isDirectory: false)
-            .path
-        let keychainPath = self.managedSigningKeychainURL.path
-        let passwordPath = self.managedSigningPasswordURL.path
-
-        var steps: [String] = []
-        if includeResignCommands {
-            steps.append("export PASS=$(cat \(self.shellQuoted(passwordPath)))")
-            steps.append("security unlock-keychain -p \"$PASS\" \(self.shellQuoted(keychainPath))")
-            steps
-                .append(
-                    "codesign --force --keychain \(self.shellQuoted(keychainPath)) --sign \"ClashBar Local Code Signing\" --timestamp=none --preserve-metadata=identifier,entitlements,requirements,flags \(self.shellQuoted(helperPath))")
-            steps
-                .append(
-                    "codesign --force --keychain \(self.shellQuoted(keychainPath)) --sign \"ClashBar Local Code Signing\" --timestamp=none --deep --preserve-metadata=identifier,entitlements,requirements,flags \(self.shellQuoted(appPath))")
-            steps.append("codesign --verify --deep --strict --verbose=2 \(self.shellQuoted(appPath))")
-        }
-        steps.append("sudo launchctl bootout system/\(ProxyHelperConstants.machServiceName) >/dev/null 2>&1 || true")
-        steps
-            .append(
-                "sudo launchctl bootout system \(self.shellQuoted(self.helperPlistInstallPath)) >/dev/null 2>&1 || true")
-        steps.append("sudo launchctl disable system/\(ProxyHelperConstants.machServiceName) >/dev/null 2>&1 || true")
-        steps.append("sudo launchctl remove \(ProxyHelperConstants.machServiceName) >/dev/null 2>&1 || true")
-        steps.append("sudo pkill -9 -x com.clashbar.helper >/dev/null 2>&1 || true")
-        steps
-            .append(
-                "sudo rm -f \(self.shellQuoted(self.helperPlistInstallPath)) \(self.shellQuoted(self.helperToolInstallPath))")
-        steps.append("Reopen ClashBar, then click Install or Resign+Reinstall again.")
-        return steps.enumerated().map { "\($0.offset + 1). \($0.element)" }.joined(separator: "\n")
     }
 
     private struct ProcessResult {

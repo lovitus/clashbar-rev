@@ -56,7 +56,7 @@ extension AppSession {
         }
 
         if case .local = target {
-            await self.applyPendingAppLaunchSettingsOverlayIfNeeded()
+            await self.applyPendingAppLaunchSettingsOverlayIfNeeded(syncSystemProxyPort: false)
         }
 
         if self.apiStatus == .healthy || self.apiStatus == .degraded {

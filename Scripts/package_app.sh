@@ -217,60 +217,6 @@ PLIST
 CODESIGN_IDENTITY="${CODESIGN_IDENTITY:--}"
 CODESIGN_EXTRA_FLAGS=""
 
-if [ "$CODESIGN_IDENTITY" = "-" ] && command -v codesign >/dev/null 2>&1; then
-  echo "Ad-hoc identity detected — generating self-signed code-signing certificate…"
-
-  BUILD_KEYCHAIN="$ROOT/dist/build.keychain-db"
-  BUILD_KEYCHAIN_PASS="clashbar-build-$(date +%s)"
-  CERT_CN="ClashBar Development"
-
-  security delete-keychain "$BUILD_KEYCHAIN" 2>/dev/null || true
-  security create-keychain -p "$BUILD_KEYCHAIN_PASS" "$BUILD_KEYCHAIN"
-  security set-keychain-settings -lut 3600 "$BUILD_KEYCHAIN"
-  security unlock-keychain -p "$BUILD_KEYCHAIN_PASS" "$BUILD_KEYCHAIN"
-
-  PREV_KEYCHAINS="$(security list-keychains -d user | tr -d '"' | tr '\n' ' ')"
-  security list-keychains -d user -s "$BUILD_KEYCHAIN" $PREV_KEYCHAINS
-
-  CERT_CONF="$ROOT/dist/_codesign_cert.conf"
-  cat > "$CERT_CONF" <<CERTEOF
-[req]
-distinguished_name = req_dn
-x509_extensions    = codesign_ext
-prompt             = no
-[req_dn]
-CN = ${CERT_CN}
-O  = ClashBar
-[codesign_ext]
-keyUsage          = critical, digitalSignature
-extendedKeyUsage  = codeSigning
-basicConstraints  = critical, CA:false
-CERTEOF
-
-  CERT_KEY="$ROOT/dist/_codesign_key.pem"
-  CERT_PEM="$ROOT/dist/_codesign_cert.pem"
-  CERT_P12="$ROOT/dist/_codesign_cert.p12"
-
-  openssl req -x509 -newkey rsa:2048 \
-    -keyout "$CERT_KEY" -out "$CERT_PEM" \
-    -days 365 -nodes -config "$CERT_CONF" 2>/dev/null
-
-  openssl pkcs12 -export \
-    -in "$CERT_PEM" -inkey "$CERT_KEY" \
-    -out "$CERT_P12" -passout pass:"$BUILD_KEYCHAIN_PASS" 2>/dev/null
-
-  security import "$CERT_P12" -k "$BUILD_KEYCHAIN" \
-    -P "$BUILD_KEYCHAIN_PASS" -T /usr/bin/codesign
-  security set-key-partition-list -S apple-tool:,apple: \
-    -s -k "$BUILD_KEYCHAIN_PASS" "$BUILD_KEYCHAIN"
-
-  rm -f "$CERT_KEY" "$CERT_PEM" "$CERT_P12" "$CERT_CONF"
-
-  CODESIGN_IDENTITY="$CERT_CN"
-  CODESIGN_EXTRA_FLAGS="--keychain $BUILD_KEYCHAIN"
-  echo "Self-signed certificate '$CERT_CN' ready in temporary keychain."
-fi
-
 if command -v codesign >/dev/null 2>&1; then
   codesign --force --sign "$CODESIGN_IDENTITY" $CODESIGN_EXTRA_FLAGS \
     "$APP/Contents/Library/HelperTools/$HELPER_LABEL"

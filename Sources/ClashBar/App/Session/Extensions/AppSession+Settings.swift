@@ -205,14 +205,15 @@ extension AppSession {
             successMessage: tr("app.settings.overlay_success"))
     }
 
-    func applyPendingAppLaunchSettingsOverlayIfNeeded() async {
+    func applyPendingAppLaunchSettingsOverlayIfNeeded(syncSystemProxyPort: Bool = true) async {
         guard let overlay = pendingAppLaunchOverlaySettings else { return }
         guard apiStatus == .healthy else { return }
         pendingAppLaunchOverlaySettings = nil
         _ = await self.applyEditableSettingsOverlay(
             overlay,
             syncingKey: "app-launch-overlay",
-            successMessage: "")
+            successMessage: "",
+            syncSystemProxyPort: syncSystemProxyPort)
     }
 
     func syncEditableSettingsOverlayForCoreBootstrap(
@@ -240,7 +241,8 @@ extension AppSession {
     func applyEditableSettingsOverlay(
         _ overlay: EditableSettingsSnapshot,
         syncingKey: String,
-        successMessage: String) async -> Bool
+        successMessage: String,
+        syncSystemProxyPort: Bool = true) async -> Bool
     {
         let fallback = lastSyncedEditableSettings
         let resolvedLogLevel = overlay.logLevel.trimmed.isEmpty
@@ -277,7 +279,11 @@ extension AppSession {
             body[key] = value
         }
 
-        return await self.patchConfigBody(body, syncingKey: syncingKey, successMessage: successMessage)
+        return await self.patchConfigBody(
+            body,
+            syncingKey: syncingKey,
+            successMessage: successMessage,
+            syncSystemProxyPort: syncSystemProxyPort)
     }
 
     func effectiveMixedPort() -> Int {
@@ -313,7 +319,11 @@ extension AppSession {
     }
 
     @discardableResult
-    func patchConfigBody(_ body: [String: ConfigPatchValue], syncingKey: String, successMessage: String) async -> Bool {
+    func patchConfigBody(
+        _ body: [String: ConfigPatchValue],
+        syncingKey: String,
+        successMessage: String,
+        syncSystemProxyPort: Bool = true) async -> Bool {
         self.cancelProxyPortsAutoSave()
         settingsFeedbackClearTask?.cancel()
         settingsFeedbackClearTask = nil
@@ -321,7 +331,7 @@ extension AppSession {
         settingsErrorMessage = nil
         settingsSavedMessage = nil
         defer { settingsSyncingKey = nil }
-        let shouldSyncSystemProxyPort = !self.isRemoteTarget && body.keys.contains { key in
+        let shouldSyncSystemProxyPort = syncSystemProxyPort && !self.isRemoteTarget && body.keys.contains { key in
             key == "mixed-port" || key == "port" || key == "socks-port"
         }
         let previousSystemProxyPorts =

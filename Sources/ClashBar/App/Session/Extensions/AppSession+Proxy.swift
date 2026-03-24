@@ -82,12 +82,32 @@ extension AppSession {
     }
 
     func copyProxyCommand() {
+        self.copyLocalProxyCommand()
+    }
+
+    func copyLocalProxyCommand() {
+        self.copyProxyCommand(host: "127.0.0.1")
+    }
+
+    func copyManagedEndpointProxyCommand() {
+        self.copyProxyCommand(host: self.controllerHost())
+    }
+
+    func localProxyCommandTargetDisplay() -> String {
+        let ports = currentSystemProxyPortsFromState()
+        return self.buildSystemProxyDisplayString(host: "127.0.0.1", ports: ports) ?? "127.0.0.1"
+    }
+
+    func managedEndpointProxyCommandTargetDisplay() -> String {
+        let ports = currentSystemProxyPortsFromState()
+        return self.buildSystemProxyDisplayString(host: self.controllerHost(), ports: ports) ?? self.controllerHost()
+    }
+
+    private func copyProxyCommand(host: String) {
         let ports = currentSystemProxyPortsFromState()
         let httpPort = ports.httpPort ?? ports.socksPort ?? effectiveMixedPort()
         let socksPort = ports.socksPort ?? ports.httpPort ?? httpPort
-        let script = BuildTerminalProxyCommandUseCase().execute(
-            httpPort: httpPort,
-            socksPort: socksPort)
+        let script = BuildTerminalProxyCommandUseCase().execute(host: host, httpPort: httpPort, socksPort: socksPort)
         copyTextToPasteboard(script)
         appendLog(level: "info", message: tr("log.proxy_export.copied"))
     }

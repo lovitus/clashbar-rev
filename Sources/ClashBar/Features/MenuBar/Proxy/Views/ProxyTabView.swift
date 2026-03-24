@@ -4,8 +4,8 @@ import SwiftUI
 private typealias T = MenuBarLayoutTokens
 
 extension MenuBarRootView {
-    func handleCopyProxyCommand() {
-        self.appSession.copyProxyCommand()
+    func handleCopyProxyCommand(_ action: () -> Void) {
+        action()
 
         self.proxyCommandCopyResetTask?.cancel()
         self.proxyCommandCopyResetTask = nil
@@ -64,6 +64,32 @@ extension MenuBarRootView {
         AttachedPopoverMenuItem(title: tr("ui.quick.show_in_finder")) {
             dismiss()
             appSession.showSelectedConfigInFinder()
+        }
+    }
+
+    @ViewBuilder
+    func proxyCommandMenuContent(dismiss: @escaping () -> Void) -> some View {
+        AttachedPopoverMenuItem(
+            title: tr("ui.quick.copy_terminal"),
+            subtitle: self.appSession.localProxyCommandTargetDisplay(),
+            leadingSymbol: "desktopcomputer",
+            leadingTint: nativeInfo)
+        {
+            dismiss()
+            self.handleCopyProxyCommand {
+                self.appSession.copyLocalProxyCommand()
+            }
+        }
+        AttachedPopoverMenuItem(
+            title: tr("ui.quick.copy_terminal_current_endpoint"),
+            subtitle: self.appSession.managedEndpointProxyCommandTargetDisplay(),
+            leadingSymbol: "network",
+            leadingTint: nativeWarning)
+        {
+            dismiss()
+            self.handleCopyProxyCommand {
+                self.appSession.copyManagedEndpointProxyCommand()
+            }
         }
     }
 
@@ -215,21 +241,26 @@ extension MenuBarRootView {
                         Task { await appSession.toggleTunMode(value) }
                     }))
 
-            Button {
-                self.handleCopyProxyCommand()
-            } label: {
+            AttachedPopoverMenu { _ in
                 self.quickRowContent(
                     title: tr("ui.quick.copy_terminal"),
                     symbol: "terminal",
                     foreground: nativeWarning)
                 {
-                    Image(systemName: proxyCommandCopied ? "checkmark.circle.fill" : "doc.on.doc")
-                        .font(.app(size: T.FontSize.body, weight: .medium))
-                        .foregroundStyle(
-                            proxyCommandCopied
-                                ? nativePositive.opacity(T.Opacity.solid)
-                                : (hoveringCopyRow ? nativeSecondaryLabel : nativeTertiaryLabel.opacity(0.6)))
+                    HStack(spacing: T.space2) {
+                        Image(systemName: proxyCommandCopied ? "checkmark.circle.fill" : "doc.on.doc")
+                            .font(.app(size: T.FontSize.body, weight: .medium))
+                            .foregroundStyle(
+                                proxyCommandCopied
+                                    ? nativePositive.opacity(T.Opacity.solid)
+                                    : (hoveringCopyRow ? nativeSecondaryLabel : nativeTertiaryLabel.opacity(0.6)))
+                        Image(systemName: "chevron.right")
+                            .font(.app(size: T.FontSize.caption, weight: .medium))
+                            .foregroundStyle(nativeTertiaryLabel)
+                    }
                 }
+            } content: { dismiss in
+                self.proxyCommandMenuContent(dismiss: dismiss)
             }
             .buttonStyle(.plain)
             .onHover { hoveringCopyRow = $0 }
@@ -279,10 +310,6 @@ extension MenuBarRootView {
         if self.appSession.systemProxyHelperActionState == .reinstalling {
             return tr("ui.system_proxy.helper.reinstalling")
         }
-        if self.appSession.systemProxyHelperActionState == .resigningReinstalling {
-            return tr("ui.system_proxy.helper.resigning_reinstalling")
-        }
-
         let detail = self.systemProxyHelperDetailText
         switch self.appSession.systemProxyHelperState {
         case .unknown:
@@ -306,8 +333,6 @@ extension MenuBarRootView {
             tr("ui.system_proxy.helper.guidance.system_policy")
         case .signatureMismatch:
             tr("ui.system_proxy.helper.guidance.signature_mismatch")
-        case .missingSigningIdentity:
-            tr("ui.system_proxy.helper.guidance.missing_signing_identity")
         case .installLocationInvalid:
             tr("ui.system_proxy.helper.guidance.install_location_invalid")
         case .helperMissing:
@@ -346,8 +371,6 @@ extension MenuBarRootView {
             tr("ui.system_proxy.helper.detail.system_policy_blocked")
         case .signatureMismatch:
             tr("ui.system_proxy.helper.detail.signature_mismatch")
-        case .missingSigningIdentity:
-            tr("ui.system_proxy.helper.detail.missing_signing_identity")
         case .needsApproval:
             tr("ui.system_proxy.helper.detail.needs_approval")
         case .installLocationInvalid:
@@ -426,46 +449,26 @@ extension MenuBarRootView {
             dismiss()
             Task { await appSession.reinstallSystemProxyHelper() }
         }
-        AttachedPopoverMenuItem(
-            title: tr("ui.system_proxy.helper.resign_reinstall"),
-            leadingSymbol: "signature",
-            leadingTint: nativePurple)
-        {
-            dismiss()
-            Task { await appSession.resignAndReinstallSystemProxyHelper() }
-        }
     }
 
     var helperStatusRow: some View {
-        Group {
-            if appSession.isRemoteTarget {
-                self.quickRowContent(
-                    title: tr("ui.quick.system_proxy_helper"),
-                    symbol: "wrench.and.screwdriver",
-                    foreground: self.systemProxyHelperStatusTint)
-                {
+        AttachedPopoverMenu { _ in
+            self.quickRowContent(
+                title: tr("ui.quick.system_proxy_helper"),
+                symbol: "wrench.and.screwdriver",
+                foreground: self.systemProxyHelperStatusTint)
+            {
+                HStack(spacing: T.space2) {
                     self.helperStatusTrailing
+                    Image(systemName: "chevron.right")
+                        .font(.app(size: T.FontSize.caption, weight: .medium))
+                        .foregroundStyle(nativeTertiaryLabel)
                 }
-            } else {
-                AttachedPopoverMenu { _ in
-                    self.quickRowContent(
-                        title: tr("ui.quick.system_proxy_helper"),
-                        symbol: "wrench.and.screwdriver",
-                        foreground: self.systemProxyHelperStatusTint)
-                    {
-                        HStack(spacing: T.space2) {
-                            self.helperStatusTrailing
-                            Image(systemName: "chevron.right")
-                                .font(.app(size: T.FontSize.caption, weight: .medium))
-                                .foregroundStyle(nativeTertiaryLabel)
-                        }
-                    }
-                } content: { dismiss in
-                    self.helperActionsMenuContent(dismiss: dismiss)
-                }
-                .buttonStyle(.plain)
             }
+        } content: { dismiss in
+            self.helperActionsMenuContent(dismiss: dismiss)
         }
+        .buttonStyle(.plain)
     }
 
     var helperStatusTrailing: some View {

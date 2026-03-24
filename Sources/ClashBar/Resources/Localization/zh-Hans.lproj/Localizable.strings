@@ -79,6 +79,7 @@
 "ui.quick.system_proxy_helper" = "代理 Helper";
 "ui.quick.tun_mode" = "TUN 模式";
 "ui.quick.copy_terminal" = "复制终端命令";
+"ui.quick.copy_terminal_current_endpoint" = "复制当前端点命令";
 "ui.quick.reload_config_list" = "重载配置文件";
 "ui.quick.import_local_config" = "导入本地配置";
 "ui.quick.import_remote_config" = "导入订阅链接";
@@ -181,15 +182,12 @@
 "ui.system_proxy.helper.failed" = "故障";
 "ui.system_proxy.helper.installing" = "安装中...";
 "ui.system_proxy.helper.reinstalling" = "重装中...";
-"ui.system_proxy.helper.resigning_reinstalling" = "重签重装中...";
 "ui.system_proxy.helper.install" = "安装";
 "ui.system_proxy.helper.reinstall" = "重装";
-"ui.system_proxy.helper.resign_reinstall" = "重签重装";
 "ui.system_proxy.helper.detail.not_installed" = "helper 未安装，点安装";
 "ui.system_proxy.helper.detail.registration_failed" = "helper 注册失败，点重装";
 "ui.system_proxy.helper.detail.system_policy_blocked" = "helper 被系统阻止，到登录项允许后重装";
-"ui.system_proxy.helper.detail.signature_mismatch" = "签名不一致，点重签重装";
-"ui.system_proxy.helper.detail.missing_signing_identity" = "本机无可用签名证书，装证书后点重签重装";
+"ui.system_proxy.helper.detail.signature_mismatch" = "helper 签名异常，点重装";
 "ui.system_proxy.helper.detail.needs_approval" = "等待系统授权，到登录项允许后重装";
 "ui.system_proxy.helper.detail.install_location_invalid" = "安装位置不正确";
 "ui.system_proxy.helper.detail.helper_missing" = "helper 缺失";
@@ -201,9 +199,8 @@
 "ui.system_proxy.helper.detail.unknown" = "原因未知";
 "ui.system_proxy.helper.guidance.not_installed" = "引导：先点“安装”。如果安装后仍失败，再点“重装”清理旧 helper 状态后重装。";
 "ui.system_proxy.helper.guidance.reinstall" = "引导：先点“重装”。“重装”现在会先清理旧 helper 进程、旧 LaunchDaemon 和旧安装残留，再重新安装。";
-"ui.system_proxy.helper.guidance.system_policy" = "引导：先到“系统设置 > 通用 > 登录项”允许 ClashBar 后台项目；若仍失败，再点“重装”。如果你切换过不同签名版本，再点“重签重装”。";
-"ui.system_proxy.helper.guidance.signature_mismatch" = "引导：当前更像是签名体系变化。请点“重签重装”；它会优先复用本机已有签名身份，若没有则自动创建本地签名身份后再重签 App 和 Helper。";
-"ui.system_proxy.helper.guidance.missing_signing_identity" = "引导：“重签重装”现在会尝试自动创建本地签名身份；如果仍失败，说明本机 keychain/证书创建链路本身异常。你也可以先点“重装”走清理重装路线。";
+"ui.system_proxy.helper.guidance.system_policy" = "引导：先到“系统设置 > 通用 > 登录项”允许 ClashBar 后台项目；若仍失败，再点“重装”。";
+"ui.system_proxy.helper.guidance.signature_mismatch" = "引导：当前更像是 helper 签名异常。请先点“重装”；如果仍失败，请重新安装应用。";
 "ui.system_proxy.helper.guidance.install_location_invalid" = "引导：先把 ClashBar.app 放到 /Applications，再重新打开应用后执行“安装”或“重装”。";
 "ui.system_proxy.helper.guidance.helper_missing" = "引导：当前应用包内缺少 helper，请使用完整打包产物重新安装应用。";
 "ui.system_proxy.helper.guidance.permission_denied" = "引导：当前权限不足。请重新执行“重装”，并确认管理员授权没有被取消。";
@@ -243,7 +240,6 @@
 "app.system_proxy.error.helper_recovery_failed" = "恢复系统代理 helper 失败: %@";
 "app.system_proxy.error.helper_connection_failed" = "连接系统代理 helper 失败: %@";
 "app.system_proxy.error.helper_operation_failed" = "系统代理 helper 执行失败: %@";
-"app.system_proxy.error.helper_missing_signing_identity" = "本机未找到可用签名证书，无法执行重签重装。请先安装 Apple Development 或 Developer ID 证书。";
 "app.tun.error.binary_not_found" = "未找到 mihomo 二进制。请先将名为“mihomo”的可执行文件复制到以下目录：\n%@";
 "app.tun.error.permission_missing" = "TUN 模式需要 mihomo 二进制具备 root + setuid 权限。";
 "app.tun.error.authorization_cancelled" = "管理员授权已取消。";
@@ -323,7 +319,6 @@
 "log.system_proxy.startup_repair_failed" = "启动时校验系统代理失败: %@";
 "log.system_proxy.helper_installing" = "正在手动安装系统代理 helper...";
 "log.system_proxy.helper_reinstalling" = "正在手动重装系统代理 helper...";
-"log.system_proxy.helper_resigning_reinstalling" = "正在使用本机签名证书重签并重装系统代理 helper...";
 "log.system_proxy.helper_failed" = "系统代理 helper 状态异常: %@";
 "log.tun.toggled" = "TUN 模式%@";
 "log.tun.enabled" = "已开启";
