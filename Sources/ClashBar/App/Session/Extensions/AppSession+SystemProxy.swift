@@ -5,16 +5,16 @@ extension AppSession {
     private func helperIssue(from message: String?) -> SystemProxyHelperIssue {
         let normalized = (message ?? "").trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         if normalized.isEmpty { return .none }
-        if normalized.contains("teamidentifier") || normalized.contains("signature")
-            || normalized.contains("codesign") || normalized.contains("code signing")
-        {
-            return .signatureMismatch
-        }
         if normalized.contains("no valid local code signing identity")
             || normalized.contains("no valid signing identity")
             || normalized.contains("0 valid identities found")
         {
             return .missingSigningIdentity
+        }
+        if normalized.contains("teamidentifier") || normalized.contains("signature")
+            || normalized.contains("codesign") || normalized.contains("code signing")
+        {
+            return .signatureMismatch
         }
         if normalized.contains("requires approval") || normalized.contains("login items") {
             return .needsApproval
