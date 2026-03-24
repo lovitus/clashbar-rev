@@ -59,7 +59,7 @@ extension AppSession {
         if normalized.contains("permission denied") {
             return .permissionDenied
         }
-        if normalized.contains("register") && normalized.contains("error: 1") {
+        if normalized.contains("register"), normalized.contains("error: 1") {
             return .registrationFailed
         }
         return .unknown

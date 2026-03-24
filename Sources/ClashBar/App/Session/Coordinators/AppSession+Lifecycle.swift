@@ -212,7 +212,7 @@ extension AppSession {
     func quitApp() async {
         self.prepareForTermination()
         self.isPanelPresented = false
-        NSApplication.shared.windows.forEach { window in
+        for window in NSApplication.shared.windows {
             window.orderOut(nil)
         }
         NSApplication.shared.terminate(nil)
