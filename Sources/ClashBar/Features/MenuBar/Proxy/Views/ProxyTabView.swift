@@ -408,89 +408,99 @@ extension MenuBarRootView {
             .frame(width: 18, height: 18, alignment: .center)
     }
 
+    @ViewBuilder
+    func helperActionsMenuContent(dismiss: @escaping () -> Void) -> some View {
+        AttachedPopoverMenuItem(
+            title: tr("ui.system_proxy.helper.install"),
+            leadingSymbol: "arrow.down.circle",
+            leadingTint: nativeInfo)
+        {
+            dismiss()
+            Task { await appSession.installSystemProxyHelper() }
+        }
+        AttachedPopoverMenuItem(
+            title: tr("ui.system_proxy.helper.reinstall"),
+            leadingSymbol: "arrow.triangle.2.circlepath",
+            leadingTint: nativeWarning)
+        {
+            dismiss()
+            Task { await appSession.reinstallSystemProxyHelper() }
+        }
+        AttachedPopoverMenuItem(
+            title: tr("ui.system_proxy.helper.resign_reinstall"),
+            leadingSymbol: "signature",
+            leadingTint: nativePurple)
+        {
+            dismiss()
+            Task { await appSession.resignAndReinstallSystemProxyHelper() }
+        }
+    }
+
     var helperStatusRow: some View {
-        VStack(alignment: .leading, spacing: T.space2) {
-            HStack(spacing: T.space6) {
-                self.quickIcon(symbol: "wrench.and.screwdriver", foreground: self.systemProxyHelperStatusTint)
-                HStack(spacing: T.space2) {
-                    Text(tr("ui.quick.system_proxy_helper"))
-                        .font(.app(size: T.FontSize.body, weight: .medium))
-                        .foregroundStyle(nativePrimaryLabel)
-                        .lineLimit(1)
-                        .minimumScaleFactor(T.minimumScale)
-
-                    if !appSession.isRemoteTarget {
-                        Button(tr("ui.system_proxy.helper.install")) {
-                            Task { await appSession.installSystemProxyHelper() }
-                        }
-                        .buttonStyle(.borderless)
-                        .disabled(appSession.systemProxyHelperActionInFlight)
-                        .font(.app(size: T.FontSize.caption, weight: .regular))
-                        .foregroundStyle(nativeInfo)
-
-                        Text("/")
-                            .font(.app(size: T.FontSize.caption, weight: .regular))
-                            .foregroundStyle(nativeTertiaryLabel)
-
-                        Button(tr("ui.system_proxy.helper.reinstall")) {
-                            Task { await appSession.reinstallSystemProxyHelper() }
-                        }
-                        .buttonStyle(.borderless)
-                        .disabled(appSession.systemProxyHelperActionInFlight)
-                        .font(.app(size: T.FontSize.caption, weight: .regular))
-                        .foregroundStyle(nativeInfo)
-
-                        Text("/")
-                            .font(.app(size: T.FontSize.caption, weight: .regular))
-                            .foregroundStyle(nativeTertiaryLabel)
-
-                        Button(tr("ui.system_proxy.helper.resign_reinstall")) {
-                            Task { await appSession.resignAndReinstallSystemProxyHelper() }
-                        }
-                        .buttonStyle(.borderless)
-                        .disabled(appSession.systemProxyHelperActionInFlight)
-                        .font(.app(size: T.FontSize.caption, weight: .regular))
-                        .foregroundStyle(nativeInfo)
-                    }
+        Group {
+            if appSession.isRemoteTarget {
+                self.quickRowContent(
+                    title: tr("ui.quick.system_proxy_helper"),
+                    symbol: "wrench.and.screwdriver",
+                    foreground: self.systemProxyHelperStatusTint)
+                {
+                    self.helperStatusTrailing
                 }
-                Spacer(minLength: 0)
-                HStack(spacing: T.space2) {
-                    Text(self.systemProxyHelperStatusText)
-                        .font(.app(size: T.FontSize.caption, weight: .regular))
-                        .lineLimit(1)
-                        .foregroundStyle(nativeSecondaryLabel)
-
-                    if let hoverText = self.systemProxyHelperHoverText {
-                        Button {
-                            self.showingSystemProxyHelperDetails = true
-                        } label: {
-                            Image(systemName: self.appSession.systemProxyHelperState == .failed
-                                ? "exclamationmark.circle.fill"
-                                : "info.circle")
+            } else {
+                AttachedPopoverMenu { _ in
+                    self.quickRowContent(
+                        title: tr("ui.quick.system_proxy_helper"),
+                        symbol: "wrench.and.screwdriver",
+                        foreground: self.systemProxyHelperStatusTint)
+                    {
+                        HStack(spacing: T.space2) {
+                            self.helperStatusTrailing
+                            Image(systemName: "chevron.right")
                                 .font(.app(size: T.FontSize.caption, weight: .medium))
-                                .foregroundStyle(
-                                    self.appSession.systemProxyHelperState == .failed
-                                        ? nativeWarning
-                                        : nativeTertiaryLabel)
-                        }
-                        .buttonStyle(.plain)
-                        .popover(isPresented: $showingSystemProxyHelperDetails, arrowEdge: .top) {
-                            ScrollView {
-                                Text(hoverText)
-                                    .font(.app(size: T.FontSize.caption, weight: .regular))
-                                    .foregroundStyle(nativePrimaryLabel)
-                                    .textSelection(.enabled)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .padding(T.space6)
-                            }
-                            .frame(width: 360, height: 220)
+                                .foregroundStyle(nativeTertiaryLabel)
                         }
                     }
+                } content: { dismiss in
+                    self.helperActionsMenuContent(dismiss: dismiss)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    var helperStatusTrailing: some View {
+        HStack(spacing: T.space2) {
+            Text(self.systemProxyHelperStatusText)
+                .font(.app(size: T.FontSize.caption, weight: .regular))
+                .lineLimit(1)
+                .foregroundStyle(nativeSecondaryLabel)
+
+            if let hoverText = self.systemProxyHelperHoverText {
+                Button {
+                    self.showingSystemProxyHelperDetails = true
+                } label: {
+                    Image(systemName: self.appSession.systemProxyHelperState == .failed
+                        ? "exclamationmark.circle.fill"
+                        : "info.circle")
+                        .font(.app(size: T.FontSize.caption, weight: .medium))
+                        .foregroundStyle(
+                            self.appSession.systemProxyHelperState == .failed
+                                ? nativeWarning
+                                : nativeTertiaryLabel)
+                }
+                .buttonStyle(.plain)
+                .popover(isPresented: $showingSystemProxyHelperDetails, arrowEdge: .top) {
+                    ScrollView {
+                        Text(hoverText)
+                            .font(.app(size: T.FontSize.caption, weight: .regular))
+                            .foregroundStyle(nativePrimaryLabel)
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(T.space6)
+                    }
+                    .frame(width: 360, height: 220)
                 }
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, T.space4)
-        .padding(.vertical, T.space2)
     }
 }
