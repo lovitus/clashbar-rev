@@ -1,4 +1,5 @@
 import Foundation
+import os
 import ProxyHelperShared
 import Security
 import ServiceManagement
@@ -80,8 +81,24 @@ struct SystemProxyService {
     private let managedSigningIdentityCommonName = "ClashBar Local Code Signing"
 
     private let helperResponseTimeoutNanoseconds: UInt64 = 4_000_000_000
-    private static let legacyInstallLock = NSLock()
-    private static var legacyInstallInProgress = false
+
+    private static let legacyInstallGate = LegacyInstallGate()
+
+    private final class LegacyInstallGate: Sendable {
+        private let state = OSAllocatedUnfairLock(initialState: false)
+        func tryAcquire() -> Bool {
+            self.state.withLock { inProgress in
+                if inProgress { return false }
+                inProgress = true
+                return true
+            }
+        }
+
+        func release() {
+            self.state.withLock { $0 = false }
+        }
+    }
+
     private enum HelperRegistrationResult {
         case ready
         case needsApproval
@@ -447,20 +464,12 @@ struct SystemProxyService {
     }
 
     private func installHelperAsLegacyDaemon() async throws {
-        Self.legacyInstallLock.lock()
-        if Self.legacyInstallInProgress {
-            Self.legacyInstallLock.unlock()
+        guard Self.legacyInstallGate.tryAcquire() else {
             try await Task.sleep(nanoseconds: 2_000_000_000)
             if self.isHelperInstalledInSystem() { return }
             throw SystemProxyServiceError.helperConnectionFailed("Legacy install already in progress.")
         }
-        Self.legacyInstallInProgress = true
-        Self.legacyInstallLock.unlock()
-        defer {
-            Self.legacyInstallLock.lock()
-            Self.legacyInstallInProgress = false
-            Self.legacyInstallLock.unlock()
-        }
+        defer { Self.legacyInstallGate.release() }
 
         let daemonService = self.helperService()
         if daemonService.status == .enabled {
