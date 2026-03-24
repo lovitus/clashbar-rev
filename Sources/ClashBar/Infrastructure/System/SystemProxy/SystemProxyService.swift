@@ -97,6 +97,11 @@ struct SystemProxyService {
         guard self.isHelperBundledInMainApp() else { return }
         guard !self.isRunningFromReadOnlyVolume() else { return }
 
+        if self.isHelperInstalledInSystem() {
+            _ = try? await self.invokeStateQuery()
+            return
+        }
+
         let daemonService = self.helperService()
         switch daemonService.status {
         case .enabled:
@@ -120,6 +125,19 @@ struct SystemProxyService {
     func applySystemProxy(enabled: Bool, host: String, ports: SystemProxyPorts) async throws {
         try self.validateHost(host)
 
+        do {
+            try await self.applySystemProxyImpl(enabled: enabled, host: host, ports: ports)
+        } catch {
+            guard self.isHelperConnectionFailure(error),
+                  self.isHelperBundledInMainApp(),
+                  !self.isHelperInstalledInSystem()
+            else { throw error }
+            try await self.installHelperAsLegacyDaemon()
+            try await self.applySystemProxyImpl(enabled: enabled, host: host, ports: ports)
+        }
+    }
+
+    private func applySystemProxyImpl(enabled: Bool, host: String, ports: SystemProxyPorts) async throws {
         if enabled {
             let resolvedPorts = try validateAndResolvePorts(ports, requiresEnabledPort: true)
             try await invokeMutation { helper, completion in
@@ -138,29 +156,66 @@ struct SystemProxyService {
     }
 
     func isSystemProxyEnabled() async throws -> Bool {
-        try self.ensureHelperReadyForRead()
-        return try await self.invokeStateQuery()
+        do {
+            try self.ensureHelperReadyForRead()
+            return try await self.invokeStateQuery()
+        } catch {
+            guard self.isHelperConnectionFailure(error),
+                  self.isHelperBundledInMainApp(),
+                  !self.isHelperInstalledInSystem()
+            else { throw error }
+            try await self.installHelperAsLegacyDaemon()
+            return try await self.invokeStateQuery()
+        }
     }
 
     func readSystemProxyActiveDisplay() async throws -> String? {
-        try self.ensureHelperReadyForRead()
-        guard let target = try await self.invokeActiveTargetQuery() else {
-            return nil
+        do {
+            try self.ensureHelperReadyForRead()
+            guard let target = try await self.invokeActiveTargetQuery() else {
+                return nil
+            }
+            return self.formatProxyDisplay(host: target.host, port: target.port)
+        } catch {
+            guard self.isHelperConnectionFailure(error),
+                  self.isHelperBundledInMainApp(),
+                  !self.isHelperInstalledInSystem()
+            else { throw error }
+            try await self.installHelperAsLegacyDaemon()
+            guard let target = try await self.invokeActiveTargetQuery() else {
+                return nil
+            }
+            return self.formatProxyDisplay(host: target.host, port: target.port)
         }
-        return self.formatProxyDisplay(host: target.host, port: target.port)
     }
 
     func isSystemProxyConfigured(host: String, ports: SystemProxyPorts) async throws -> Bool {
         try self.validateHost(host)
         let resolvedPorts = try validateAndResolvePorts(ports, requiresEnabledPort: true)
-        try self.ensureHelperReadyForRead()
-        return try await self.invokeBooleanQuery { helper, completion in
-            helper.isSystemProxyConfigured(
-                host: host,
-                httpPort: resolvedPorts.httpPort,
-                httpsPort: resolvedPorts.httpsPort,
-                socksPort: resolvedPorts.socksPort,
-                completion: completion)
+        do {
+            try self.ensureHelperReadyForRead()
+            return try await self.invokeBooleanQuery { helper, completion in
+                helper.isSystemProxyConfigured(
+                    host: host,
+                    httpPort: resolvedPorts.httpPort,
+                    httpsPort: resolvedPorts.httpsPort,
+                    socksPort: resolvedPorts.socksPort,
+                    completion: completion)
+            }
+        } catch {
+            guard self.isHelperConnectionFailure(error),
+                  self.isHelperBundledInMainApp(),
+                  !self.isHelperInstalledInSystem()
+            else { throw error }
+            try await self.installHelperAsLegacyDaemon()
+            return try await self.invokeBooleanQuery { helper, completion in
+                helper.isSystemProxyConfigured(
+                    host: host,
+                    httpPort: resolvedPorts.httpPort,
+                    httpsPort: resolvedPorts.httpsPort,
+                    socksPort: resolvedPorts.socksPort,
+                    completion: completion)
+            }
         }
     }
 
@@ -182,8 +237,20 @@ struct SystemProxyService {
     }
 
     func diagnoseAndRepairHelper() async -> SystemProxyHelperDiagnosis {
-        // Keep this path non-privileged. Real repair is user-triggered via install/reinstall.
-        await self.diagnoseCurrentHelper()
+        let diagnosis = await self.diagnoseCurrentHelper()
+        if case .healthy = diagnosis { return diagnosis }
+
+        guard self.isHelperBundledInMainApp(), !self.isRunningFromReadOnlyVolume() else {
+            return diagnosis
+        }
+
+        do {
+            try await self.installHelperAsLegacyDaemon()
+            _ = try await self.invokeStateQuery()
+            return .healthy
+        } catch {
+            return .failed(message: self.helperFailureMessage(error))
+        }
     }
 
     func installHelperManually() async -> SystemProxyHelperDiagnosis {
@@ -211,7 +278,13 @@ struct SystemProxyService {
             _ = try await self.invokeStateQuery()
             return .healthy
         } catch {
-            return .failed(message: self.helperFailureMessage(error))
+            do {
+                try await self.installHelperAsLegacyDaemon()
+                _ = try await self.invokeStateQuery()
+                return .healthy
+            } catch let legacyError {
+                return .failed(message: self.decorateFailureMessage(self.helperFailureMessage(legacyError), includeResignCommands: false))
+            }
         }
     }
 
@@ -229,7 +302,13 @@ struct SystemProxyService {
             _ = try await self.invokeStateQuery()
             return .healthy
         } catch {
-            return .failed(message: self.helperFailureMessage(error))
+            do {
+                try await self.installHelperAsLegacyDaemon()
+                _ = try await self.invokeStateQuery()
+                return .healthy
+            } catch let legacyError {
+                return .failed(message: self.decorateFailureMessage(self.helperFailureMessage(legacyError), includeResignCommands: true))
+            }
         }
     }
 
@@ -270,6 +349,9 @@ struct SystemProxyService {
         guard !self.isRunningFromReadOnlyVolume() else {
             throw SystemProxyServiceError.helperRequiresInstallToApplications
         }
+
+        if self.isHelperInstalledInSystem() { return }
+
         try self.validateHelperSigningRequirements()
 
         let daemonService = self.helperService()
@@ -299,6 +381,9 @@ struct SystemProxyService {
         guard !self.isRunningFromReadOnlyVolume() else {
             throw SystemProxyServiceError.helperRequiresInstallToApplications
         }
+
+        if self.isHelperInstalledInSystem() { return }
+
         try self.validateHelperSigningRequirements()
 
         let daemonService = self.helperService()
@@ -345,6 +430,67 @@ struct SystemProxyService {
         let fileManager = FileManager.default
         return fileManager.fileExists(atPath: self.helperPlistInstallPath)
             && fileManager.fileExists(atPath: self.helperToolInstallPath)
+    }
+
+    private func isHelperConnectionFailure(_ error: Error) -> Bool {
+        if let e = error as? SystemProxyServiceError, case .helperConnectionFailed = e {
+            return true
+        }
+        return false
+    }
+
+    private func installHelperAsLegacyDaemon() async throws {
+        let daemonService = self.helperService()
+        if daemonService.status == .enabled {
+            try? await daemonService.unregister()
+        }
+
+        let helperSourcePath = Bundle.main.bundleURL
+            .appendingPathComponent(ProxyHelperConstants.helperBundleProgram, isDirectory: false)
+            .path
+        let toolDest = self.helperToolInstallPath
+        let plistDest = self.helperPlistInstallPath
+
+        let legacyPlistXML = """
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>\(ProxyHelperConstants.machServiceName)</string>
+    <key>MachServices</key>
+    <dict>
+        <key>\(ProxyHelperConstants.machServiceName)</key>
+        <true/>
+    </dict>
+    <key>ProgramArguments</key>
+    <array>
+        <string>\(toolDest)</string>
+    </array>
+</dict>
+</plist>
+"""
+
+        let tempPlist = NSTemporaryDirectory() + "\(ProxyHelperConstants.machServiceName).plist"
+        try legacyPlistXML.write(toFile: tempPlist, atomically: true, encoding: .utf8)
+
+        var cmds: [String] = []
+        cmds.append("/bin/launchctl bootout system/\(ProxyHelperConstants.machServiceName) 2>/dev/null || true")
+        cmds.append("/usr/bin/pkill -9 -x \(ProxyHelperConstants.machServiceName) 2>/dev/null || true")
+        cmds.append("/bin/mkdir -p /Library/PrivilegedHelperTools")
+        cmds.append("/bin/cp \(self.shellQuoted(helperSourcePath)) \(self.shellQuoted(toolDest))")
+        cmds.append("/bin/chmod 755 \(self.shellQuoted(toolDest))")
+        cmds.append("/usr/sbin/chown root:wheel \(self.shellQuoted(toolDest))")
+        cmds.append("/bin/cp \(self.shellQuoted(tempPlist)) \(self.shellQuoted(plistDest))")
+        cmds.append("/bin/chmod 644 \(self.shellQuoted(plistDest))")
+        cmds.append("/usr/sbin/chown root:wheel \(self.shellQuoted(plistDest))")
+        cmds.append("/bin/launchctl bootstrap system \(self.shellQuoted(plistDest))")
+
+        let script = "do shell script \"\(self.appleScriptEscaped(cmds.joined(separator: " && ")))\" with administrator privileges"
+        try self.runAppleScriptSynchronously(script)
+        try? FileManager.default.removeItem(atPath: tempPlist)
+
+        try await Task.sleep(nanoseconds: 500_000_000)
     }
 
     private func helperService() -> SMAppService {
@@ -465,24 +611,7 @@ struct SystemProxyService {
             try? await daemonService.unregister()
         }
 
-        let escapedPlist = self.shellQuoted(self.helperPlistInstallPath)
-        let escapedTool = self.shellQuoted(self.helperToolInstallPath)
-
-        var commands: [String] = []
-        commands.append("/bin/launchctl bootout system/\(ProxyHelperConstants.machServiceName) >/dev/null 2>&1 || true")
-        if forceReinstall {
-            commands.append("/bin/launchctl bootout system \(escapedPlist) >/dev/null 2>&1 || true")
-            commands.append("/bin/launchctl disable system/\(ProxyHelperConstants.machServiceName) >/dev/null 2>&1 || true")
-            commands.append("/bin/launchctl remove \(ProxyHelperConstants.machServiceName) >/dev/null 2>&1 || true")
-            commands.append("/usr/bin/pkill -9 -x com.clashbar.helper >/dev/null 2>&1 || true")
-            commands.append("/bin/rm -f \(escapedPlist)")
-            commands.append("/bin/rm -f \(escapedTool)")
-        }
-        if !commands.isEmpty {
-            let shellCommand = commands.joined(separator: " && ")
-            let appleScript = "do shell script \"\(self.appleScriptEscaped(shellCommand))\" with administrator privileges"
-            try self.runAppleScriptSynchronously(appleScript)
-        }
+        try self.cleanupInstalledHelper(forceReinstall: forceReinstall)
 
         switch self.attemptHelperRegistration() {
         case .ready:
@@ -509,37 +638,34 @@ struct SystemProxyService {
         let escapedApp = self.shellQuoted(appPath)
         let escapedHelper = self.shellQuoted(helperPath)
         let escapedIdentity = self.shellQuoted(identity.name)
-        let escapedPlist = self.shellQuoted(self.helperPlistInstallPath)
-        let escapedTool = self.shellQuoted(self.helperToolInstallPath)
 
-        var commands: [String] = []
-        commands.append("/bin/launchctl bootout system/\(ProxyHelperConstants.machServiceName) >/dev/null 2>&1 || true")
-        if forceReinstall {
-            commands.append("/bin/rm -f \(escapedPlist)")
-            commands.append("/bin/rm -f \(escapedTool)")
-        }
+        var codesignCommands: [String] = []
         if let keychainPath = identity.keychainPath {
             let escapedKeychainPath = self.shellQuoted(keychainPath)
             if let keychainPassword = identity.keychainPassword {
-                commands.append(
+                codesignCommands.append(
                     "/usr/bin/security unlock-keychain -p \(self.shellQuoted(keychainPassword)) \(escapedKeychainPath)")
             }
-            commands.append("/usr/bin/security list-keychains -d user -s \(escapedKeychainPath)")
-            commands.append(
+            codesignCommands.append(
                 "/usr/bin/codesign --force --keychain \(escapedKeychainPath) --sign \(escapedIdentity) --timestamp=none --preserve-metadata=identifier,entitlements,requirements,flags \(escapedHelper)")
-            commands.append(
+            codesignCommands.append(
                 "/usr/bin/codesign --force --keychain \(escapedKeychainPath) --sign \(escapedIdentity) --timestamp=none --deep --preserve-metadata=identifier,entitlements,requirements,flags \(escapedApp)")
         } else {
-            commands.append(
+            codesignCommands.append(
                 "/usr/bin/codesign --force --sign \(escapedIdentity) --timestamp=none --preserve-metadata=identifier,entitlements,requirements,flags \(escapedHelper)")
-            commands.append(
+            codesignCommands.append(
                 "/usr/bin/codesign --force --sign \(escapedIdentity) --timestamp=none --deep --preserve-metadata=identifier,entitlements,requirements,flags \(escapedApp)")
         }
-        commands.append("/usr/bin/codesign --verify --deep --strict --verbose=2 \(escapedApp)")
+        codesignCommands.append("/usr/bin/codesign --verify --deep --strict --verbose=2 \(escapedApp)")
 
-        let shellCommand = commands.joined(separator: " && ")
-        let appleScript = "do shell script \"\(self.appleScriptEscaped(shellCommand))\" with administrator privileges"
-        try self.runAppleScriptSynchronously(appleScript)
+        let codesignResult = try self.runProcessSynchronously(
+            executable: "/bin/zsh",
+            arguments: ["-lc", codesignCommands.joined(separator: " && ")])
+        guard codesignResult.exitCode == 0 else {
+            throw SystemProxyServiceError.helperOperationFailed(codesignResult.combinedOutput)
+        }
+
+        try self.cleanupInstalledHelper(forceReinstall: forceReinstall)
 
         switch self.attemptHelperRegistration() {
         case .ready:
@@ -553,10 +679,28 @@ struct SystemProxyService {
         }
     }
 
-    private func findLocalCodeSigningIdentity() throws -> SigningIdentity {
-        if let identity = try self.firstCodeSigningIdentity() {
-            return SigningIdentity(name: identity, keychainPath: nil, keychainPassword: nil)
+    private func cleanupInstalledHelper(forceReinstall: Bool) throws {
+        let escapedPlist = self.shellQuoted(self.helperPlistInstallPath)
+        let escapedTool = self.shellQuoted(self.helperToolInstallPath)
+
+        var commands: [String] = []
+        commands.append("/bin/launchctl bootout system/\(ProxyHelperConstants.machServiceName) >/dev/null 2>&1 || true")
+        if forceReinstall {
+            commands.append("/bin/launchctl bootout system \(escapedPlist) >/dev/null 2>&1 || true")
+            commands.append("/bin/launchctl disable system/\(ProxyHelperConstants.machServiceName) >/dev/null 2>&1 || true")
+            commands.append("/bin/launchctl remove \(ProxyHelperConstants.machServiceName) >/dev/null 2>&1 || true")
+            commands.append("/usr/bin/pkill -9 -x com.clashbar.helper >/dev/null 2>&1 || true")
+            commands.append("/bin/rm -f \(escapedPlist)")
+            commands.append("/bin/rm -f \(escapedTool)")
         }
+        guard !commands.isEmpty else { return }
+
+        let shellCommand = commands.joined(separator: " && ")
+        let appleScript = "do shell script \"\(self.appleScriptEscaped(shellCommand))\" with administrator privileges"
+        try self.runAppleScriptSynchronously(appleScript)
+    }
+
+    private func findLocalCodeSigningIdentity() throws -> SigningIdentity {
         return try self.ensureManagedCodeSigningIdentity()
     }
 
@@ -618,22 +762,6 @@ struct SystemProxyService {
         let escapedKeychainPath = self.shellQuoted(keychainPath)
         let escapedKeychainPassword = self.shellQuoted(keychainPassword)
 
-        let existingKeychainsResult = try self.runProcessSynchronously(
-            executable: "/usr/bin/security",
-            arguments: ["list-keychains", "-d", "user"])
-        let existingKeychains = existingKeychainsResult.stdout
-            .split(whereSeparator: \.isNewline)
-            .map {
-                $0.trimmingCharacters(in: .whitespacesAndNewlines)
-                    .trimmingCharacters(in: CharacterSet(charactersIn: "\""))
-            }
-            .filter { !$0.isEmpty }
-        var mergedKeychains = [keychainPath]
-        for item in existingKeychains where item != keychainPath {
-            mergedKeychains.append(item)
-        }
-        let escapedKeychainList = mergedKeychains.map(self.shellQuoted).joined(separator: " ")
-
         var commands: [String] = []
         commands.append("cd \(escapedTempDirectory)")
         commands.append("cat > openssl.cnf <<'EOF'\n[ req ]\ndistinguished_name = dn\nx509_extensions = v3_req\nprompt = no\n[ dn ]\nCN = \(self.managedSigningIdentityCommonName)\nO = ClashBar Local\n[ v3_req ]\nkeyUsage = critical,digitalSignature\nextendedKeyUsage = codeSigning\nbasicConstraints = critical,CA:false\nsubjectKeyIdentifier = hash\nauthorityKeyIdentifier = keyid,issuer\nEOF")
@@ -648,7 +776,6 @@ struct SystemProxyService {
         commands.append("/usr/bin/security add-trusted-cert -d -r trustRoot -k \(escapedKeychainPath) cert.pem >/dev/null")
         commands.append(
             "/usr/bin/security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k \(escapedKeychainPassword) \(escapedKeychainPath) >/dev/null")
-        commands.append("/usr/bin/security list-keychains -d user -s \(escapedKeychainList)")
 
         let shellCommand = commands.joined(separator: " && ")
         let result = try self.runProcessSynchronously(executable: "/bin/zsh", arguments: ["-lc", shellCommand])
@@ -736,6 +863,38 @@ struct SystemProxyService {
             return serviceError.localizedDescription
         }
         return error.localizedDescription
+    }
+
+    private func decorateFailureMessage(_ base: String, includeResignCommands: Bool) -> String {
+        let guide = self.commandLineRecoveryGuide(includeResignCommands: includeResignCommands)
+        guard !guide.isEmpty else { return base }
+        return "\(base)\n\nManual recovery via Terminal:\n\(guide)"
+    }
+
+    private func commandLineRecoveryGuide(includeResignCommands: Bool) -> String {
+        let appPath = Bundle.main.bundleURL.path
+        let helperPath = Bundle.main.bundleURL
+            .appendingPathComponent(ProxyHelperConstants.helperBundleProgram, isDirectory: false)
+            .path
+        let keychainPath = self.managedSigningKeychainURL.path
+        let passwordPath = self.managedSigningPasswordURL.path
+
+        var steps: [String] = []
+        if includeResignCommands {
+            steps.append("export PASS=$(cat \(self.shellQuoted(passwordPath)))")
+            steps.append("security unlock-keychain -p \"$PASS\" \(self.shellQuoted(keychainPath))")
+            steps.append("codesign --force --keychain \(self.shellQuoted(keychainPath)) --sign \"ClashBar Local Code Signing\" --timestamp=none --preserve-metadata=identifier,entitlements,requirements,flags \(self.shellQuoted(helperPath))")
+            steps.append("codesign --force --keychain \(self.shellQuoted(keychainPath)) --sign \"ClashBar Local Code Signing\" --timestamp=none --deep --preserve-metadata=identifier,entitlements,requirements,flags \(self.shellQuoted(appPath))")
+            steps.append("codesign --verify --deep --strict --verbose=2 \(self.shellQuoted(appPath))")
+        }
+        steps.append("sudo launchctl bootout system/\(ProxyHelperConstants.machServiceName) >/dev/null 2>&1 || true")
+        steps.append("sudo launchctl bootout system \(self.shellQuoted(self.helperPlistInstallPath)) >/dev/null 2>&1 || true")
+        steps.append("sudo launchctl disable system/\(ProxyHelperConstants.machServiceName) >/dev/null 2>&1 || true")
+        steps.append("sudo launchctl remove \(ProxyHelperConstants.machServiceName) >/dev/null 2>&1 || true")
+        steps.append("sudo pkill -9 -x com.clashbar.helper >/dev/null 2>&1 || true")
+        steps.append("sudo rm -f \(self.shellQuoted(self.helperPlistInstallPath)) \(self.shellQuoted(self.helperToolInstallPath))")
+        steps.append("Reopen ClashBar, then click Install or Resign+Reinstall again.")
+        return steps.enumerated().map { "\($0.offset + 1). \($0.element)" }.joined(separator: "\n")
     }
 
 

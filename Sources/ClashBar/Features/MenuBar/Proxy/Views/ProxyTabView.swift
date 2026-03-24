@@ -290,7 +290,7 @@ extension MenuBarRootView {
         case .running:
             return tr("ui.system_proxy.helper.running")
         case .failed:
-            return detail.map { "\(tr("ui.system_proxy.helper.failed")) (\($0))" } ?? tr("ui.system_proxy.helper.failed")
+            return detail.map { "\(tr("ui.system_proxy.helper.failed")): \($0)" } ?? tr("ui.system_proxy.helper.failed")
         }
     }
 
@@ -461,21 +461,34 @@ extension MenuBarRootView {
                         .foregroundStyle(nativeSecondaryLabel)
 
                     if let hoverText = self.systemProxyHelperHoverText {
-                        Image(systemName: "info.circle")
-                            .font(.app(size: T.FontSize.caption, weight: .medium))
-                            .foregroundStyle(nativeTertiaryLabel)
-                            .help(hoverText)
+                        Button {
+                            self.showingSystemProxyHelperDetails = true
+                        } label: {
+                            Image(systemName: self.appSession.systemProxyHelperState == .failed
+                                ? "exclamationmark.circle.fill"
+                                : "info.circle")
+                                .font(.app(size: T.FontSize.caption, weight: .medium))
+                                .foregroundStyle(
+                                    self.appSession.systemProxyHelperState == .failed
+                                        ? nativeWarning
+                                        : nativeTertiaryLabel)
+                        }
+                        .buttonStyle(.plain)
+                        .popover(isPresented: $showingSystemProxyHelperDetails, arrowEdge: .top) {
+                            ScrollView {
+                                Text(hoverText)
+                                    .font(.app(size: T.FontSize.caption, weight: .regular))
+                                    .foregroundStyle(nativePrimaryLabel)
+                                    .textSelection(.enabled)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(T.space6)
+                            }
+                            .frame(width: 360, height: 220)
+                        }
                     }
                 }
             }
 
-            if let guidance = self.systemProxyHelperGuidanceText {
-                Text(guidance)
-                    .font(.app(size: T.FontSize.caption, weight: .regular))
-                    .foregroundStyle(nativeSecondaryLabel)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, T.space4)
