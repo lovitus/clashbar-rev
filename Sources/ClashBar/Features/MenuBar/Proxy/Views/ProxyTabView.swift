@@ -297,27 +297,27 @@ extension MenuBarRootView {
     var systemProxyHelperGuidanceText: String? {
         switch self.appSession.systemProxyHelperIssue {
         case .none:
-            return nil
+            nil
         case .notInstalled:
-            return tr("ui.system_proxy.helper.guidance.not_installed")
+            tr("ui.system_proxy.helper.guidance.not_installed")
         case .registrationFailed, .connectionFailed, .operationFailed, .timeout:
-            return tr("ui.system_proxy.helper.guidance.reinstall")
+            tr("ui.system_proxy.helper.guidance.reinstall")
         case .systemPolicyBlocked, .needsApproval:
-            return tr("ui.system_proxy.helper.guidance.system_policy")
+            tr("ui.system_proxy.helper.guidance.system_policy")
         case .signatureMismatch:
-            return tr("ui.system_proxy.helper.guidance.signature_mismatch")
+            tr("ui.system_proxy.helper.guidance.signature_mismatch")
         case .missingSigningIdentity:
-            return tr("ui.system_proxy.helper.guidance.missing_signing_identity")
+            tr("ui.system_proxy.helper.guidance.missing_signing_identity")
         case .installLocationInvalid:
-            return tr("ui.system_proxy.helper.guidance.install_location_invalid")
+            tr("ui.system_proxy.helper.guidance.install_location_invalid")
         case .helperMissing:
-            return tr("ui.system_proxy.helper.guidance.helper_missing")
+            tr("ui.system_proxy.helper.guidance.helper_missing")
         case .permissionDenied:
-            return tr("ui.system_proxy.helper.guidance.permission_denied")
+            tr("ui.system_proxy.helper.guidance.permission_denied")
         case .migrationFailed:
-            return tr("ui.system_proxy.helper.guidance.migration_failed")
+            tr("ui.system_proxy.helper.guidance.migration_failed")
         case .unknown:
-            return tr("ui.system_proxy.helper.guidance.unknown")
+            tr("ui.system_proxy.helper.guidance.unknown")
         }
     }
 
@@ -488,7 +488,6 @@ extension MenuBarRootView {
                     }
                 }
             }
-
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, T.space4)

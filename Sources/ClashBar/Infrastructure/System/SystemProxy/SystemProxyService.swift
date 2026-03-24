@@ -224,7 +224,8 @@ struct SystemProxyService {
             return .failed(message: self.helperFailureMessage(SystemProxyServiceError.helperNotBundled))
         }
         if self.isRunningFromReadOnlyVolume() {
-            return .failed(message: self.helperFailureMessage(SystemProxyServiceError.helperRequiresInstallToApplications))
+            return .failed(message: self
+                .helperFailureMessage(SystemProxyServiceError.helperRequiresInstallToApplications))
         }
 
         do {
@@ -283,7 +284,9 @@ struct SystemProxyService {
                 _ = try await self.invokeStateQuery()
                 return .healthy
             } catch let legacyError {
-                return .failed(message: self.decorateFailureMessage(self.helperFailureMessage(legacyError), includeResignCommands: false))
+                return .failed(message: self.decorateFailureMessage(
+                    self.helperFailureMessage(legacyError),
+                    includeResignCommands: false))
             }
         }
     }
@@ -307,7 +310,9 @@ struct SystemProxyService {
                 _ = try await self.invokeStateQuery()
                 return .healthy
             } catch let legacyError {
-                return .failed(message: self.decorateFailureMessage(self.helperFailureMessage(legacyError), includeResignCommands: true))
+                return .failed(message: self.decorateFailureMessage(
+                    self.helperFailureMessage(legacyError),
+                    includeResignCommands: true))
             }
         }
     }
@@ -452,24 +457,24 @@ struct SystemProxyService {
         let plistDest = self.helperPlistInstallPath
 
         let legacyPlistXML = """
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>\(ProxyHelperConstants.machServiceName)</string>
-    <key>MachServices</key>
-    <dict>
-        <key>\(ProxyHelperConstants.machServiceName)</key>
-        <true/>
-    </dict>
-    <key>ProgramArguments</key>
-    <array>
-        <string>\(toolDest)</string>
-    </array>
-</dict>
-</plist>
-"""
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>Label</key>
+            <string>\(ProxyHelperConstants.machServiceName)</string>
+            <key>MachServices</key>
+            <dict>
+                <key>\(ProxyHelperConstants.machServiceName)</key>
+                <true/>
+            </dict>
+            <key>ProgramArguments</key>
+            <array>
+                <string>\(toolDest)</string>
+            </array>
+        </dict>
+        </plist>
+        """
 
         let tempPlist = NSTemporaryDirectory() + "\(ProxyHelperConstants.machServiceName).plist"
         try legacyPlistXML.write(toFile: tempPlist, atomically: true, encoding: .utf8)
@@ -687,7 +692,8 @@ struct SystemProxyService {
         commands.append("/bin/launchctl bootout system/\(ProxyHelperConstants.machServiceName) >/dev/null 2>&1 || true")
         if forceReinstall {
             commands.append("/bin/launchctl bootout system \(escapedPlist) >/dev/null 2>&1 || true")
-            commands.append("/bin/launchctl disable system/\(ProxyHelperConstants.machServiceName) >/dev/null 2>&1 || true")
+            commands
+                .append("/bin/launchctl disable system/\(ProxyHelperConstants.machServiceName) >/dev/null 2>&1 || true")
             commands.append("/bin/launchctl remove \(ProxyHelperConstants.machServiceName) >/dev/null 2>&1 || true")
             commands.append("/usr/bin/pkill -9 -x com.clashbar.helper >/dev/null 2>&1 || true")
             commands.append("/bin/rm -f \(escapedPlist)")
@@ -701,7 +707,7 @@ struct SystemProxyService {
     }
 
     private func findLocalCodeSigningIdentity() throws -> SigningIdentity {
-        return try self.ensureManagedCodeSigningIdentity()
+        try self.ensureManagedCodeSigningIdentity()
     }
 
     private func firstCodeSigningIdentity(in keychainPath: String? = nil) throws -> String? {
@@ -725,7 +731,7 @@ struct SystemProxyService {
             guard parts.count >= 2 else { continue }
             let candidate = parts[1]
             if candidate.count == 40,
-               candidate.allSatisfy({ $0.isHexDigit })
+               candidate.allSatisfy(\.isHexDigit)
             {
                 if let quotedNameStart = text.firstIndex(of: "\""),
                    let quotedNameEnd = text.lastIndex(of: "\""),
@@ -764,16 +770,23 @@ struct SystemProxyService {
 
         var commands: [String] = []
         commands.append("cd \(escapedTempDirectory)")
-        commands.append("cat > openssl.cnf <<'EOF'\n[ req ]\ndistinguished_name = dn\nx509_extensions = v3_req\nprompt = no\n[ dn ]\nCN = \(self.managedSigningIdentityCommonName)\nO = ClashBar Local\n[ v3_req ]\nkeyUsage = critical,digitalSignature\nextendedKeyUsage = codeSigning\nbasicConstraints = critical,CA:false\nsubjectKeyIdentifier = hash\nauthorityKeyIdentifier = keyid,issuer\nEOF")
+        commands
+            .append(
+                "cat > openssl.cnf <<'EOF'\n[ req ]\ndistinguished_name = dn\nx509_extensions = v3_req\nprompt = no\n[ dn ]\nCN = \(self.managedSigningIdentityCommonName)\nO = ClashBar Local\n[ v3_req ]\nkeyUsage = critical,digitalSignature\nextendedKeyUsage = codeSigning\nbasicConstraints = critical,CA:false\nsubjectKeyIdentifier = hash\nauthorityKeyIdentifier = keyid,issuer\nEOF")
         commands.append(
             "\(self.shellQuoted(opensslPath)) req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 3650 -nodes -config openssl.cnf >/dev/null 2>&1")
         commands.append(
             "\(self.shellQuoted(opensslPath)) pkcs12 -export -inkey key.pem -in cert.pem -out identity.p12 -passout pass:clashbar-local >/dev/null 2>&1")
-        commands.append("if [ ! -f \(escapedKeychainPath) ]; then /usr/bin/security create-keychain -p \(escapedKeychainPassword) \(escapedKeychainPath) >/dev/null; fi")
+        commands
+            .append(
+                "if [ ! -f \(escapedKeychainPath) ]; then /usr/bin/security create-keychain -p \(escapedKeychainPassword) \(escapedKeychainPath) >/dev/null; fi")
         commands.append("/usr/bin/security unlock-keychain -p \(escapedKeychainPassword) \(escapedKeychainPath)")
         commands.append("/usr/bin/security set-keychain-settings -lut 21600 \(escapedKeychainPath)")
-        commands.append("/usr/bin/security import identity.p12 -k \(escapedKeychainPath) -f pkcs12 -P clashbar-local -A -T /usr/bin/codesign >/dev/null")
-        commands.append("/usr/bin/security add-trusted-cert -d -r trustRoot -k \(escapedKeychainPath) cert.pem >/dev/null")
+        commands
+            .append(
+                "/usr/bin/security import identity.p12 -k \(escapedKeychainPath) -f pkcs12 -P clashbar-local -A -T /usr/bin/codesign >/dev/null")
+        commands
+            .append("/usr/bin/security add-trusted-cert -d -r trustRoot -k \(escapedKeychainPath) cert.pem >/dev/null")
         commands.append(
             "/usr/bin/security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k \(escapedKeychainPassword) \(escapedKeychainPath) >/dev/null")
 
@@ -883,20 +896,27 @@ struct SystemProxyService {
         if includeResignCommands {
             steps.append("export PASS=$(cat \(self.shellQuoted(passwordPath)))")
             steps.append("security unlock-keychain -p \"$PASS\" \(self.shellQuoted(keychainPath))")
-            steps.append("codesign --force --keychain \(self.shellQuoted(keychainPath)) --sign \"ClashBar Local Code Signing\" --timestamp=none --preserve-metadata=identifier,entitlements,requirements,flags \(self.shellQuoted(helperPath))")
-            steps.append("codesign --force --keychain \(self.shellQuoted(keychainPath)) --sign \"ClashBar Local Code Signing\" --timestamp=none --deep --preserve-metadata=identifier,entitlements,requirements,flags \(self.shellQuoted(appPath))")
+            steps
+                .append(
+                    "codesign --force --keychain \(self.shellQuoted(keychainPath)) --sign \"ClashBar Local Code Signing\" --timestamp=none --preserve-metadata=identifier,entitlements,requirements,flags \(self.shellQuoted(helperPath))")
+            steps
+                .append(
+                    "codesign --force --keychain \(self.shellQuoted(keychainPath)) --sign \"ClashBar Local Code Signing\" --timestamp=none --deep --preserve-metadata=identifier,entitlements,requirements,flags \(self.shellQuoted(appPath))")
             steps.append("codesign --verify --deep --strict --verbose=2 \(self.shellQuoted(appPath))")
         }
         steps.append("sudo launchctl bootout system/\(ProxyHelperConstants.machServiceName) >/dev/null 2>&1 || true")
-        steps.append("sudo launchctl bootout system \(self.shellQuoted(self.helperPlistInstallPath)) >/dev/null 2>&1 || true")
+        steps
+            .append(
+                "sudo launchctl bootout system \(self.shellQuoted(self.helperPlistInstallPath)) >/dev/null 2>&1 || true")
         steps.append("sudo launchctl disable system/\(ProxyHelperConstants.machServiceName) >/dev/null 2>&1 || true")
         steps.append("sudo launchctl remove \(ProxyHelperConstants.machServiceName) >/dev/null 2>&1 || true")
         steps.append("sudo pkill -9 -x com.clashbar.helper >/dev/null 2>&1 || true")
-        steps.append("sudo rm -f \(self.shellQuoted(self.helperPlistInstallPath)) \(self.shellQuoted(self.helperToolInstallPath))")
+        steps
+            .append(
+                "sudo rm -f \(self.shellQuoted(self.helperPlistInstallPath)) \(self.shellQuoted(self.helperToolInstallPath))")
         steps.append("Reopen ClashBar, then click Install or Resign+Reinstall again.")
         return steps.enumerated().map { "\($0.offset + 1). \($0.element)" }.joined(separator: "\n")
     }
-
 
     private struct ProcessResult {
         let exitCode: Int32
