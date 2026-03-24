@@ -80,6 +80,8 @@ struct SystemProxyService {
     private let managedSigningIdentityCommonName = "ClashBar Local Code Signing"
 
     private let helperResponseTimeoutNanoseconds: UInt64 = 4_000_000_000
+    private static let legacyInstallLock = NSLock()
+    private static var legacyInstallInProgress = false
     private enum HelperRegistrationResult {
         case ready
         case needsApproval
@@ -445,6 +447,21 @@ struct SystemProxyService {
     }
 
     private func installHelperAsLegacyDaemon() async throws {
+        Self.legacyInstallLock.lock()
+        if Self.legacyInstallInProgress {
+            Self.legacyInstallLock.unlock()
+            try await Task.sleep(nanoseconds: 2_000_000_000)
+            if self.isHelperInstalledInSystem() { return }
+            throw SystemProxyServiceError.helperConnectionFailed("Legacy install already in progress.")
+        }
+        Self.legacyInstallInProgress = true
+        Self.legacyInstallLock.unlock()
+        defer {
+            Self.legacyInstallLock.lock()
+            Self.legacyInstallInProgress = false
+            Self.legacyInstallLock.unlock()
+        }
+
         let daemonService = self.helperService()
         if daemonService.status == .enabled {
             try? await daemonService.unregister()
@@ -489,6 +506,7 @@ struct SystemProxyService {
         cmds.append("/bin/cp \(self.shellQuoted(tempPlist)) \(self.shellQuoted(plistDest))")
         cmds.append("/bin/chmod 644 \(self.shellQuoted(plistDest))")
         cmds.append("/usr/sbin/chown root:wheel \(self.shellQuoted(plistDest))")
+        cmds.append("/bin/launchctl enable system/\(ProxyHelperConstants.machServiceName) 2>/dev/null || true")
         cmds.append("/bin/launchctl bootstrap system \(self.shellQuoted(plistDest))")
 
         let script = "do shell script \"\(self.appleScriptEscaped(cmds.joined(separator: " && ")))\" with administrator privileges"
