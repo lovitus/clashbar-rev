@@ -321,6 +321,19 @@ extension MenuBarRootView {
         }
     }
 
+    var systemProxyHelperHoverText: String? {
+        guard self.appSession.systemProxyHelperState == .failed else { return nil }
+
+        var sections: [String] = []
+        if let guidance = self.systemProxyHelperGuidanceText, !guidance.isEmpty {
+            sections.append(guidance)
+        }
+        if let failureMessage = self.appSession.systemProxyHelperFailureMessage, !failureMessage.isEmpty {
+            sections.append(failureMessage)
+        }
+        return sections.isEmpty ? nil : sections.joined(separator: "\n\n")
+    }
+
     var systemProxyHelperDetailText: String? {
         switch self.appSession.systemProxyHelperIssue {
         case .none:
@@ -441,27 +454,27 @@ extension MenuBarRootView {
                     }
                 }
                 Spacer(minLength: 0)
-                Text(self.systemProxyHelperStatusText)
-                    .font(.app(size: T.FontSize.caption, weight: .regular))
-                    .lineLimit(1)
-                    .foregroundStyle(nativeSecondaryLabel)
+                HStack(spacing: T.space2) {
+                    Text(self.systemProxyHelperStatusText)
+                        .font(.app(size: T.FontSize.caption, weight: .regular))
+                        .lineLimit(1)
+                        .foregroundStyle(nativeSecondaryLabel)
+
+                    if let hoverText = self.systemProxyHelperHoverText {
+                        Image(systemName: "info.circle")
+                            .font(.app(size: T.FontSize.caption, weight: .medium))
+                            .foregroundStyle(nativeTertiaryLabel)
+                            .help(hoverText)
+                    }
+                }
             }
 
             if let guidance = self.systemProxyHelperGuidanceText {
                 Text(guidance)
                     .font(.app(size: T.FontSize.caption, weight: .regular))
                     .foregroundStyle(nativeSecondaryLabel)
+                    .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
-            }
-
-            if let failureMessage = self.appSession.systemProxyHelperFailureMessage,
-               self.appSession.systemProxyHelperState == .failed
-            {
-                Text(failureMessage)
-                    .font(.app(size: T.FontSize.caption, weight: .regular))
-                    .foregroundStyle(nativeTertiaryLabel)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .textSelection(.enabled)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

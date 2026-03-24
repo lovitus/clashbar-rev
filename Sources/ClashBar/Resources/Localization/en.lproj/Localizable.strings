@@ -202,8 +202,8 @@
 "ui.system_proxy.helper.guidance.not_installed" = "Guide: click Install first. If install still fails, click Reinstall to clean old helper state and install again.";
 "ui.system_proxy.helper.guidance.reinstall" = "Guide: click Reinstall first. Reinstall now cleans old helper processes, old LaunchDaemon state, and old installed files before installing again.";
 "ui.system_proxy.helper.guidance.system_policy" = "Guide: allow ClashBar in System Settings > General > Login Items first, then try Reinstall again. If you switched across differently signed builds, then use Resign+Reinstall.";
-"ui.system_proxy.helper.guidance.signature_mismatch" = "Guide: this looks like a signing mismatch. Click Resign+Reinstall to re-sign the app and helper with a local signing identity, then install again.";
-"ui.system_proxy.helper.guidance.missing_signing_identity" = "Guide: there is no usable local code signing identity on this Mac, so Resign+Reinstall cannot run. Add a signing identity first, or try Reinstall for the cleanup-reinstall path.";
+"ui.system_proxy.helper.guidance.signature_mismatch" = "Guide: this looks like a signing mismatch. Click Resign+Reinstall. It will reuse an existing local signing identity when available, or create a local one automatically before re-signing the app and helper.";
+"ui.system_proxy.helper.guidance.missing_signing_identity" = "Guide: Resign+Reinstall now tries to create a local signing identity automatically. If it still fails, the local keychain/certificate provisioning path itself failed. You can also try Reinstall for the cleanup-reinstall path.";
 "ui.system_proxy.helper.guidance.install_location_invalid" = "Guide: move ClashBar.app to /Applications, reopen it, then run Install or Reinstall.";
 "ui.system_proxy.helper.guidance.helper_missing" = "Guide: the current app bundle is missing the helper. Reinstall the full packaged app build.";
 "ui.system_proxy.helper.guidance.permission_denied" = "Guide: permissions were denied. Run Reinstall again and make sure administrator authorization was not cancelled.";
