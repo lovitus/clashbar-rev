@@ -294,6 +294,33 @@ extension MenuBarRootView {
         }
     }
 
+    var systemProxyHelperGuidanceText: String? {
+        switch self.appSession.systemProxyHelperIssue {
+        case .none:
+            return nil
+        case .notInstalled:
+            return tr("ui.system_proxy.helper.guidance.not_installed")
+        case .registrationFailed, .connectionFailed, .operationFailed, .timeout:
+            return tr("ui.system_proxy.helper.guidance.reinstall")
+        case .systemPolicyBlocked, .needsApproval:
+            return tr("ui.system_proxy.helper.guidance.system_policy")
+        case .signatureMismatch:
+            return tr("ui.system_proxy.helper.guidance.signature_mismatch")
+        case .missingSigningIdentity:
+            return tr("ui.system_proxy.helper.guidance.missing_signing_identity")
+        case .installLocationInvalid:
+            return tr("ui.system_proxy.helper.guidance.install_location_invalid")
+        case .helperMissing:
+            return tr("ui.system_proxy.helper.guidance.helper_missing")
+        case .permissionDenied:
+            return tr("ui.system_proxy.helper.guidance.permission_denied")
+        case .migrationFailed:
+            return tr("ui.system_proxy.helper.guidance.migration_failed")
+        case .unknown:
+            return tr("ui.system_proxy.helper.guidance.unknown")
+        }
+    }
+
     var systemProxyHelperDetailText: String? {
         switch self.appSession.systemProxyHelperIssue {
         case .none:
@@ -369,55 +396,73 @@ extension MenuBarRootView {
     }
 
     var helperStatusRow: some View {
-        HStack(spacing: T.space6) {
-            self.quickIcon(symbol: "wrench.and.screwdriver", foreground: self.systemProxyHelperStatusTint)
-            HStack(spacing: T.space2) {
-                Text(tr("ui.quick.system_proxy_helper"))
-                    .font(.app(size: T.FontSize.body, weight: .medium))
-                    .foregroundStyle(nativePrimaryLabel)
-                    .lineLimit(1)
-                    .minimumScaleFactor(T.minimumScale)
+        VStack(alignment: .leading, spacing: T.space2) {
+            HStack(spacing: T.space6) {
+                self.quickIcon(symbol: "wrench.and.screwdriver", foreground: self.systemProxyHelperStatusTint)
+                HStack(spacing: T.space2) {
+                    Text(tr("ui.quick.system_proxy_helper"))
+                        .font(.app(size: T.FontSize.body, weight: .medium))
+                        .foregroundStyle(nativePrimaryLabel)
+                        .lineLimit(1)
+                        .minimumScaleFactor(T.minimumScale)
 
-                if !appSession.isRemoteTarget {
-                    Button(tr("ui.system_proxy.helper.install")) {
-                        Task { await appSession.installSystemProxyHelper() }
-                    }
-                    .buttonStyle(.borderless)
-                    .disabled(appSession.systemProxyHelperActionInFlight)
-                    .font(.app(size: T.FontSize.caption, weight: .regular))
-                    .foregroundStyle(nativeInfo)
-
-                    Text("/")
+                    if !appSession.isRemoteTarget {
+                        Button(tr("ui.system_proxy.helper.install")) {
+                            Task { await appSession.installSystemProxyHelper() }
+                        }
+                        .buttonStyle(.borderless)
+                        .disabled(appSession.systemProxyHelperActionInFlight)
                         .font(.app(size: T.FontSize.caption, weight: .regular))
-                        .foregroundStyle(nativeTertiaryLabel)
+                        .foregroundStyle(nativeInfo)
 
-                    Button(tr("ui.system_proxy.helper.reinstall")) {
-                        Task { await appSession.reinstallSystemProxyHelper() }
-                    }
-                    .buttonStyle(.borderless)
-                    .disabled(appSession.systemProxyHelperActionInFlight)
-                    .font(.app(size: T.FontSize.caption, weight: .regular))
-                    .foregroundStyle(nativeInfo)
+                        Text("/")
+                            .font(.app(size: T.FontSize.caption, weight: .regular))
+                            .foregroundStyle(nativeTertiaryLabel)
 
-                    Text("/")
+                        Button(tr("ui.system_proxy.helper.reinstall")) {
+                            Task { await appSession.reinstallSystemProxyHelper() }
+                        }
+                        .buttonStyle(.borderless)
+                        .disabled(appSession.systemProxyHelperActionInFlight)
                         .font(.app(size: T.FontSize.caption, weight: .regular))
-                        .foregroundStyle(nativeTertiaryLabel)
+                        .foregroundStyle(nativeInfo)
 
-                    Button(tr("ui.system_proxy.helper.resign_reinstall")) {
-                        Task { await appSession.resignAndReinstallSystemProxyHelper() }
+                        Text("/")
+                            .font(.app(size: T.FontSize.caption, weight: .regular))
+                            .foregroundStyle(nativeTertiaryLabel)
+
+                        Button(tr("ui.system_proxy.helper.resign_reinstall")) {
+                            Task { await appSession.resignAndReinstallSystemProxyHelper() }
+                        }
+                        .buttonStyle(.borderless)
+                        .disabled(appSession.systemProxyHelperActionInFlight)
+                        .font(.app(size: T.FontSize.caption, weight: .regular))
+                        .foregroundStyle(nativeInfo)
                     }
-                    .buttonStyle(.borderless)
-                    .disabled(appSession.systemProxyHelperActionInFlight)
-                    .font(.app(size: T.FontSize.caption, weight: .regular))
-                    .foregroundStyle(nativeInfo)
                 }
+                Spacer(minLength: 0)
+                Text(self.systemProxyHelperStatusText)
+                    .font(.app(size: T.FontSize.caption, weight: .regular))
+                    .lineLimit(1)
+                    .foregroundStyle(nativeSecondaryLabel)
             }
-            Spacer(minLength: 0)
-            Text(self.systemProxyHelperStatusText)
-                .font(.app(size: T.FontSize.caption, weight: .regular))
-                .lineLimit(1)
-                .foregroundStyle(nativeSecondaryLabel)
-                .frame(width: self.quickRowTrailingColumnWidth, alignment: .trailing)
+
+            if let guidance = self.systemProxyHelperGuidanceText {
+                Text(guidance)
+                    .font(.app(size: T.FontSize.caption, weight: .regular))
+                    .foregroundStyle(nativeSecondaryLabel)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if let failureMessage = self.appSession.systemProxyHelperFailureMessage,
+               self.appSession.systemProxyHelperState == .failed
+            {
+                Text(failureMessage)
+                    .font(.app(size: T.FontSize.caption, weight: .regular))
+                    .foregroundStyle(nativeTertiaryLabel)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .textSelection(.enabled)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, T.space4)

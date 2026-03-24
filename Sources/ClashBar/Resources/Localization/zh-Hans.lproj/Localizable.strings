@@ -199,6 +199,16 @@
 "ui.system_proxy.helper.detail.permission_denied" = "权限不足";
 "ui.system_proxy.helper.detail.migration_failed" = "迁移失败";
 "ui.system_proxy.helper.detail.unknown" = "原因未知";
+"ui.system_proxy.helper.guidance.not_installed" = "引导：先点“安装”。如果安装后仍失败，再点“重装”清理旧 helper 状态后重装。";
+"ui.system_proxy.helper.guidance.reinstall" = "引导：先点“重装”。“重装”现在会先清理旧 helper 进程、旧 LaunchDaemon 和旧安装残留，再重新安装。";
+"ui.system_proxy.helper.guidance.system_policy" = "引导：先到“系统设置 > 通用 > 登录项”允许 ClashBar 后台项目；若仍失败，再点“重装”。如果你切换过不同签名版本，再点“重签重装”。";
+"ui.system_proxy.helper.guidance.signature_mismatch" = "引导：当前更像是签名体系变化。请点“重签重装”；它会先用本机可用的签名身份重签 App 和 Helper，再重新安装。";
+"ui.system_proxy.helper.guidance.missing_signing_identity" = "引导：本机当前没有可用的代码签名身份，所以“重签重装”无法执行。你可以先补一个可用 identity 后再点“重签重装”，或者先点“重装”走清理重装路线。";
+"ui.system_proxy.helper.guidance.install_location_invalid" = "引导：先把 ClashBar.app 放到 /Applications，再重新打开应用后执行“安装”或“重装”。";
+"ui.system_proxy.helper.guidance.helper_missing" = "引导：当前应用包内缺少 helper，请使用完整打包产物重新安装应用。";
+"ui.system_proxy.helper.guidance.permission_denied" = "引导：当前权限不足。请重新执行“重装”，并确认管理员授权没有被取消。";
+"ui.system_proxy.helper.guidance.migration_failed" = "引导：迁移旧 helper 状态失败。请先点“重装”；如果你切换过不同签名版本，再点“重签重装”。";
+"ui.system_proxy.helper.guidance.unknown" = "引导：先点“重装”尝试清理重装；如果问题和签名切换有关，再点“重签重装”。下方会显示完整原始错误供排查。";
 
 "app.runtime.starting" = "启动中";
 "app.runtime.running" = "运行中";

@@ -80,7 +80,7 @@ extension AppSession {
     }
 
     func applyEditableCoreSetting(_ setting: EditableCoreSetting, to value: String) async {
-        guard let keyPath = self.stringStateKeyPath(for: setting) else {
+        guard self.stringStateKeyPath(for: setting) != nil else {
             assertionFailure("Setting \(setting.configKey) does not accept String updates")
             return
         }

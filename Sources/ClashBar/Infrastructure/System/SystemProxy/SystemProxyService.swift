@@ -437,7 +437,7 @@ struct SystemProxyService {
 
     private func installOrReinstallHelper(forceReinstall: Bool) async throws {
         let daemonService = self.helperService()
-        if daemonService.status == .enabled {
+        if forceReinstall || daemonService.status == .enabled {
             try? await daemonService.unregister()
         }
 
@@ -447,6 +447,10 @@ struct SystemProxyService {
         var commands: [String] = []
         commands.append("/bin/launchctl bootout system/\(ProxyHelperConstants.machServiceName) >/dev/null 2>&1 || true")
         if forceReinstall {
+            commands.append("/bin/launchctl bootout system \(escapedPlist) >/dev/null 2>&1 || true")
+            commands.append("/bin/launchctl disable system/\(ProxyHelperConstants.machServiceName) >/dev/null 2>&1 || true")
+            commands.append("/bin/launchctl remove \(ProxyHelperConstants.machServiceName) >/dev/null 2>&1 || true")
+            commands.append("/usr/bin/pkill -9 -x com.clashbar.helper >/dev/null 2>&1 || true")
             commands.append("/bin/rm -f \(escapedPlist)")
             commands.append("/bin/rm -f \(escapedTool)")
         }
