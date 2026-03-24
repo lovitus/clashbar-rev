@@ -298,6 +298,12 @@ extension MenuBarRootView {
         switch self.appSession.systemProxyHelperIssue {
         case .none:
             nil
+        case .notInstalled:
+            tr("ui.system_proxy.helper.detail.not_installed")
+        case .registrationFailed:
+            tr("ui.system_proxy.helper.detail.registration_failed")
+        case .systemPolicyBlocked:
+            tr("ui.system_proxy.helper.detail.system_policy_blocked")
         case .signatureMismatch:
             tr("ui.system_proxy.helper.detail.signature_mismatch")
         case .missingSigningIdentity:
@@ -310,6 +316,10 @@ extension MenuBarRootView {
             tr("ui.system_proxy.helper.detail.helper_missing")
         case .timeout:
             tr("ui.system_proxy.helper.detail.timeout")
+        case .connectionFailed:
+            tr("ui.system_proxy.helper.detail.connection_failed")
+        case .operationFailed:
+            tr("ui.system_proxy.helper.detail.operation_failed")
         case .permissionDenied:
             tr("ui.system_proxy.helper.detail.permission_denied")
         case .migrationFailed:

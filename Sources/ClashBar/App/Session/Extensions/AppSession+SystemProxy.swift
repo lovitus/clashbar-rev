@@ -5,6 +5,17 @@ extension AppSession {
     private func helperIssue(from message: String?) -> SystemProxyHelperIssue {
         let normalized = (message ?? "").trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         if normalized.isEmpty { return .none }
+        if normalized.contains("not installed") {
+            return .notInstalled
+        }
+        if normalized.contains("blocked by system policy")
+            || normalized.contains("operation not permitted")
+            || normalized.contains("disallowed")
+            || normalized.contains("background item")
+            || normalized.contains("launch constraint")
+        {
+            return .systemPolicyBlocked
+        }
         if normalized.contains("no valid local code signing identity")
             || normalized.contains("no valid signing identity")
             || normalized.contains("0 valid identities found")
@@ -19,9 +30,6 @@ extension AppSession {
         if normalized.contains("requires approval") || normalized.contains("login items") {
             return .needsApproval
         }
-        if normalized.contains("disallowed") || normalized.contains("background item") {
-            return .signatureMismatch
-        }
         if normalized.contains("/applications") || normalized.contains("read-only") {
             return .installLocationInvalid
         }
@@ -31,16 +39,28 @@ extension AppSession {
         if normalized.contains("timed out") {
             return .timeout
         }
+        if normalized.contains("failed to connect privileged helper")
+            || normalized.contains("unable to create xpc proxy")
+            || normalized.contains("xpc")
+        {
+            return .connectionFailed
+        }
+        if normalized.contains("failed to register privileged helper")
+            || normalized.contains("not enabled. use reinstall helper")
+        {
+            return .registrationFailed
+        }
         if normalized.contains("migration") || normalized.contains("reinstall") || normalized.contains("cleanup") {
             return .migrationFailed
         }
-        if normalized.contains("operation not permitted") || normalized.contains("not permitted")
-            || normalized.contains("permission")
-        {
-            return .signatureMismatch
+        if normalized.contains("privileged helper operation failed") {
+            return .operationFailed
+        }
+        if normalized.contains("permission denied") {
+            return .permissionDenied
         }
         if normalized.contains("register") && normalized.contains("error: 1") {
-            return .signatureMismatch
+            return .registrationFailed
         }
         return .unknown
     }
@@ -229,10 +249,14 @@ extension AppSession {
             return tr("app.system_proxy.error.invalid_port")
         case .helperNotBundled:
             return tr("app.system_proxy.error.helper_not_bundled")
+        case .helperNotInstalled:
+            return tr("app.system_proxy.error.helper_not_installed")
         case .helperRequiresInstallToApplications:
             return tr("app.system_proxy.error.helper_install_location")
         case .helperNeedsApproval:
             return tr("app.system_proxy.error.helper_needs_approval")
+        case let .helperBlockedBySystemPolicy(message):
+            return tr("app.system_proxy.error.helper_blocked_by_system_policy", message)
         case let .helperInvalidSignature(message):
             return tr("app.system_proxy.error.helper_invalid_signature", message)
         case let .helperRegistrationFailed(message):

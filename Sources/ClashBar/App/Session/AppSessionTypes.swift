@@ -49,12 +49,17 @@ enum SystemProxyHelperActionState: Equatable {
 
 enum SystemProxyHelperIssue: Equatable {
     case none
+    case notInstalled
+    case registrationFailed
+    case systemPolicyBlocked
     case signatureMismatch
     case missingSigningIdentity
     case needsApproval
     case installLocationInvalid
     case helperMissing
     case timeout
+    case connectionFailed
+    case operationFailed
     case permissionDenied
     case migrationFailed
     case unknown

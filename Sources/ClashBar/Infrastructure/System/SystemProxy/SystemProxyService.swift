@@ -7,8 +7,10 @@ enum SystemProxyServiceError: LocalizedError {
     case invalidHost
     case invalidPort
     case helperNotBundled
+    case helperNotInstalled
     case helperRequiresInstallToApplications
     case helperNeedsApproval
+    case helperBlockedBySystemPolicy(String)
     case helperInvalidSignature(String)
     case helperRegistrationFailed(String)
     case helperConnectionFailed(String)
@@ -23,11 +25,15 @@ enum SystemProxyServiceError: LocalizedError {
             "Invalid proxy port."
         case .helperNotBundled:
             "Privileged helper not found in app bundle. Please rebuild and run the packaged app."
+        case .helperNotInstalled:
+            "Privileged helper is not installed. Use Install or Reinstall helper."
         case .helperRequiresInstallToApplications:
             "Privileged helper can only be installed from /Applications. " +
                 "Move ClashBar.app to /Applications and reopen it."
         case .helperNeedsApproval:
             "Privileged helper requires approval in System Settings > Login Items."
+        case let .helperBlockedBySystemPolicy(message):
+            "Privileged helper was blocked by system policy: \(message)"
         case let .helperInvalidSignature(message):
             "Privileged helper signature invalid: \(message)"
         case let .helperRegistrationFailed(message):
@@ -272,7 +278,9 @@ struct SystemProxyService {
             return
         case .needsApproval:
             throw SystemProxyServiceError.helperNeedsApproval
-        case let .blocked(message), let .failed(message):
+        case let .blocked(message):
+            throw SystemProxyServiceError.helperBlockedBySystemPolicy(message)
+        case let .failed(message):
             throw SystemProxyServiceError.helperRegistrationFailed(message)
         }
     }
@@ -284,16 +292,24 @@ struct SystemProxyService {
         guard !self.isRunningFromReadOnlyVolume() else {
             throw SystemProxyServiceError.helperRequiresInstallToApplications
         }
+        try self.validateHelperSigningRequirements()
 
         let daemonService = self.helperService()
-        if daemonService.status == .enabled {
+        switch daemonService.status {
+        case .enabled:
             return
-        }
-        if daemonService.status == .requiresApproval {
+        case .requiresApproval:
             throw SystemProxyServiceError.helperNeedsApproval
+        case .notRegistered, .notFound:
+            if self.isHelperInstalledInSystem() {
+                throw SystemProxyServiceError.helperRegistrationFailed(
+                    "Helper is installed but not enabled. Use Reinstall helper.")
+            }
+            throw SystemProxyServiceError.helperNotInstalled
+        @unknown default:
+            throw SystemProxyServiceError.helperRegistrationFailed(
+                "Helper service not enabled. status=\(daemonService.status.rawValue)")
         }
-        throw SystemProxyServiceError.helperRegistrationFailed(
-            "Helper service not enabled. status=\(daemonService.status.rawValue)")
     }
 
     private func isHelperBundledInMainApp() -> Bool {
@@ -316,6 +332,12 @@ struct SystemProxyService {
         } catch {
             return false
         }
+    }
+
+    private func isHelperInstalledInSystem() -> Bool {
+        let fileManager = FileManager.default
+        return fileManager.fileExists(atPath: self.helperPlistInstallPath)
+            && fileManager.fileExists(atPath: self.helperToolInstallPath)
     }
 
     private func helperService() -> SMAppService {
@@ -439,7 +461,9 @@ struct SystemProxyService {
             return
         case .needsApproval:
             throw SystemProxyServiceError.helperNeedsApproval
-        case let .blocked(message), let .failed(message):
+        case let .blocked(message):
+            throw SystemProxyServiceError.helperBlockedBySystemPolicy(message)
+        case let .failed(message):
             throw SystemProxyServiceError.helperRegistrationFailed(message)
         }
     }
@@ -481,7 +505,9 @@ struct SystemProxyService {
             return
         case .needsApproval:
             throw SystemProxyServiceError.helperNeedsApproval
-        case let .blocked(message), let .failed(message):
+        case let .blocked(message):
+            throw SystemProxyServiceError.helperBlockedBySystemPolicy(message)
+        case let .failed(message):
             throw SystemProxyServiceError.helperRegistrationFailed(message)
         }
     }
