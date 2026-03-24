@@ -323,7 +323,8 @@ extension AppSession {
         _ body: [String: ConfigPatchValue],
         syncingKey: String,
         successMessage: String,
-        syncSystemProxyPort: Bool = true) async -> Bool {
+        syncSystemProxyPort: Bool = true) async -> Bool
+    {
         self.cancelProxyPortsAutoSave()
         settingsFeedbackClearTask?.cancel()
         settingsFeedbackClearTask = nil

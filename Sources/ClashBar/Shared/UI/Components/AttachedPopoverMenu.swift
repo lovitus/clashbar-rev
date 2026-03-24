@@ -189,7 +189,8 @@ struct AttachedPopoverMenuItem: View {
                             .font(.app(size: T.FontSize.caption, weight: .regular))
                             .lineLimit(1)
                             .truncationMode(.middle)
-                            .foregroundStyle(self.isHovered ? Color(nsColor: .selectedMenuItemTextColor).opacity(0.9) : .secondary)
+                            .foregroundStyle(self.isHovered ? Color(nsColor: .selectedMenuItemTextColor)
+                                .opacity(0.9) : .secondary)
                     }
                 }
                 Spacer(minLength: 0)
