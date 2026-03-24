@@ -241,28 +241,36 @@ extension MenuBarRootView {
                         Task { await appSession.toggleTunMode(value) }
                     }))
 
-            AttachedPopoverMenu { _ in
-                self.quickRowContent(
-                    title: tr("ui.quick.copy_terminal"),
-                    symbol: "terminal",
-                    foreground: nativeWarning)
-                {
-                    HStack(spacing: T.space2) {
+            self.quickRowContent(
+                title: tr("ui.quick.copy_terminal"),
+                symbol: "terminal",
+                foreground: nativeWarning)
+            {
+                HStack(spacing: T.space2) {
+                    Button {
+                        self.handleCopyProxyCommand {
+                            self.appSession.copyLocalProxyCommand()
+                        }
+                    } label: {
                         Image(systemName: proxyCommandCopied ? "checkmark.circle.fill" : "doc.on.doc")
                             .font(.app(size: T.FontSize.body, weight: .medium))
                             .foregroundStyle(
                                 proxyCommandCopied
                                     ? nativePositive.opacity(T.Opacity.solid)
                                     : (hoveringCopyRow ? nativeSecondaryLabel : nativeTertiaryLabel.opacity(0.6)))
+                    }
+                    .buttonStyle(.plain)
+
+                    AttachedPopoverMenu(expandAnchor: false) { _ in
                         Image(systemName: "chevron.right")
                             .font(.app(size: T.FontSize.caption, weight: .medium))
                             .foregroundStyle(nativeTertiaryLabel)
+                    } content: { dismiss in
+                        self.proxyCommandMenuContent(dismiss: dismiss)
                     }
+                    .buttonStyle(.plain)
                 }
-            } content: { dismiss in
-                self.proxyCommandMenuContent(dismiss: dismiss)
             }
-            .buttonStyle(.plain)
             .onHover { hoveringCopyRow = $0 }
         }
     }
