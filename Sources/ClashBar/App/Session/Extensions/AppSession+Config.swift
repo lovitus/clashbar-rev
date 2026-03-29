@@ -268,6 +268,7 @@ extension AppSession {
             do {
                 if let result = try await self.updateSingleRemoteConfigFile(
                     named: fileName,
+                    sourceURLString: sources[fileName],
                     configDirectory: configDirectory,
                     userAgent: userAgent)
                 {
@@ -290,7 +291,7 @@ extension AppSession {
             self.markRemoteConfigCheckSucceeded(fileNames: succeededFileNames)
         }
         self.refreshConfigStateAfterMutation()
-        appendLog(level: "info", message: tr("log.config.remote.update_summary", changedFileNames.count, failedCount))
+        appendLog(level: "info", message: tr("log.config.remote.update_summary", succeededFileNames.count, failedCount))
 
         if self.shouldAutoReloadCurrentConfig(updatedFileNames: changedFileNames) {
             await self.reloadConfig()
@@ -301,7 +302,7 @@ extension AppSession {
         guard let configDirectory = ensureConfigDirectoryAvailable() else { return }
         pruneRemoteConfigSourcesIfNeeded()
 
-        guard remoteConfigSources[fileName] != nil else {
+        guard let sourceURLString = remoteConfigSources[fileName] else {
             appendLog(
                 level: "error",
                 message: tr("log.config.remote.update_item_failed", fileName, tr("log.config.remote.no_sources")))
@@ -317,6 +318,7 @@ extension AppSession {
             let userAgent = await remoteSubscriptionUserAgent()
             if let result = try await self.updateSingleRemoteConfigFile(
                 named: fileName,
+                sourceURLString: sourceURLString,
                 configDirectory: configDirectory,
                 userAgent: userAgent)
             {
@@ -339,11 +341,12 @@ extension AppSession {
 
     private func updateSingleRemoteConfigFile(
         named fileName: String,
+        sourceURLString: String?,
         configDirectory: URL,
         userAgent: String) async throws -> RemoteConfigWriteResult?
     {
-        guard let urlString = remoteConfigSources[fileName],
-              let remoteURL = URL(string: urlString),
+        guard let sourceURLString,
+              let remoteURL = URL(string: sourceURLString),
               isSupportedRemoteConfigURL(remoteURL)
         else {
             appendLog(
@@ -351,7 +354,7 @@ extension AppSession {
                 message: tr(
                     "log.config.remote.update_item_failed",
                     fileName,
-                    tr("log.config.remote.invalid_url", remoteConfigSources[fileName] ?? fileName)))
+                    tr("log.config.remote.invalid_url", sourceURLString ?? fileName)))
             return nil
         }
 
@@ -391,7 +394,12 @@ extension AppSession {
         self.remoteConfigUpdateFeedbackClearTasks[fileName]?.cancel()
         self.remoteConfigUpdateFeedbackByName[fileName] = success
         self.remoteConfigUpdateFeedbackClearTasks[fileName] = Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 1_200_000_000)
+            do {
+                try await Task.sleep(nanoseconds: 1_200_000_000)
+            } catch {
+                return
+            }
+            guard !Task.isCancelled else { return }
             self.remoteConfigUpdateFeedbackByName.removeValue(forKey: fileName)
             self.remoteConfigUpdateFeedbackClearTasks.removeValue(forKey: fileName)
         }

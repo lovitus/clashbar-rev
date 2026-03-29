@@ -1,3 +1,54 @@
+## v0.1.11
+
+![macOS](https://img.shields.io/badge/macOS-Supported-000000?style=flat-square&logo=apple) ![Version](https://img.shields.io/badge/Release-v0.1.11-10B981?style=flat-square) ![Core](https://img.shields.io/badge/Core-Mihomo-6366f1?style=flat-square)
+
+> 此版本是 **beta-pr-clean 维护线** 的增量发布，目标是保留更早期稳定基线，同时按需引入你指定的上游 PR #50 小功能并补齐审查修复。
+
+### 🧭 代码基线 (Code Baseline)
+
+- 基线分支：`lovitus:beta-pr-clean`
+- 基线提交：[`05295a2f7b5b105c2da6e9cf3fcfbd360a3d4963`](https://github.com/lovitus/ClashBar/commit/05295a2f7b5b105c2da6e9cf3fcfbd360a3d4963)
+- 基线特征：处于较早期实现路线（你当前确认“正常”的分支），不跟随后续较大范围重构。
+
+### 🍒 Cherry-Pick 来源 (From PR #50)
+
+- 上游 PR：[`Sitoi/ClashBar#50`](https://github.com/Sitoi/ClashBar/pull/50)
+- 上游原始提交：[`5f3819dfb1194d74e8e7346be69acb58305f9e33`](https://github.com/Sitoi/ClashBar/commit/5f3819dfb1194d74e8e7346be69acb58305f9e33)
+- 本分支落地提交：`c172b93`
+- 引入功能：
+  - 配置切换菜单显示两行状态信息（文件变更时间、最后检查成功时间）
+  - 仅远程订阅配置显示单项刷新入口（`arrow.clockwise`）
+  - 单项刷新支持进行中/成功/失败短时反馈
+  - 远程订阅文件内容未变化时不覆写文件，避免无意义更新时间抖动
+  - 自动 reload 仅在“当前配置且内容确实变更”时触发
+
+### 🛠️ 审查后优化 (Post-Review Hardening)
+
+- 修复取消任务误清状态：
+  - 反馈清理任务在被取消时立即退出，避免连续点击刷新时新一轮反馈被旧任务提前清空。
+- 修复批量更新成功统计语义：
+  - 日志“成功数”改为真实成功下载数（包含未变更项），避免出现“0 succeeded, 0 failed”这类误导结果。
+- 修复批量更新源地址一致性：
+  - 批量更新改为使用循环开始时的快照 URL，避免 `await` 期间配置变更导致串源或误报无效地址。
+
+### 📝 更新日志 (Changelog)
+
+**✨ 新增功能 (New Features)**
+
+- ![Feature](https://img.shields.io/badge/Feature-10B981?style=flat-square) **配置菜单状态可见化**：配置列表项新增“变更时间 / 检查成功时间”状态副标题。
+- ![Feature](https://img.shields.io/badge/Feature-10B981?style=flat-square) **远程配置单项刷新**：远程订阅配置可直接在列表右侧单项刷新并显示即时反馈。
+
+**🚀 优化改进 (Improvements)**
+
+- ![Optimize](https://img.shields.io/badge/Optimize-3B82F6?style=flat-square) **远程更新幂等写入**：远程内容未变化时不重写本地文件，降低不必要 I/O 与状态抖动。
+- ![Optimize](https://img.shields.io/badge/Optimize-3B82F6?style=flat-square) **热更新触发更精确**：仅在当前激活配置且内容有变化时才执行自动 reload。
+
+**🐞 修复问题 (Bug Fixes)**
+
+- ![Fix](https://img.shields.io/badge/Fix-EF4444?style=flat-square) **反馈状态闪烁**：修复快速连续刷新时图标反馈被提前清除的问题。
+- ![Fix](https://img.shields.io/badge/Fix-EF4444?style=flat-square) **批量更新成功计数**：修复成功统计与文案语义不一致导致的误导。
+- ![Fix](https://img.shields.io/badge/Fix-EF4444?style=flat-square) **批量更新 URL 竞态**：修复批量更新过程中配置源变更引发的潜在串源与误报。
+
 ## v0.2.0
 
 ![macOS](https://img.shields.io/badge/macOS-Supported-000000?style=flat-square&logo=apple) ![Version](https://img.shields.io/badge/Release-v0.2.0-10B981?style=flat-square) ![Core](https://img.shields.io/badge/Core-Mihomo-6366f1?style=flat-square)
