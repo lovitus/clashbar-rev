@@ -186,6 +186,11 @@ struct SystemProxyService {
             }
             return self.formatProxyDisplay(host: target.host, port: target.port)
         } catch {
+            // Compatibility fallback: older installed helpers may not implement
+            // getSystemProxyActiveTarget and can surface as a connection failure.
+            if self.isHelperConnectionFailure(error), self.isHelperInstalledInSystem() {
+                return nil
+            }
             guard self.isHelperConnectionFailure(error),
                   self.isHelperBundledInMainApp(),
                   !self.isHelperInstalledInSystem()

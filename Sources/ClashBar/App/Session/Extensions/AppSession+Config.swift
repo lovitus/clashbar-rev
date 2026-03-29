@@ -330,6 +330,8 @@ extension AppSession {
                     await self.reloadConfig()
                 }
                 self.markRemoteConfigUpdateFeedback(for: fileName, success: true)
+            } else {
+                self.markRemoteConfigUpdateFeedback(for: fileName, success: false)
             }
         } catch {
             appendLog(
