@@ -106,7 +106,7 @@ extension MenuBarRootView {
         let hostText = conn.metadata?.host.trimmedNonEmpty
             ?? conn.metadata?.destinationIP.trimmedNonEmpty
             ?? tr("ui.common.na")
-        let networkType = conn.metadata?.network.trimmedNonEmpty?.uppercased() ?? "--"
+        let networkType = self.connectionNetworkText(for: conn)
         let timeText = self.connectionTimeOnly(conn.start)
         let upText = ValueFormatter.bytesCompactNoSpace(conn.upload ?? 0)
         let downText = ValueFormatter.bytesCompactNoSpace(conn.download ?? 0)
@@ -389,9 +389,6 @@ extension MenuBarRootView {
     func connectionRuleTypeText(_ raw: String?, fallback: String?) -> String {
         let candidate = fallback.trimmedNonEmpty ?? raw.trimmedNonEmpty ?? ""
         guard !candidate.isEmpty else { return "--" }
-
-        let normalized = candidate.uppercased()
-        if normalized == "MATCH" || normalized == "FINAL" { return "--" }
         return candidate
     }
 
@@ -428,6 +425,41 @@ extension MenuBarRootView {
         let full = ValueFormatter.dateTimeFromISO(input)
         guard full != "--" else { return full }
         return full.split(separator: " ").last.map(String.init) ?? full
+    }
+
+    func connectionNetworkText(for conn: ConnectionSummary) -> String {
+        let network = conn.metadata?.network.trimmedNonEmpty?.uppercased() ?? "--"
+        let destinationPort = conn.metadata?.destinationPort
+            ?? self.connectionEndpointPort(conn.metadata?.host)
+            ?? self.connectionEndpointPort(conn.metadata?.destinationIP)
+        guard let destinationPort, destinationPort > 0 else {
+            return network
+        }
+        return "\(network) \(destinationPort)"
+    }
+
+    private func connectionEndpointPort(_ endpoint: String?) -> Int? {
+        guard let endpoint = endpoint.trimmedNonEmpty else { return nil }
+
+        if endpoint.hasPrefix("["),
+           let bracketClose = endpoint.lastIndex(of: "]"),
+           bracketClose < endpoint.index(before: endpoint.endIndex),
+           endpoint[endpoint.index(after: bracketClose)] == ":"
+        {
+            let start = endpoint.index(bracketClose, offsetBy: 2)
+            let portPart = endpoint[start...]
+            if let port = Int(portPart), (1...65535).contains(port) {
+                return port
+            }
+        }
+
+        guard let colon = endpoint.lastIndex(of: ":") else { return nil }
+        let hostPart = endpoint[..<colon]
+        guard !hostPart.contains(":") else { return nil }
+
+        let portPart = endpoint[endpoint.index(after: colon)...]
+        guard let port = Int(portPart), (1...65535).contains(port) else { return nil }
+        return port
     }
 
     func connectionVisual(for conn: ConnectionSummary) -> (symbol: String, color: Color) {

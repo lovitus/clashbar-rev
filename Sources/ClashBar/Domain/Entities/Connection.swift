@@ -125,19 +125,22 @@ struct ConnectionMetadata: Codable, Equatable {
     let network: String?
     let sourceIP: String?
     let destinationIP: String?
+    let destinationPort: Int?
     let host: String?
 
     private enum CodingKeys: String, CodingKey {
         case network
         case sourceIP
         case destinationIP
+        case destinationPort
         case host
     }
 
-    init(network: String?, sourceIP: String?, destinationIP: String?, host: String?) {
+    init(network: String?, sourceIP: String?, destinationIP: String?, destinationPort: Int?, host: String?) {
         self.network = network
         self.sourceIP = sourceIP
         self.destinationIP = destinationIP
+        self.destinationPort = destinationPort
         self.host = host
     }
 
@@ -153,6 +156,10 @@ struct ConnectionMetadata: Codable, Equatable {
             ?? ConnectionAnyCodingKey.decodeString(
                 in: dynamic,
                 keys: ["destination_ip", "destination", "remoteIP", "remoteAddress"])
+        self.destinationPort = (try? container.decodeIfPresent(Int.self, forKey: .destinationPort))
+            ?? ConnectionAnyCodingKey.decodeInt(
+                in: dynamic,
+                keys: ["destinationPort", "destination_port", "remotePort", "port"])
         self.host = try container.decodeIfPresent(String.self, forKey: .host).trimmedNonEmpty
             ?? ConnectionAnyCodingKey.decodeString(in: dynamic, keys: ["destinationHost", "remoteHost", "addr"])
     }
@@ -203,6 +210,26 @@ private struct ConnectionAnyCodingKey: CodingKey {
                let value = rawValue.trimmedNonEmpty
             {
                 return [value]
+            }
+        }
+        return nil
+    }
+
+    static func decodeInt(
+        in container: KeyedDecodingContainer<ConnectionAnyCodingKey>,
+        keys: [String]) -> Int?
+    {
+        for keyName in keys {
+            guard let key = ConnectionAnyCodingKey(stringValue: keyName) else { continue }
+
+            if let intValue = try? container.decodeIfPresent(Int.self, forKey: key) {
+                return intValue
+            }
+
+            if let stringValue = container.decodeFlexibleString(forKey: key),
+               let intValue = Int(stringValue)
+            {
+                return intValue
             }
         }
         return nil
