@@ -85,6 +85,17 @@
 "ui.quick.import_remote_config" = "导入订阅链接";
 "ui.quick.update_remote_configs" = "更新订阅链接";
 "ui.quick.show_in_finder" = "在访达中显示";
+"ui.quick.remote_auto_update.help" = "定时更新：%@";
+"ui.quick.remote_auto_update.inline" = "自动更新:%@";
+"ui.quick.remote_auto_update.disabled" = "关闭";
+"ui.quick.remote_auto_update.hourly" = "每小时";
+"ui.quick.remote_auto_update.every_6_hours" = "每6小时";
+"ui.quick.remote_auto_update.every_12_hours" = "每12小时";
+"ui.quick.remote_auto_update.daily" = "每天";
+"ui.quick.remote_auto_update.inline.hourly" = "每1小时更新";
+"ui.quick.remote_auto_update.inline.every_6_hours" = "每6小时更新";
+"ui.quick.remote_auto_update.inline.every_12_hours" = "每12小时更新";
+"ui.quick.remote_auto_update.inline.daily" = "每天更新";
 "ui.quick.config_status.subtitle" = "(变更:%@, 检查成功:%@)";
 "ui.quick.config_status.never_checked" = "未检查";
 "ui.quick.config_status.just_now" = "刚刚";
@@ -301,6 +312,7 @@
 "log.config.import_local.failed" = "导入本地配置失败（%@）: %@";
 "log.config.import_remote.success" = "已导入订阅：%@";
 "log.config.import_remote.failed" = "导入订阅失败（%@）: %@";
+"log.config.remote.auto_update_policy_changed" = "订阅自动更新策略已变更（%@）：%@";
 "log.config.remote.invalid_url" = "订阅链接不合法: %@";
 "log.config.remote.no_sources" = "没有可更新的订阅来源";
 "log.config.remote.update_item_failed" = "订阅更新失败（%@）: %@";

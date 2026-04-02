@@ -4,6 +4,47 @@ import SwiftUI
 private typealias T = MenuBarLayoutTokens
 
 extension MenuBarRootView {
+    @ViewBuilder
+    private func remoteConfigAutoUpdateMenuButton(for fileName: String) -> some View {
+        let selectedPolicy = appSession.remoteConfigAutoUpdatePolicy(for: fileName)
+
+        Menu {
+            ForEach(RemoteConfigAutoUpdatePolicy.allCases) { policy in
+                Button {
+                    appSession.setRemoteConfigAutoUpdatePolicy(policy, for: fileName)
+                } label: {
+                    if selectedPolicy == policy {
+                        Label(tr(policy.titleKey), systemImage: "checkmark")
+                    } else {
+                        Text(tr(policy.titleKey))
+                    }
+                }
+            }
+        } label: {
+            ZStack {
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(selectedPolicy.isEnabled ? nativePositive.opacity(0.16) : nativeTertiaryLabel.opacity(0.08))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .stroke(
+                                selectedPolicy.isEnabled
+                                    ? nativePositive.opacity(0.32)
+                                    : nativeSeparator.opacity(0.5),
+                                lineWidth: 1))
+                    .frame(width: 18, height: 18)
+
+                Image(systemName: selectedPolicy.isEnabled ? "timer" : "clock")
+                    .font(.app(size: 10, weight: .semibold))
+                    .foregroundStyle(selectedPolicy.isEnabled ? nativePositive : nativeSecondaryLabel)
+            }
+            .frame(width: 18, height: 18)
+            .padding(T.space2)
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .help(appSession.remoteConfigAutoUpdatePolicyHelpText(for: fileName))
+    }
+
     func handleCopyProxyCommand(_ action: () -> Void) {
         action()
 
@@ -38,7 +79,7 @@ extension MenuBarRootView {
         ForEach(appSession.availableConfigFileNames, id: \.self) { name in
             HStack(spacing: T.space4) {
                 AttachedPopoverMenuItem(
-                    title: name,
+                    title: appSession.remoteConfigMenuDisplayName(for: name),
                     subtitle: appSession.configMenuStatusSubtitle(for: name),
                     selected: name == appSession.selectedConfigName)
                 {
@@ -48,6 +89,8 @@ extension MenuBarRootView {
                 .frame(maxWidth: .infinity, alignment: .leading)
 
                 if appSession.isRemoteConfigFile(named: name) {
+                    self.remoteConfigAutoUpdateMenuButton(for: name)
+
                     Button {
                         Task { await appSession.updateRemoteConfigFile(named: name) }
                     } label: {

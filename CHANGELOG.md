@@ -1,3 +1,35 @@
+## v1.1.13
+
+![macOS](https://img.shields.io/badge/macOS-Supported-000000?style=flat-square&logo=apple) ![Version](https://img.shields.io/badge/Release-v1.1.13-10B981?style=flat-square) ![Channel](https://img.shields.io/badge/Channel-Stable-2563EB?style=flat-square)
+
+> 这是一次从当前 `beta` 分支稳定快照切出的固定正式版本，不走滚动 `beta` 覆盖路径。重点补齐了远程订阅配置的状态可见性、定时更新与安全更新链路，同时继续修正连接详情显示和系统代理 Helper 兼容性问题。
+
+### 🧭 发布基线 (Release Baseline)
+
+- 发布分支：`lovitus/clashbar-rev:beta`
+- 发布方式：从当前 `beta` 分支提交打正式 tag，生成固定 Release 资产
+- 发布目标：保留一份不会被后续 `beta` 滚动覆盖的正式版本，便于持续自用
+
+### 📝 更新日志 (Changelog)
+
+**✨ 新增功能 (New Features)**
+
+- ![Feature](https://img.shields.io/badge/Feature-10B981?style=flat-square) **远程订阅定时更新策略**：每个远程订阅配置都可以独立设置 `关闭 / 每1小时 / 每6小时 / 每12小时 / 每天` 的后台更新策略。
+- ![Feature](https://img.shields.io/badge/Feature-10B981?style=flat-square) **配置菜单状态增强**：配置项菜单新增“文件变更时间 / 最后检查成功时间”两行状态展示，并为远程订阅提供单项刷新入口。
+
+**🚀 优化改进 (Improvements)**
+
+- ![Optimize](https://img.shields.io/badge/Optimize-3B82F6?style=flat-square) **远程订阅更新更安全**：单项刷新、批量刷新、定时刷新统一改为“先下载到临时文件，再执行 `mihomo -t` 校验，通过后才原子替换正式配置”，避免截断文件、坏 YAML 或语法错误直接污染当前可用配置。
+- ![Optimize](https://img.shields.io/badge/Optimize-3B82F6?style=flat-square) **配置菜单可读性增强**：启用定时更新的订阅会直接在配置名后显示 `（每6小时更新）` 这类明确文案，不再只依赖小图标表达状态。
+- ![Optimize](https://img.shields.io/badge/Optimize-3B82F6?style=flat-square) **连接详情信息补齐**：连接列表现在会显示真实规则类型，并在 `TCP/UDP` 后补上目标端口，减少排查时的信息缺口。
+
+**🐞 修复问题 (Bug Fixes)**
+
+- ![Fix](https://img.shields.io/badge/Fix-EF4444?style=flat-square) **刷新反馈状态竞争**：修复连续点击远程订阅刷新时，旧的清理任务提前清掉新反馈状态的问题。
+- ![Fix](https://img.shields.io/badge/Fix-EF4444?style=flat-square) **批量更新重复 reload**：修复批量刷新订阅时，当前激活配置可能被单项路径和汇总路径连续 reload 两次的问题。
+- ![Fix](https://img.shields.io/badge/Fix-EF4444?style=flat-square) **系统代理 Helper 兼容性**：兼容老版本 Helper 缺少新 RPC 的场景，并继续收敛 Helper 安装、状态读取和恢复链路中的异常路径。
+- ![Fix](https://img.shields.io/badge/Fix-EF4444?style=flat-square) **规则显示误导**：不再把 `MATCH / FINAL` 等真实规则类型错误显示成占位符。
+
 ## v0.1.11
 
 ![macOS](https://img.shields.io/badge/macOS-Supported-000000?style=flat-square&logo=apple) ![Version](https://img.shields.io/badge/Release-v0.1.11-10B981?style=flat-square) ![Core](https://img.shields.io/badge/Core-Mihomo-6366f1?style=flat-square)

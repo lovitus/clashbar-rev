@@ -159,6 +159,52 @@ struct MenuBarSpeedLines: Equatable {
     static let zero = MenuBarSpeedLines(up: "↑0K", down: "↓0K")
 }
 
+enum RemoteConfigAutoUpdatePolicy: String, CaseIterable, Identifiable, Codable {
+    case disabled
+    case hourly
+    case every6Hours = "every_6_hours"
+    case every12Hours = "every_12_hours"
+    case daily
+
+    var id: String {
+        self.rawValue
+    }
+
+    var interval: TimeInterval? {
+        switch self {
+        case .disabled:
+            nil
+        case .hourly:
+            60 * 60
+        case .every6Hours:
+            6 * 60 * 60
+        case .every12Hours:
+            12 * 60 * 60
+        case .daily:
+            24 * 60 * 60
+        }
+    }
+
+    var titleKey: String {
+        switch self {
+        case .disabled:
+            "ui.quick.remote_auto_update.disabled"
+        case .hourly:
+            "ui.quick.remote_auto_update.hourly"
+        case .every6Hours:
+            "ui.quick.remote_auto_update.every_6_hours"
+        case .every12Hours:
+            "ui.quick.remote_auto_update.every_12_hours"
+        case .daily:
+            "ui.quick.remote_auto_update.daily"
+        }
+    }
+
+    var isEnabled: Bool {
+        self.interval != nil
+    }
+}
+
 struct MenuBarDisplay: Equatable {
     let mode: StatusBarDisplayMode
     let symbolName: String?

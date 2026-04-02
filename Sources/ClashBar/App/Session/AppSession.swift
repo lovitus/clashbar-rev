@@ -50,6 +50,7 @@ final class AppSession: ObservableObject {
     @Published var configMenuStatusSubtitleByName: [String: String] = [:]
     @Published var remoteConfigUpdateInFlightNames: Set<String> = []
     @Published var remoteConfigUpdateFeedbackByName: [String: Bool] = [:]
+    @Published var remoteConfigAutoUpdatePolicyByName: [String: RemoteConfigAutoUpdatePolicy] = [:]
 
     @Published var proxyGroups: [ProxyGroup] = []
     @Published var groupLatencyLoading: Set<String> = []
@@ -378,6 +379,8 @@ final class AppSession: ObservableObject {
     let legacySelectedConfigKey = "clashbar.config.selected"
     let remoteConfigSourcesKey = "clashbar.config.remote.sources.v1"
     let remoteConfigLastCheckSucceededAtKey = "clashbar.config.remote.last_check_succeeded_at.v1"
+    let remoteConfigAutoUpdatePoliciesKey = "clashbar.config.remote.auto_update_policies.v1"
+    let remoteConfigAutoUpdateLastAttemptAtKey = "clashbar.config.remote.auto_update.last_attempt_at.v1"
     let lastSuccessfulConfigPathKey = "clashbar.last.success.config.path"
     let editableSettingsSnapshotKey = "clashbar.settings.editable.snapshot.v1"
     let systemProxyEnabledOnQuitKey = "clashbar.system_proxy.enabled_on_quit"
@@ -393,6 +396,7 @@ final class AppSession: ObservableObject {
     let foregroundLowFrequencyPrimaryTabsIntervalNanoseconds: UInt64 = 20_000_000_000
     let foregroundLowFrequencyOtherTabsIntervalNanoseconds: UInt64 = 45_000_000_000
     let backgroundLowFrequencyIntervalNanoseconds: UInt64 = 120_000_000_000
+    let remoteConfigAutoUpdateScanIntervalNanoseconds: UInt64 = 60_000_000_000
     let trafficPublishIntervalNanoseconds: UInt64 = 500_000_000
     let streamDisconnectLogThrottleInterval: TimeInterval = 2
     let streamReconnectBaseDelayNanoseconds: UInt64 = 1_000_000_000
@@ -420,7 +424,9 @@ final class AppSession: ObservableObject {
     var deferredEditableSettingsOverlay: (snapshot: EditableSettingsSnapshot, syncingKey: String)?
     var remoteConfigSources: [String: String] = [:]
     var remoteConfigLastCheckSucceededAt: [String: TimeInterval] = [:]
+    var remoteConfigAutoUpdateLastAttemptAt: [String: TimeInterval] = [:]
     var remoteConfigUpdateFeedbackClearTasks: [String: Task<Void, Never>] = [:]
+    var remoteConfigAutoUpdateTask: Task<Void, Never>?
     var externalControllerWarningKeys: Set<String> = []
     let streamJSONDecoder = JSONDecoder()
     let initialNoCoreSetupGuideShownKey = "clashbar.core.install.guide.shown.v1"
@@ -515,8 +521,12 @@ final class AppSession: ObservableObject {
         restoreLastSuccessfulConfigIfAvailable()
         self.remoteConfigSources = loadPersistedRemoteConfigSources()
         self.remoteConfigLastCheckSucceededAt = loadPersistedRemoteConfigLastCheckSucceededAt()
+        self.remoteConfigAutoUpdatePolicyByName = loadPersistedRemoteConfigAutoUpdatePolicies()
+        self.remoteConfigAutoUpdateLastAttemptAt = loadPersistedRemoteConfigAutoUpdateLastAttemptAt()
         pruneRemoteConfigSourcesIfNeeded()
         pruneRemoteConfigLastCheckSucceededAtIfNeeded()
+        pruneRemoteConfigAutoUpdatePoliciesIfNeeded()
+        pruneRemoteConfigAutoUpdateLastAttemptAtIfNeeded()
         // Always start in local mode. Remote target is session-level only.
         self.remoteMachineStore.resetActiveTarget()
         self.controllerUIURL = makeControllerUIURL(self.controller)
@@ -536,6 +546,8 @@ final class AppSession: ObservableObject {
                 await refreshSystemProxyStatus()
                 await ensureSystemProxyConsistencyOnFirstLaunchIfNeeded()
             }
+
+            self.startRemoteConfigAutoUpdateTaskIfNeeded()
 
             self.startConfigDirectoryMonitoringIfNeeded()
         }
@@ -567,6 +579,7 @@ final class AppSession: ObservableObject {
             webSocketTask.cancel(with: .goingAway, reason: nil)
         }
         providerRefreshTask?.cancel()
+        remoteConfigAutoUpdateTask?.cancel()
         for task in remoteConfigUpdateFeedbackClearTasks.values {
             task.cancel()
         }

@@ -71,6 +71,8 @@ extension AppSession {
         }
         self.pruneRemoteConfigSourcesIfNeeded()
         self.pruneRemoteConfigLastCheckSucceededAtIfNeeded()
+        self.pruneRemoteConfigAutoUpdatePoliciesIfNeeded()
+        self.pruneRemoteConfigAutoUpdateLastAttemptAtIfNeeded()
         self.configMenuStatusSubtitleByName = self.configMenuStatusSubtitleByName.filter { availableConfigFileNames
             .contains($0.key)
         }
@@ -154,6 +156,44 @@ extension AppSession {
         defaults.set(remoteConfigLastCheckSucceededAt, forKey: remoteConfigLastCheckSucceededAtKey)
     }
 
+    func loadPersistedRemoteConfigAutoUpdatePolicies() -> [String: RemoteConfigAutoUpdatePolicy] {
+        guard let stored = defaults.dictionary(forKey: remoteConfigAutoUpdatePoliciesKey) as? [String: String] else {
+            return [:]
+        }
+
+        var result: [String: RemoteConfigAutoUpdatePolicy] = [:]
+        for (fileName, rawPolicy) in stored {
+            guard let normalizedName = normalizedConfigFileName(fileName), normalizedName == fileName else { continue }
+            guard let policy = RemoteConfigAutoUpdatePolicy(rawValue: rawPolicy) else { continue }
+            result[normalizedName] = policy
+        }
+        return result
+    }
+
+    func persistRemoteConfigAutoUpdatePolicies() {
+        let stored = remoteConfigAutoUpdatePolicyByName.mapValues(\.rawValue)
+        defaults.set(stored, forKey: remoteConfigAutoUpdatePoliciesKey)
+    }
+
+    func loadPersistedRemoteConfigAutoUpdateLastAttemptAt() -> [String: TimeInterval] {
+        guard let stored = defaults.dictionary(forKey: remoteConfigAutoUpdateLastAttemptAtKey)
+            as? [String: TimeInterval]
+        else {
+            return [:]
+        }
+
+        var result: [String: TimeInterval] = [:]
+        for (fileName, timestamp) in stored where timestamp > 0 {
+            guard let normalizedName = normalizedConfigFileName(fileName), normalizedName == fileName else { continue }
+            result[normalizedName] = timestamp
+        }
+        return result
+    }
+
+    func persistRemoteConfigAutoUpdateLastAttemptAt() {
+        defaults.set(remoteConfigAutoUpdateLastAttemptAt, forKey: remoteConfigAutoUpdateLastAttemptAtKey)
+    }
+
     func pruneRemoteConfigSourcesIfNeeded() {
         let availableNames = Set(availableConfigFileNames)
         let filtered = remoteConfigSources.filter { availableNames.contains($0.key) }
@@ -171,5 +211,27 @@ extension AppSession {
         guard filtered != remoteConfigLastCheckSucceededAt else { return }
         remoteConfigLastCheckSucceededAt = filtered
         self.persistRemoteConfigLastCheckSucceededAt()
+    }
+
+    func pruneRemoteConfigAutoUpdatePoliciesIfNeeded() {
+        let availableNames = Set(availableConfigFileNames)
+        let remoteNames = Set(remoteConfigSources.keys)
+        let filtered = remoteConfigAutoUpdatePolicyByName.filter {
+            availableNames.contains($0.key) && remoteNames.contains($0.key)
+        }
+        guard filtered != remoteConfigAutoUpdatePolicyByName else { return }
+        remoteConfigAutoUpdatePolicyByName = filtered
+        self.persistRemoteConfigAutoUpdatePolicies()
+    }
+
+    func pruneRemoteConfigAutoUpdateLastAttemptAtIfNeeded() {
+        let availableNames = Set(availableConfigFileNames)
+        let remoteNames = Set(remoteConfigSources.keys)
+        let filtered = remoteConfigAutoUpdateLastAttemptAt.filter {
+            availableNames.contains($0.key) && remoteNames.contains($0.key)
+        }
+        guard filtered != remoteConfigAutoUpdateLastAttemptAt else { return }
+        remoteConfigAutoUpdateLastAttemptAt = filtered
+        self.persistRemoteConfigAutoUpdateLastAttemptAt()
     }
 }

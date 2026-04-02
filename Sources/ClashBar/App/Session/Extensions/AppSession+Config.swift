@@ -4,13 +4,24 @@ import UniformTypeIdentifiers
 
 @MainActor
 extension AppSession {
-    private enum RemoteConfigWriteResult {
-        case changed
+    private enum RemoteConfigUpdateTrigger {
+        case manual
+        case bulk
+        case automatic
+    }
+
+    private enum RemoteConfigUpdateResult {
         case unchanged
+        case validatedAndChanged
+        case failedValidation(String)
     }
 
     private func reloadRuntimeConfigUseCase() throws -> ReloadRuntimeConfigUseCase {
         try ReloadRuntimeConfigUseCase(repository: DefaultRuntimeConfigRepository(transport: self.clientOrThrow()))
+    }
+
+    private var validateRemoteConfigUseCase: ValidateCoreConfigUseCase {
+        ValidateCoreConfigUseCase(coreRepository: self.coreRepository)
     }
 
     func isRemoteConfigFile(named fileName: String) -> Bool {
@@ -19,6 +30,119 @@ extension AppSession {
 
     func configMenuStatusSubtitle(for fileName: String) -> String? {
         self.configMenuStatusSubtitleByName[fileName]
+    }
+
+    func remoteConfigAutoUpdatePolicy(for fileName: String) -> RemoteConfigAutoUpdatePolicy {
+        self.remoteConfigAutoUpdatePolicyByName[fileName] ?? .disabled
+    }
+
+    func remoteConfigAutoUpdatePolicyTitle(for fileName: String) -> String {
+        self.tr(self.remoteConfigAutoUpdatePolicy(for: fileName).titleKey)
+    }
+
+    func remoteConfigAutoUpdatePolicyHelpText(for fileName: String) -> String {
+        let policy = self.remoteConfigAutoUpdatePolicy(for: fileName)
+        let helpValue = policy.isEnabled
+            ? self.remoteConfigAutoUpdateInlineTitle(for: fileName)
+            : self.remoteConfigAutoUpdatePolicyTitle(for: fileName)
+        return self.tr("ui.quick.remote_auto_update.help", helpValue)
+    }
+
+    func remoteConfigAutoUpdateInlineTitle(for fileName: String) -> String {
+        let policy = self.remoteConfigAutoUpdatePolicy(for: fileName)
+        switch policy {
+        case .disabled:
+            return self.tr("ui.quick.remote_auto_update.disabled")
+        case .hourly:
+            return self.tr("ui.quick.remote_auto_update.inline.hourly")
+        case .every6Hours:
+            return self.tr("ui.quick.remote_auto_update.inline.every_6_hours")
+        case .every12Hours:
+            return self.tr("ui.quick.remote_auto_update.inline.every_12_hours")
+        case .daily:
+            return self.tr("ui.quick.remote_auto_update.inline.daily")
+        }
+    }
+
+    func remoteConfigMenuDisplayName(for fileName: String) -> String {
+        let policy = self.remoteConfigAutoUpdatePolicy(for: fileName)
+        guard policy.isEnabled else { return fileName }
+        return "\(fileName) (\(self.remoteConfigAutoUpdateInlineTitle(for: fileName)))"
+    }
+
+    func setRemoteConfigAutoUpdatePolicy(_ policy: RemoteConfigAutoUpdatePolicy, for fileName: String) {
+        guard self.remoteConfigSources[fileName] != nil else { return }
+        let previous = self.remoteConfigAutoUpdatePolicy(for: fileName)
+        guard previous != policy else { return }
+
+        if policy == .disabled {
+            self.remoteConfigAutoUpdatePolicyByName.removeValue(forKey: fileName)
+            self.remoteConfigAutoUpdateLastAttemptAt.removeValue(forKey: fileName)
+        } else {
+            self.remoteConfigAutoUpdatePolicyByName[fileName] = policy
+        }
+        self.persistRemoteConfigAutoUpdatePolicies()
+        self.persistRemoteConfigAutoUpdateLastAttemptAt()
+        self.refreshConfigStateAfterMutation()
+        self.appendLog(level: "info", message: tr(
+            "log.config.remote.auto_update_policy_changed",
+            fileName,
+            self.tr(policy.titleKey)))
+    }
+
+    func startRemoteConfigAutoUpdateTaskIfNeeded() {
+        guard self.remoteConfigAutoUpdateTask == nil else { return }
+        self.remoteConfigAutoUpdateTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            while !Task.isCancelled {
+                await self.runRemoteConfigAutoUpdateScan()
+                do {
+                    try await Task.sleep(nanoseconds: self.remoteConfigAutoUpdateScanIntervalNanoseconds)
+                } catch {
+                    return
+                }
+            }
+        }
+    }
+
+    private func runRemoteConfigAutoUpdateScan() async {
+        guard !self.isRemoteTarget else { return }
+        guard !self.remoteConfigSources.isEmpty else { return }
+
+        pruneRemoteConfigSourcesIfNeeded()
+        pruneRemoteConfigAutoUpdatePoliciesIfNeeded()
+        pruneRemoteConfigAutoUpdateLastAttemptAtIfNeeded()
+
+        let fileNames = self.remoteConfigAutoUpdatePolicyByName.keys.sorted().filter { fileName in
+            self.shouldAutoUpdateRemoteConfig(named: fileName)
+        }
+
+        for fileName in fileNames {
+            _ = await self.performRemoteConfigUpdate(named: fileName, trigger: .automatic)
+        }
+    }
+
+    private func shouldAutoUpdateRemoteConfig(named fileName: String, now: Date = Date()) -> Bool {
+        guard self.remoteConfigSources[fileName] != nil else { return false }
+        guard !self.remoteConfigUpdateInFlightNames.contains(fileName) else { return false }
+
+        let policy = self.remoteConfigAutoUpdatePolicy(for: fileName)
+        guard let interval = policy.interval else { return false }
+
+        // Automatic refresh cadence is independent from manual/bulk refreshes by design.
+        // We only advance this timestamp for `.automatic` runs so a user-triggered refresh
+        // does not postpone the next scheduled background check.
+        // Schedule the next automatic run from the last automatic attempt time, not the last success time.
+        let lastAttemptTimestamp = self.remoteConfigAutoUpdateLastAttemptAt[fileName] ?? 0
+        if lastAttemptTimestamp <= 0 { return true }
+        return now.timeIntervalSince1970 - lastAttemptTimestamp >= interval
+    }
+
+    private func markRemoteConfigAutoUpdateAttempt(for fileName: String, at now: Date = Date()) {
+        // A failed automatic update still consumes this cycle to avoid repeated retries within the same window.
+        // Manual/bulk refreshes intentionally do not touch this value.
+        self.remoteConfigAutoUpdateLastAttemptAt[fileName] = now.timeIntervalSince1970
+        self.persistRemoteConfigAutoUpdateLastAttemptAt()
     }
 
     func refreshConfigMenuStatusSnapshot() {
@@ -230,6 +354,9 @@ extension AppSession {
         do {
             let userAgent = await remoteSubscriptionUserAgent()
             let data = try await downloadRemoteConfigData(from: remoteURL, userAgent: userAgent)
+            // Initial remote import is intentionally more permissive than subscription updates:
+            // allow a brand-new config to be saved first so the user can iterate by switching
+            // to it or retrying later, instead of being forced to repeat the import flow.
             try writeConfigData(data, to: targetURL)
 
             self.updateRemoteConfigSource(for: fileName, urlString: remoteURL.absoluteString)
@@ -265,25 +392,21 @@ extension AppSession {
         var failedCount = 0
 
         for fileName in sources.keys.sorted() {
-            do {
-                if let result = try await self.updateSingleRemoteConfigFile(
-                    named: fileName,
-                    sourceURLString: sources[fileName],
-                    configDirectory: configDirectory,
-                    userAgent: userAgent)
-                {
-                    succeededFileNames.insert(fileName)
-                    if case .changed = result {
-                        changedFileNames.insert(fileName)
-                    }
-                } else {
-                    failedCount += 1
+            let outcome = await self.performRemoteConfigUpdate(
+                named: fileName,
+                trigger: .bulk,
+                configDirectory: configDirectory,
+                userAgent: userAgent)
+            switch outcome {
+            case let .succeeded(result):
+                succeededFileNames.insert(fileName)
+                if case .validatedAndChanged = result {
+                    changedFileNames.insert(fileName)
                 }
-            } catch {
+            case .failed:
                 failedCount += 1
-                appendLog(
-                    level: "error",
-                    message: tr("log.config.remote.update_item_failed", fileName, error.localizedDescription))
+            case .skipped:
+                continue
             }
         }
 
@@ -299,65 +422,23 @@ extension AppSession {
     }
 
     func updateRemoteConfigFile(named fileName: String) async {
-        guard let configDirectory = ensureConfigDirectoryAvailable() else { return }
-        pruneRemoteConfigSourcesIfNeeded()
-
-        guard let sourceURLString = remoteConfigSources[fileName] else {
-            appendLog(
-                level: "error",
-                message: tr("log.config.remote.update_item_failed", fileName, tr("log.config.remote.no_sources")))
-            return
-        }
-        guard !self.remoteConfigUpdateInFlightNames.contains(fileName) else { return }
-
-        self.remoteConfigUpdateInFlightNames.insert(fileName)
-        self.remoteConfigUpdateFeedbackByName.removeValue(forKey: fileName)
-        defer { self.remoteConfigUpdateInFlightNames.remove(fileName) }
-
-        do {
-            let userAgent = await remoteSubscriptionUserAgent()
-            if let result = try await self.updateSingleRemoteConfigFile(
-                named: fileName,
-                sourceURLString: sourceURLString,
-                configDirectory: configDirectory,
-                userAgent: userAgent)
-            {
-                self.markRemoteConfigCheckSucceeded(fileNames: Set([fileName]))
-                self.refreshConfigStateAfterMutation()
-                if case .changed = result,
-                   self.shouldAutoReloadCurrentConfig(updatedFileNames: [fileName])
-                {
-                    await self.reloadConfig()
-                }
-                self.markRemoteConfigUpdateFeedback(for: fileName, success: true)
-            } else {
-                self.markRemoteConfigUpdateFeedback(for: fileName, success: false)
-            }
-        } catch {
-            appendLog(
-                level: "error",
-                message: tr("log.config.remote.update_item_failed", fileName, error.localizedDescription))
-            self.markRemoteConfigUpdateFeedback(for: fileName, success: false)
-        }
+        _ = await self.performRemoteConfigUpdate(named: fileName, trigger: .manual)
     }
 
     private func updateSingleRemoteConfigFile(
         named fileName: String,
         sourceURLString: String?,
         configDirectory: URL,
-        userAgent: String) async throws -> RemoteConfigWriteResult?
+        userAgent: String) async throws -> RemoteConfigUpdateResult
     {
         guard let sourceURLString,
               let remoteURL = URL(string: sourceURLString),
               isSupportedRemoteConfigURL(remoteURL)
         else {
-            appendLog(
-                level: "error",
-                message: tr(
-                    "log.config.remote.update_item_failed",
-                    fileName,
-                    tr("log.config.remote.invalid_url", sourceURLString ?? fileName)))
-            return nil
+            throw NSError(
+                domain: "ClashBar.RemoteConfig",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: tr("log.config.remote.invalid_url", sourceURLString ?? fileName)])
         }
 
         let targetURL = configDirectory.appendingPathComponent(fileName, isDirectory: false)
@@ -365,8 +446,7 @@ extension AppSession {
         if let existing = try? Data(contentsOf: targetURL), existing == data {
             return .unchanged
         }
-        try self.writeConfigData(data, to: targetURL)
-        return .changed
+        return try await self.validateAndWriteRemoteConfigData(data, to: targetURL)
     }
 
     private func markRemoteConfigCheckSucceeded(fileNames: Set<String>, at now: Date = Date()) {
@@ -405,6 +485,118 @@ extension AppSession {
             self.remoteConfigUpdateFeedbackByName.removeValue(forKey: fileName)
             self.remoteConfigUpdateFeedbackClearTasks.removeValue(forKey: fileName)
         }
+    }
+
+    private enum RemoteConfigUpdateOutcome {
+        case succeeded(RemoteConfigUpdateResult)
+        case failed
+        case skipped
+    }
+
+    private func performRemoteConfigUpdate(
+        named fileName: String,
+        trigger: RemoteConfigUpdateTrigger,
+        configDirectory: URL? = nil,
+        userAgent: String? = nil) async -> RemoteConfigUpdateOutcome
+    {
+        guard let configDirectory = configDirectory ?? ensureConfigDirectoryAvailable() else { return .failed }
+        pruneRemoteConfigSourcesIfNeeded()
+
+        guard let sourceURLString = remoteConfigSources[fileName] else {
+            appendLog(
+                level: "error",
+                message: tr("log.config.remote.update_item_failed", fileName, tr("log.config.remote.no_sources")))
+            if trigger == .manual {
+                self.markRemoteConfigUpdateFeedback(for: fileName, success: false)
+            }
+            return .failed
+        }
+        guard !self.remoteConfigUpdateInFlightNames.contains(fileName) else {
+            return .skipped
+        }
+
+        self.remoteConfigUpdateInFlightNames.insert(fileName)
+        if trigger == .manual {
+            self.remoteConfigUpdateFeedbackByName.removeValue(forKey: fileName)
+        }
+        if trigger == .automatic {
+            self.markRemoteConfigAutoUpdateAttempt(for: fileName)
+        }
+        defer { self.remoteConfigUpdateInFlightNames.remove(fileName) }
+
+        do {
+            let resolvedUserAgent: String
+            if let userAgent {
+                resolvedUserAgent = userAgent
+            } else {
+                resolvedUserAgent = await remoteSubscriptionUserAgent()
+            }
+            let result = try await self.updateSingleRemoteConfigFile(
+                named: fileName,
+                sourceURLString: sourceURLString,
+                configDirectory: configDirectory,
+                userAgent: resolvedUserAgent)
+
+            switch result {
+            case .failedValidation(let message):
+                self.appendLog(level: "error", message: tr("log.config.remote.update_item_failed", fileName, message))
+                if trigger == .manual {
+                    self.markRemoteConfigUpdateFeedback(for: fileName, success: false)
+                }
+                return .failed
+            case .unchanged, .validatedAndChanged:
+                self.markRemoteConfigCheckSucceeded(fileNames: Set([fileName]))
+                self.refreshConfigStateAfterMutation()
+                if trigger != .bulk,
+                   case .validatedAndChanged = result,
+                   self.shouldAutoReloadCurrentConfig(updatedFileNames: [fileName])
+                {
+                    await self.reloadConfig()
+                }
+                if trigger == .manual {
+                    self.markRemoteConfigUpdateFeedback(for: fileName, success: true)
+                }
+                return .succeeded(result)
+            }
+        } catch {
+            appendLog(
+                level: "error",
+                message: tr("log.config.remote.update_item_failed", fileName, error.localizedDescription))
+            if trigger == .manual {
+                self.markRemoteConfigUpdateFeedback(for: fileName, success: false)
+            }
+            return .failed
+        }
+    }
+
+    private func validateAndWriteRemoteConfigData(_ data: Data, to targetURL: URL) async throws -> RemoteConfigUpdateResult {
+        let directoryURL = targetURL.deletingLastPathComponent()
+        let tempURL = directoryURL.appendingPathComponent(
+            ".\(UUID().uuidString).\(targetURL.lastPathComponent)",
+            isDirectory: false)
+        defer {
+            try? FileManager.default.removeItem(at: tempURL)
+        }
+
+        try self.writeConfigData(data, to: tempURL)
+        do {
+            // Strict requirement: subscription updates are only allowed to reach the persisted
+            // config file after a successful local mihomo validation pass. This is intentional,
+            // even when it means updates fail on machines without an available local core binary.
+            // Preserve the previous on-disk config unless the downloaded content is validated.
+            try await self.validateRemoteConfigUseCase.execute(configPath: tempURL.path)
+        } catch {
+            let detailsRaw = self.coreErrorMessage(error).trimmingCharacters(in: .whitespacesAndNewlines)
+            let details = detailsRaw.isEmpty ? tr("ui.common.unknown") : detailsRaw
+            return .failedValidation(details)
+        }
+
+        if FileManager.default.fileExists(atPath: targetURL.path) {
+            _ = try FileManager.default.replaceItemAt(targetURL, withItemAt: tempURL)
+        } else {
+            try FileManager.default.moveItem(at: tempURL, to: targetURL)
+        }
+        return .validatedAndChanged
     }
 
     func showSelectedConfigInFinder() {

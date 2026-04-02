@@ -85,6 +85,17 @@
 "ui.quick.import_remote_config" = "Import Subscription Link";
 "ui.quick.update_remote_configs" = "Update Subscription Links";
 "ui.quick.show_in_finder" = "Show in Finder";
+"ui.quick.remote_auto_update.help" = "Scheduled update: %@";
+"ui.quick.remote_auto_update.inline" = "Auto: %@";
+"ui.quick.remote_auto_update.disabled" = "Disabled";
+"ui.quick.remote_auto_update.hourly" = "Every hour";
+"ui.quick.remote_auto_update.every_6_hours" = "Every 6 hours";
+"ui.quick.remote_auto_update.every_12_hours" = "Every 12 hours";
+"ui.quick.remote_auto_update.daily" = "Every day";
+"ui.quick.remote_auto_update.inline.hourly" = "Every 1 hour";
+"ui.quick.remote_auto_update.inline.every_6_hours" = "Every 6 hours";
+"ui.quick.remote_auto_update.inline.every_12_hours" = "Every 12 hours";
+"ui.quick.remote_auto_update.inline.daily" = "Every day";
 "ui.quick.config_status.subtitle" = "(Changed: %@, Check succeeded: %@)";
 "ui.quick.config_status.never_checked" = "Never";
 "ui.quick.config_status.just_now" = "just now";
@@ -301,6 +312,7 @@
 "log.config.import_local.failed" = "Failed to import local config (%@): %@";
 "log.config.import_remote.success" = "Imported subscription: %@";
 "log.config.import_remote.failed" = "Failed to import subscription (%@): %@";
+"log.config.remote.auto_update_policy_changed" = "Subscription auto-update policy changed (%@): %@";
 "log.config.remote.invalid_url" = "Invalid subscription URL: %@";
 "log.config.remote.no_sources" = "No subscription sources available for update";
 "log.config.remote.update_item_failed" = "Subscription update failed (%@): %@";
