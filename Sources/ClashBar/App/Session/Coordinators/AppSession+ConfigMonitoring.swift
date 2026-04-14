@@ -73,7 +73,7 @@ extension AppSession {
         await self.restartCore(trigger: .configSwitch)
     }
 
-    private func currentSelectedConfigMonitorSignature() -> String? {
+    func currentSelectedConfigMonitorSignature() -> String? {
         guard let selected = self.configRepository.selectedConfig else { return nil }
         return self.configMonitorSignature(for: selected)
     }
