@@ -230,6 +230,7 @@ extension AppSession {
 
         let nextSelectedPath = self.syncSelectedConfigSelection(configRepository.selectedConfig)
         syncConfigDisplayState()
+        self.selectedConfigMonitorSignature = self.currentSelectedConfigMonitorSignature()
 
         appendLog(level: "info", message: tr("log.config.loaded_count", configRepository.availableConfigs.count))
         await restartCoreIfNeededForConfigSwitch(previousPath: previousSelectedPath, nextPath: nextSelectedPath)
@@ -268,6 +269,7 @@ extension AppSession {
         configRepository.selectConfig(matched)
         let nextSelectedPath = self.syncSelectedConfigSelection(matched)
         syncConfigDisplayState()
+        self.selectedConfigMonitorSignature = self.currentSelectedConfigMonitorSignature()
         appendLog(level: "info", message: tr("log.config.selected", fileName))
         await restartCoreIfNeededForConfigSwitch(previousPath: previousSelectedPath, nextPath: nextSelectedPath)
     }

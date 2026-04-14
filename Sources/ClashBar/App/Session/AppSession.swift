@@ -365,7 +365,7 @@ final class AppSession: ObservableObject {
     var pendingMihomoLogs: [AppErrorLogEntry] = []
     var modeSwitchInFlight = false
     var activatedTabRefreshGeneration: Int = 0
-    var configFileSignatureSnapshot: [String: String] = [:]
+    var selectedConfigMonitorSignature: String?
     var pendingConfigChangeRestart = false
     var isLatestAppReleaseCheckInFlight = false
 

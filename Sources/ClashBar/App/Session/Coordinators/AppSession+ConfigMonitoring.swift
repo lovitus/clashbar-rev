@@ -3,7 +3,7 @@ import Foundation
 @MainActor
 extension AppSession {
     private var configDirectoryMonitorIntervalNanoseconds: UInt64 {
-        1_000_000_000
+        3_000_000_000
     }
 
     func startConfigDirectoryMonitoringIfNeeded() {
@@ -11,7 +11,7 @@ extension AppSession {
         guard self.ensureConfigDirectoryAvailable() != nil else { return }
 
         _ = self.configRepository.reloadConfigs()
-        self.configFileSignatureSnapshot = self.currentConfigFileSignatureSnapshot()
+        self.selectedConfigMonitorSignature = self.currentSelectedConfigMonitorSignature()
 
         self.configDirectoryMonitorTask = Task { [weak self] in
             guard let self else { return }
@@ -29,7 +29,7 @@ extension AppSession {
     func stopConfigDirectoryMonitoring() {
         self.configDirectoryMonitorTask?.cancel()
         self.configDirectoryMonitorTask = nil
-        self.configFileSignatureSnapshot = [:]
+        self.selectedConfigMonitorSignature = nil
         self.pendingConfigChangeRestart = false
     }
 
@@ -49,28 +49,16 @@ extension AppSession {
         guard self.ensureConfigDirectoryAvailable() != nil else { return }
 
         let previousSelectedPath = self.configRepository.selectedConfig?.path
+        let previousSelectedSignature = self.selectedConfigMonitorSignature
         _ = self.configRepository.reloadConfigs()
-        let currentSnapshot = self.currentConfigFileSignatureSnapshot()
-
-        if self.configFileSignatureSnapshot.isEmpty {
-            self.configFileSignatureSnapshot = currentSnapshot
-            return
-        }
-
-        let changedFileNames = self.changedConfigFileNames(
-            previous: self.configFileSignatureSnapshot,
-            current: currentSnapshot)
-        guard !changedFileNames.isEmpty else { return }
-
-        self.configFileSignatureSnapshot = currentSnapshot
         let nextSelectedPath = self.syncSelectedConfigStateForMonitoring()
         self.syncConfigDisplayState()
+        let nextSelectedSignature = self.currentSelectedConfigMonitorSignature()
+        self.selectedConfigMonitorSignature = nextSelectedSignature
 
-        let involvedSelectedFileNames = Set([
-            self.configFileName(fromPath: previousSelectedPath),
-            self.configFileName(fromPath: nextSelectedPath),
-        ].compactMap(\.self))
-        guard !involvedSelectedFileNames.isDisjoint(with: changedFileNames) else { return }
+        let didSelectedConfigChange = previousSelectedPath != nextSelectedPath
+        let didSelectedConfigContentChange = previousSelectedSignature != nextSelectedSignature
+        guard didSelectedConfigChange || didSelectedConfigContentChange else { return }
         guard self.isRuntimeRunning else { return }
 
         if self.isCoreActionProcessing {
@@ -85,26 +73,17 @@ extension AppSession {
         await self.restartCore(trigger: .configSwitch)
     }
 
-    private func currentConfigFileSignatureSnapshot() -> [String: String] {
-        let keys: Set<URLResourceKey> = [.contentModificationDateKey, .fileSizeKey]
-        var snapshot: [String: String] = [:]
-
-        for fileURL in self.configRepository.availableConfigs {
-            let values = try? fileURL.resourceValues(forKeys: keys)
-            let modifiedAt = values?.contentModificationDate?.timeIntervalSince1970 ?? 0
-            let size = values?.fileSize ?? -1
-            snapshot[fileURL.lastPathComponent] = "\(modifiedAt)-\(size)"
-        }
-
-        return snapshot
+    private func currentSelectedConfigMonitorSignature() -> String? {
+        guard let selected = self.configRepository.selectedConfig else { return nil }
+        return self.configMonitorSignature(for: selected)
     }
 
-    private func changedConfigFileNames(
-        previous: [String: String],
-        current: [String: String]) -> Set<String>
-    {
-        let allNames = Set(previous.keys).union(current.keys)
-        return Set(allNames.filter { previous[$0] != current[$0] })
+    private func configMonitorSignature(for fileURL: URL) -> String {
+        let keys: Set<URLResourceKey> = [.contentModificationDateKey, .fileSizeKey]
+        let values = try? fileURL.resourceValues(forKeys: keys)
+        let modifiedAt = values?.contentModificationDate?.timeIntervalSince1970 ?? 0
+        let size = values?.fileSize ?? -1
+        return "\(modifiedAt)-\(size)"
     }
 
     private func configFileName(fromPath path: String?) -> String? {
