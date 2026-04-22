@@ -209,6 +209,10 @@ extension MenuBarRootView {
         }
     }
 
+    func coreMemoryControlLevelLabel(_ level: CoreMemoryControlLevel) -> String {
+        tr(level.titleKey)
+    }
+
     var settingsMenuControlWidth: CGFloat {
         min(152, max(118, contentWidth * 0.43))
     }
@@ -332,6 +336,16 @@ extension MenuBarRootView {
                     optionTitle: self.appearanceModeLabel,
                     isSelected: { appSession.appearanceMode == $0 },
                     onSelect: appSession.setAppearanceMode))
+                self.settingsSelectionRow(.init(
+                    title: isRemote
+                        ? "\(tr("ui.settings.core_memory_control")) (\(tr("ui.machine.local_label")))"
+                        : tr("ui.settings.core_memory_control"),
+                    symbol: "memorychip",
+                    valueText: self.coreMemoryControlLevelLabel(appSession.coreMemoryControlLevel),
+                    options: CoreMemoryControlLevel.allCases,
+                    optionTitle: self.coreMemoryControlLevelLabel,
+                    isSelected: { appSession.coreMemoryControlLevel == $0 },
+                    onSelect: { appSession.coreMemoryControlLevel = $0 }))
                 self.settingsSelectionRow(.init(
                     title: tr("ui.settings.log_level"),
                     symbol: "text.alignleft",

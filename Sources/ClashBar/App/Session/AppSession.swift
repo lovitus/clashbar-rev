@@ -309,6 +309,19 @@ final class AppSession: ObservableObject {
         }
     }
 
+    var coreMemoryControlLevel: CoreMemoryControlLevel {
+        get { CoreMemoryControlLevel(rawValue: self.coreMemoryControlLevelRaw) ?? .off }
+        set {
+            guard self.coreMemoryControlLevelRaw != newValue.rawValue else { return }
+            self.coreMemoryControlLevelRaw = newValue.rawValue
+            self.updateDataAcquisitionPolicy()
+        }
+    }
+
+    var shouldForceMemoryStreamInBackground: Bool {
+        !self.isRemoteTarget && self.coreRepository.isRunning && self.coreMemoryControlLevel != .off
+    }
+
     var isCoreActionProcessing: Bool {
         self.coreActionState != .idle
     }
@@ -372,6 +385,8 @@ final class AppSession: ObservableObject {
     let defaults = UserDefaults.standard
     @AppStorage("clashbar.auto.start.core") private var autoStartCore: Bool = false
     @AppStorage("clashbar.auto.core.network.recovery") private var autoCoreControlOnNetworkChange: Bool = true
+    @AppStorage("clashbar.core.memory.control.level") private var coreMemoryControlLevelRaw: String =
+        CoreMemoryControlLevel.off.rawValue
     @AppStorage("clashbar.statusbar.display.mode") private var statusBarDisplayModeRaw: String = StatusBarDisplayMode
         .iconOnly.rawValue
     @AppStorage("clashbar.proxy.node.hide_unavailable") var hideUnavailableProxyNodes: Bool = false
@@ -396,6 +411,7 @@ final class AppSession: ObservableObject {
     let foregroundLowFrequencyPrimaryTabsIntervalNanoseconds: UInt64 = 20_000_000_000
     let foregroundLowFrequencyOtherTabsIntervalNanoseconds: UInt64 = 45_000_000_000
     let backgroundLowFrequencyIntervalNanoseconds: UInt64 = 120_000_000_000
+    let coreMemoryControlRestartCooldown: TimeInterval = 600
     let remoteConfigAutoUpdateScanIntervalNanoseconds: UInt64 = 60_000_000_000
     let trafficPublishIntervalNanoseconds: UInt64 = 500_000_000
     let streamDisconnectLogThrottleInterval: TimeInterval = 2
@@ -408,14 +424,11 @@ final class AppSession: ObservableObject {
     var lowFrequencyIntervalNanoseconds: UInt64 = 20_000_000_000
     var currentConnectionsStreamIntervalMilliseconds: Int?
     var currentLogsStreamLevel: String?
-    var clashbarLogFileURL: URL?
-    var mihomoLogFileURL: URL?
-    var clashbarLogStore: AppLogStore?
-    var mihomoLogStore: AppLogStore?
     var didAttemptAutoStart = false
     var didCheckSystemProxyConsistencyOnLaunch = false
     var lastCoreFailureAlertKey: String?
     var lastCoreFailureAlertAt: Date?
+    var lastCoreMemoryControlRestartAttemptAt: Date?
     let coreFailureAlertThrottleInterval: TimeInterval = 20
     var networkReachabilityStatus: NetworkReachabilityStatus = .unknown
     var shouldResumeCoreAfterNetworkRecovery = false
@@ -444,8 +457,6 @@ final class AppSession: ObservableObject {
         networkReachabilityMonitor: NetworkReachabilityMonitor = NetworkReachabilityMonitor(),
         clipboardRepository: any ClipboardRepository = PasteboardClipboardRepository(),
         remoteMachineStore: RemoteMachineStore = RemoteMachineStore(),
-        clashbarLogStore: AppLogStore? = nil,
-        mihomoLogStore: AppLogStore? = nil,
         startBackgroundRefresh: Bool = true)
     {
         self.processManager = processManager ?? MihomoProcessManager(workingDirectoryManager: workingDirectoryManager)
@@ -457,8 +468,6 @@ final class AppSession: ObservableObject {
         self.networkReachabilityMonitor = networkReachabilityMonitor
         self.clipboardRepository = clipboardRepository
         self.remoteMachineStore = remoteMachineStore
-        self.clashbarLogStore = clashbarLogStore
-        self.mihomoLogStore = mihomoLogStore
         let resolvedConfigManager = configManager ?? ConfigDirectoryManager(
             workingDirectoryManager: workingDirectoryManager)
         self.configRepository = DefaultConfigRepository(
@@ -499,20 +508,6 @@ final class AppSession: ObservableObject {
         }
         do {
             try self.workingDirectoryManager.bootstrapDirectories()
-            clashbarLogFileURL = self.workingDirectoryManager.logsDirectoryURL.appendingPathComponent(
-                "clashbar.log",
-                isDirectory: false)
-            mihomoLogFileURL = self.workingDirectoryManager.logsDirectoryURL.appendingPathComponent(
-                "mihomo.log",
-                isDirectory: false)
-
-            if let clashbarLogFileURL, self.clashbarLogStore == nil {
-                self.clashbarLogStore = AppLogStore(logFileURL: clashbarLogFileURL)
-            }
-            if let mihomoLogFileURL, self.mihomoLogStore == nil {
-                self.mihomoLogStore = AppLogStore(logFileURL: mihomoLogFileURL)
-            }
-            ensureLogFileExists()
             seedBundledConfigIfNeeded()
         } catch {
             appendLog(level: "error", message: tr("log.working_dir_init_failed", error.localizedDescription))

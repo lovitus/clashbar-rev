@@ -209,9 +209,9 @@ extension MenuBarRootView {
 
                 HStack(spacing: T.space6) {
                     self.cornerMetric(
-                        symbol: "memorychip",
-                        value: ValueFormatter.bytesInteger(appSession.memory.inuse),
-                        color: nativeTeal)
+                        symbol: self.proxyMemoryCornerSymbolName,
+                        value: self.proxyMemoryCornerValueText,
+                        color: self.proxyMemoryCornerColor)
                         .frame(maxWidth: .infinity, alignment: .leading)
 
                     self.cornerMetric(
@@ -229,6 +229,24 @@ extension MenuBarRootView {
         }
         .frame(height: sparklineHeight)
         .padding(.top, T.space2)
+    }
+
+    var proxyMemoryCornerSymbolName: String {
+        if appSession.isRemoteTarget || appSession.coreMemoryControlLevel == .off {
+            return "memorychip"
+        }
+        return "shield.lefthalf.filled"
+    }
+
+    var proxyMemoryCornerColor: Color {
+        if appSession.isRemoteTarget || appSession.coreMemoryControlLevel == .off {
+            return nativeTertiaryLabel
+        }
+        return nativeTeal
+    }
+
+    var proxyMemoryCornerValueText: String {
+        ValueFormatter.bytesInteger(appSession.memory.inuse)
     }
 
     func cornerMetric(

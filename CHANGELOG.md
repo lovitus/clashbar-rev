@@ -1,3 +1,36 @@
+## v1.1.14
+
+![macOS](https://img.shields.io/badge/macOS-Supported-000000?style=flat-square&logo=apple) ![Version](https://img.shields.io/badge/Release-v1.1.14-10B981?style=flat-square) ![Channel](https://img.shields.io/badge/Channel-Stable-2563EB?style=flat-square)
+
+> 这是一次聚焦 **SSD 写入收敛、运行期自愈与日志体验** 的稳定性版本。ClashBar 不再写入本地日志文件，日志展示继续保留内存可见性；同时新增本地“核心内存控制”策略，在内核内存达到指定阈值时自动复用现有重启流程，降低长期运行失控风险。
+
+### 🧭 发布基线 (Release Baseline)
+
+- 发布分支：`lovitus/clashbar-rev:beta`
+- 发布方式：从当前 `beta` 分支提交打正式 tag，生成固定 Release 资产
+- 发布目标：提供一版可长期使用的稳定快照，重点降低后台写盘与高内存异常对日常使用的影响
+
+### 📝 更新日志 (Changelog)
+
+**✨ 新增功能 (New Features)**
+
+- ![Feature](https://img.shields.io/badge/Feature-10B981?style=flat-square) **核心内存控制**：在 System 页面新增本地设置项 `关闭 / 500MB / 1GB / 2GB / 5GB`，默认关闭；开启后仅对本机 `mihomo` 生效，不同步到远端控制目标，也不写入 `/configs`。
+- ![Feature](https://img.shields.io/badge/Feature-10B981?style=flat-square) **高内存自动重启**：当本地 core 的 `/memory` 数据达到所选阈值时，ClashBar 会记录 warning 并复用现有 `restartCore()` 流程自动重启；触发尝试有 10 分钟冷却，避免重复重启风暴。
+- ![Feature](https://img.shields.io/badge/Feature-10B981?style=flat-square) **内存守护角标**：Proxy 页面内存角标保留实时内存数值，并通过普通内存图标 / 有色盾牌图标区分是否启用本地内存守护；远端控制模式下不会显示本地守护态。
+
+**🚀 优化改进 (Improvements)**
+
+- ![Optimize](https://img.shields.io/badge/Optimize-3B82F6?style=flat-square) **彻底取消日志落盘**：删除 `AppLogStore` 与所有本地日志文件写入、创建、清空路径；`clashbar.log` / `mihomo.log` 不再由当前版本创建或更新，SSD 写入压力显著降低。
+- ![Optimize](https://img.shields.io/badge/Optimize-3B82F6?style=flat-square) **保留内存日志可见性**：ClashBar 与 `mihomo` 的 stdout/stderr 采集仍然进入内存日志列表，启动失败、运行警告和错误仍可在当前会话内查看；点击清空日志只清空内存，不触碰磁盘。
+- ![Optimize](https://img.shields.io/badge/Optimize-3B82F6?style=flat-square) **后台内存采集按需开启**：仅当本地 core 正在运行且“核心内存控制”非关闭时，后台强制保持 `/memory` stream；关闭该功能时仍沿用原有按 UI 可见性采集策略。
+- ![Optimize](https://img.shields.io/badge/Optimize-3B82F6?style=flat-square) **日志筛选范围修正**：日志展示先基于完整内存日志执行 source / level / keyword 筛选，再截断展示结果，避免较旧但仍在内存中的命中项被提前截掉。
+
+**🐞 修复问题 (Bug Fixes)**
+
+- ![Fix](https://img.shields.io/badge/Fix-EF4444?style=flat-square) **日志文件持续增长**：修复 info 级别或高频 core 输出导致 `mihomo.log` 长期增长、带来大量 SSD 写入的问题。
+- ![Fix](https://img.shields.io/badge/Fix-EF4444?style=flat-square) **远端模式状态误导**：修复处于 remote target 时 Proxy 页面可能展示本地内存守护态的问题；远端模式下该图标始终回到普通内存显示。
+- ![Fix](https://img.shields.io/badge/Fix-EF4444?style=flat-square) **守护态隐藏内存值**：修复启用内存控制后角标只显示“已守护 / Guarded”而看不到实时内存数值的问题。
+
 ## v1.1.13
 
 ![macOS](https://img.shields.io/badge/macOS-Supported-000000?style=flat-square&logo=apple) ![Version](https://img.shields.io/badge/Release-v1.1.13-10B981?style=flat-square) ![Channel](https://img.shields.io/badge/Channel-Stable-2563EB?style=flat-square)

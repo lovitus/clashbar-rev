@@ -178,7 +178,35 @@ extension AppSession {
             onDecoded: { [weak self] (snapshot: MemorySnapshot) in
                 guard let self else { return }
                 memory = snapshot
+                self.evaluateCoreMemoryControl(snapshot)
             })
+    }
+
+    func evaluateCoreMemoryControl(_ snapshot: MemorySnapshot) {
+        guard !self.isRemoteTarget else { return }
+        guard let thresholdBytes = self.coreMemoryControlLevel.thresholdBytes else { return }
+        guard self.coreRepository.isRunning else { return }
+        guard !self.isCoreActionProcessing else { return }
+        guard snapshot.inuse >= thresholdBytes else { return }
+
+        let now = Date()
+        if let lastAttemptAt = self.lastCoreMemoryControlRestartAttemptAt,
+           now.timeIntervalSince(lastAttemptAt) < self.coreMemoryControlRestartCooldown
+        {
+            return
+        }
+
+        self.lastCoreMemoryControlRestartAttemptAt = now
+        self.appendLog(
+            level: "warning",
+            message: self.tr(
+                "log.core.memory_control.triggered",
+                ValueFormatter.bytesInteger(snapshot.inuse),
+                self.tr(self.coreMemoryControlLevel.titleKey)))
+
+        Task { [weak self] in
+            await self?.restartCore()
+        }
     }
 
     func startConnectionsStream(intervalMilliseconds: Int? = nil) {

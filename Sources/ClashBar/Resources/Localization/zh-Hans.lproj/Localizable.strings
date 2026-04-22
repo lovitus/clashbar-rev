@@ -140,6 +140,12 @@
 "ui.network.sort.total_desc" = "总流量高到低";
 
 "ui.settings.auto_start_core" = "内核自启";
+"ui.settings.core_memory_control" = "核心内存控制";
+"ui.settings.core_memory_control.off" = "关闭";
+"ui.settings.core_memory_control.500mb" = "500MB";
+"ui.settings.core_memory_control.1gb" = "1GB";
+"ui.settings.core_memory_control.2gb" = "2GB";
+"ui.settings.core_memory_control.5gb" = "5GB";
 "ui.settings.auto_core_network_recovery" = "断网停核";
 "ui.settings.launch_at_login" = "开机自启";
 "ui.settings.menu_bar_style" = "状态栏样式";
@@ -301,6 +307,7 @@
 "log.start.no_config" = "未选择配置文件";
 "log.start.failed" = "启动内核失败: %@";
 "log.restart.failed" = "重启内核失败: %@";
+"log.core.memory_control.triggered" = "内核内存达到 %@（阈值 %@），正在自动重启内核。";
 "log.network.offline_auto_stop" = "检测到网络断开，已停止内核；网络恢复后将自动启动。";
 "log.network.online_auto_start" = "检测到网络恢复，正在自动启动内核。";
 "log.config.loaded_count" = "已加载 %d 个配置文件";

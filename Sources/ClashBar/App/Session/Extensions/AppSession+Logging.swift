@@ -2,19 +2,11 @@ import Foundation
 
 @MainActor
 extension AppSession {
-    func ensureLogFileExists() {
-        self.flushPendingMihomoLogsIfNeeded()
-        clashbarLogStore?.ensureLogFileExists()
-        mihomoLogStore?.ensureLogFileExists()
-    }
-
     func clearAllLogs() {
         mihomoLogFlushTask?.cancel()
         mihomoLogFlushTask = nil
         pendingMihomoLogs.removeAll(keepingCapacity: true)
         errorLogs.removeAll(keepingCapacity: false)
-        clashbarLogStore?.clear()
-        mihomoLogStore?.clear()
     }
 
     func appendLog(level: String, message: String) {
@@ -36,7 +28,6 @@ extension AppSession {
         }
 
         self.appendLogEntries([entry])
-        self.persistLogEntriesToFile([entry])
     }
 
     func flushPendingMihomoLogsIfNeeded() {
@@ -48,7 +39,6 @@ extension AppSession {
         pendingMihomoLogs.removeAll(keepingCapacity: true)
         pendingMihomoLogs.reserveCapacity(maxBufferedMihomoLogEntries)
         self.appendLogEntries(entries)
-        self.persistLogEntriesToFile(entries)
     }
 
     func trimInMemoryLogsForCurrentVisibility() {
@@ -93,19 +83,5 @@ extension AppSession {
         let maxEntries = isPanelPresented ? maxLogEntries : hiddenPanelMaxInMemoryLogEntries
         let combined = entries.reversed() + errorLogs
         errorLogs = Array(combined.prefix(maxEntries))
-    }
-
-    private func persistLogEntriesToFile(_ entries: [AppErrorLogEntry]) {
-        guard !entries.isEmpty else { return }
-
-        let clashbarEntries = entries.filter { $0.source == .clashbar }
-        if !clashbarEntries.isEmpty {
-            clashbarLogStore?.append(entries: clashbarEntries)
-        }
-
-        let mihomoEntries = entries.filter { $0.source == .mihomo }
-        if !mihomoEntries.isEmpty {
-            mihomoLogStore?.append(entries: mihomoEntries)
-        }
     }
 }

@@ -143,11 +143,19 @@ extension AppSession {
         let policy = self.desiredDataAcquisitionPolicy(
             panelPresented: isPanelPresented,
             activeTab: activeMenuTab)
+        let effectivePolicy = DataAcquisitionPolicy(
+            enableTrafficStream: policy.enableTrafficStream,
+            enableMemoryStream: policy.enableMemoryStream || self.shouldForceMemoryStreamInBackground,
+            enableConnectionsStream: policy.enableConnectionsStream,
+            connectionsIntervalMilliseconds: policy.connectionsIntervalMilliseconds,
+            enableLogsStream: policy.enableLogsStream,
+            mediumFrequencyIntervalNanoseconds: policy.mediumFrequencyIntervalNanoseconds,
+            lowFrequencyIntervalNanoseconds: policy.lowFrequencyIntervalNanoseconds)
 
-        mediumFrequencyIntervalNanoseconds = policy.mediumFrequencyIntervalNanoseconds
-        lowFrequencyIntervalNanoseconds = policy.lowFrequencyIntervalNanoseconds
+        mediumFrequencyIntervalNanoseconds = effectivePolicy.mediumFrequencyIntervalNanoseconds
+        lowFrequencyIntervalNanoseconds = effectivePolicy.lowFrequencyIntervalNanoseconds
         self.ensurePeriodicTasksForCurrentVisibility()
-        self.applyStreamPolicy(policy)
+        self.applyStreamPolicy(effectivePolicy)
     }
 
     func refreshForActivatedTab(_ tab: RootTab, generation: Int? = nil) async {

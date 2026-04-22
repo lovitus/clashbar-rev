@@ -140,6 +140,12 @@
 "ui.network.sort.total_desc" = "Total Traffic High to Low";
 
 "ui.settings.auto_start_core" = "Auto Start Core";
+"ui.settings.core_memory_control" = "Core Memory Control";
+"ui.settings.core_memory_control.off" = "Off";
+"ui.settings.core_memory_control.500mb" = "500MB";
+"ui.settings.core_memory_control.1gb" = "1GB";
+"ui.settings.core_memory_control.2gb" = "2GB";
+"ui.settings.core_memory_control.5gb" = "5GB";
 "ui.settings.auto_core_network_recovery" = "Stop Offline & Restart on Recovery";
 "ui.settings.launch_at_login" = "Start at Login";
 "ui.settings.menu_bar_style" = "Menu Bar Style";
@@ -301,6 +307,7 @@
 "log.start.no_config" = "No config file selected";
 "log.start.failed" = "Failed to start core: %@";
 "log.restart.failed" = "Failed to restart core: %@";
+"log.core.memory_control.triggered" = "Core memory reached %@ (threshold %@). Restarting core automatically.";
 "log.network.offline_auto_stop" = "Network offline detected. Core stopped and will auto-start after recovery.";
 "log.network.online_auto_start" = "Network recovered. Auto-starting core.";
 "log.config.loaded_count" = "Loaded %d config files";

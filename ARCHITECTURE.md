@@ -100,7 +100,7 @@ Sources/
 - `Config`
   配置目录和导入逻辑
 - `Persistence`
-  日志文件、剪贴板等持久化和系统 I/O
+  剪贴板等持久化和系统 I/O；当前运行日志不再落盘
 - `Process`
   `mihomo` 进程控制
 - `System`
@@ -129,6 +129,7 @@ Sources/
 - 协调跨模块流程
 - 管理页面间共享运行态
 - 把 View 层动作转发给 UseCase / Repository
+- 管理 ClashBar 本地策略，例如核心内存控制、后台数据采集覆盖和内存日志缓冲
 
 它不应该负责：
 
@@ -139,6 +140,30 @@ Sources/
 
 当某段代码更像“流程编排”时，优先放到 `App/Session/Coordinators`。  
 当某段代码只是“围绕 AppSession 的轻量辅助方法”时，才放到 `App/Session/Extensions`。
+
+#### Core 内存控制
+
+核心内存控制是一个 App 本地保护策略，不属于 `mihomo` runtime config：
+
+- 设置值通过 `@AppStorage("clashbar.core.memory.control.level")` 保存在本地。
+- 固定档位由 `CoreMemoryControlLevel` 表示，枚举只承载阈值和本地化 key，不直接生成 UI 文案。
+- 判断逻辑位于 Session 层的 memory stream 解码之后，收到 `MemorySnapshot` 后再决定是否触发现有 `restartCore()`。
+- 该能力只对本地 core 生效；remote target 下不强制开启内存流，也不触发自动重启。
+- 为了避免重启风暴，自动重启触发尝试有固定 10 分钟冷却时间。
+
+这个设计避免把本地自愈策略下沉到 `MihomoProcessManager`，也避免污染 `/configs` 同步链路。
+
+#### 日志策略
+
+当前版本的日志策略是“采集与展示保留，磁盘持久化删除”：
+
+- `mihomo` stdout/stderr 仍由进程管理器采集并回调到 Session。
+- ClashBar 自身日志和 `mihomo` 日志都进入内存日志列表。
+- Logs 页面仍然基于内存日志展示、过滤、复制。
+- 不再创建、追加或清空 `clashbar.log` / `mihomo.log`。
+- `logs/` 目录可以继续由工作目录初始化流程创建，但它不再代表运行日志会落盘。
+
+因此，日志采集能力仍属于运行态可观测性；日志文件持久化不再属于当前架构的一部分。
 
 ### 2. Domain 层
 
@@ -166,6 +191,8 @@ Sources/
 - `Presentation` 用于把底层数据加工成 View 可消费的状态
 - `Session` 用于运行时编排相关纯逻辑
 - `System` 用于系统代理、TUN、登录项等能力封装
+
+日志展示的 `Presentation` 用例应基于完整内存日志先过滤，再按 UI 展示上限截断，避免较旧但仍保留在内存中的命中项被提前丢弃。
 
 ### 3. Features 层
 

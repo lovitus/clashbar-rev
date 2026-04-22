@@ -111,6 +111,48 @@ enum AppAppearanceMode: String, CaseIterable, Identifiable {
     }
 }
 
+enum CoreMemoryControlLevel: String, CaseIterable, Identifiable {
+    case off
+    case mb500
+    case gb1
+    case gb2
+    case gb5
+
+    var id: String {
+        rawValue
+    }
+
+    var titleKey: String {
+        switch self {
+        case .off:
+            "ui.settings.core_memory_control.off"
+        case .mb500:
+            "ui.settings.core_memory_control.500mb"
+        case .gb1:
+            "ui.settings.core_memory_control.1gb"
+        case .gb2:
+            "ui.settings.core_memory_control.2gb"
+        case .gb5:
+            "ui.settings.core_memory_control.5gb"
+        }
+    }
+
+    var thresholdBytes: Int64? {
+        switch self {
+        case .off:
+            nil
+        case .mb500:
+            500 * 1_024 * 1_024
+        case .gb1:
+            1_024 * 1_024 * 1_024
+        case .gb2:
+            2 * 1_024 * 1_024 * 1_024
+        case .gb5:
+            5 * 1_024 * 1_024 * 1_024
+        }
+    }
+}
+
 struct DataAcquisitionPolicy: Equatable {
     let enableTrafficStream: Bool
     let enableMemoryStream: Bool
