@@ -159,6 +159,13 @@ if [ "$BUNDLE_MIHOMO_BINARY" = "1" ]; then
     mkdir -p "$(dirname "$MIHOMO_INSTALL_PATH")"
     remove_bundled_mihomo_candidates "mihomo"
     remove_bundled_mihomo_candidates "mihomo.gz"
+    # Sign mihomo before compressing so notarytool can verify it.
+    if [ "${CODESIGN_IDENTITY:--}" != "-" ] && command -v codesign >/dev/null 2>&1; then
+      codesign --force --sign "$CODESIGN_IDENTITY" --options runtime \
+        ${CODESIGN_KEYCHAIN:+--keychain "$CODESIGN_KEYCHAIN"} \
+        "$MIHOMO_SOURCE_PATH"
+      echo "Signed mihomo binary before compression"
+    fi
     gzip -c "$MIHOMO_SOURCE_PATH" > "$MIHOMO_INSTALL_PATH"
     chmod 644 "$MIHOMO_INSTALL_PATH"
     echo "Bundled compressed mihomo payload: $MIHOMO_INSTALL_PATH"
@@ -215,10 +222,36 @@ $ICON_PLIST_ENTRY
 PLIST
 
 CODESIGN_IDENTITY="${CODESIGN_IDENTITY:--}"
+APP_ENTITLEMENTS="${APP_ENTITLEMENTS:-$ROOT/Resources/ClashBar.entitlements}"
+HELPER_ENTITLEMENTS="${HELPER_ENTITLEMENTS:-$ROOT/Resources/Helper.entitlements}"
+
+CODESIGN_FLAGS=(--force --sign "$CODESIGN_IDENTITY")
+if [ "$CODESIGN_IDENTITY" != "-" ]; then
+  CODESIGN_FLAGS+=(--options runtime)
+  if [ -n "${CODESIGN_KEYCHAIN:-}" ]; then
+    CODESIGN_FLAGS+=(--keychain "$CODESIGN_KEYCHAIN")
+  fi
+fi
 
 if command -v codesign >/dev/null 2>&1; then
-  codesign --force --sign "$CODESIGN_IDENTITY" "$APP/Contents/Library/HelperTools/$HELPER_LABEL"
-  codesign --force --sign "$CODESIGN_IDENTITY" "$APP"
+  # Sign inside-out: nested components first, then the outer app.
+
+  # 1. Helper daemon
+  if [ "$CODESIGN_IDENTITY" != "-" ] && [ -f "$HELPER_ENTITLEMENTS" ]; then
+    codesign "${CODESIGN_FLAGS[@]}" --entitlements "$HELPER_ENTITLEMENTS" "$APP/Contents/Library/HelperTools/$HELPER_LABEL"
+  else
+    codesign "${CODESIGN_FLAGS[@]}" "$APP/Contents/Library/HelperTools/$HELPER_LABEL"
+  fi
+
+  # 2. Resource bundle
+  codesign "${CODESIGN_FLAGS[@]}" "$APP/Contents/Resources/ClashBar_ClashBar.bundle"
+
+  # 3. Outer app
+  if [ "$CODESIGN_IDENTITY" != "-" ] && [ -f "$APP_ENTITLEMENTS" ]; then
+    codesign "${CODESIGN_FLAGS[@]}" --entitlements "$APP_ENTITLEMENTS" "$APP"
+  else
+    codesign "${CODESIGN_FLAGS[@]}" "$APP"
+  fi
 fi
 
 echo "Built app: $APP"

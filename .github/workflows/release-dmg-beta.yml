@@ -78,6 +78,19 @@ jobs:
         with:
           xcode-version: latest-stable
 
+      - name: Install certificate
+        env:
+          P12_BASE64: ${{ secrets.DEVELOPER_ID_P12 }}
+          P12_PASSWORD: ${{ secrets.DEVELOPER_ID_P12_PASSWORD }}
+        run: |
+          echo "$P12_BASE64" | base64 --decode -o /tmp/cert.p12
+          security create-keychain -p "build_kc" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "build_kc" build.keychain
+          security import /tmp/cert.p12 -k build.keychain -P "$P12_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "build_kc" build.keychain
+          rm /tmp/cert.p12
+
       - name: Verify Swift toolchain
         shell: bash
         run: |
@@ -97,7 +110,42 @@ jobs:
           PREPARE_MIHOMO_BINARY="${{ matrix.bundle_mihomo_binary }}" \
           BUNDLE_MIHOMO_BINARY="${{ matrix.bundle_mihomo_binary }}" \
           TARGET_ARCH="${{ matrix.target_arch }}" \
+          CODESIGN_IDENTITY="Developer ID Application" \
+          CODESIGN_KEYCHAIN="build.keychain" \
           ./Scripts/build.sh app
+
+      - name: Notarize app
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "$ASC_PRIVATE_KEY" > /tmp/asc_key.p8
+          cd dist
+          ditto -c -k --keepParent ClashBar.app ClashBar.zip
+          SUBMIT_OUT=$(xcrun notarytool submit ClashBar.zip \
+            --key /tmp/asc_key.p8 \
+            --key-id "$ASC_KEY_ID" \
+            --issuer "$ASC_ISSUER_ID" \
+            --wait --output-format json 2>&1)
+          echo "$SUBMIT_OUT"
+          STATUS=$(echo "$SUBMIT_OUT" | python3 -c "import sys,json; print(json.load(sys.stdin)['status'])" 2>/dev/null || true)
+          if [ "$STATUS" != "Accepted" ]; then
+            echo "Notarization failed with status: $STATUS"
+            SUBMISSION_ID=$(echo "$SUBMIT_OUT" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])" 2>/dev/null || true)
+            if [ -n "$SUBMISSION_ID" ]; then
+              xcrun notarytool log "$SUBMISSION_ID" \
+                --key /tmp/asc_key.p8 \
+                --key-id "$ASC_KEY_ID" \
+                --issuer "$ASC_ISSUER_ID" || true
+            fi
+            rm -f /tmp/asc_key.p8
+            exit 1
+          fi
+          xcrun stapler staple ClashBar.app
+          rm -f /tmp/asc_key.p8 ClashBar.zip
 
       - name: Build dmg
         shell: bash

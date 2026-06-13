@@ -1,3 +1,32 @@
+## v1.1.16
+
+![macOS](https://img.shields.io/badge/macOS-Supported-000000?style=flat-square&logo=apple) ![Version](https://img.shields.io/badge/Release-v1.1.16-10B981?style=flat-square) ![Channel](https://img.shields.io/badge/Channel-Stable-2563EB?style=flat-square)
+
+> 本版本为 ClashBar 增加了 **Developer ID 签名与 Apple 公证**，macOS Gatekeeper 不再阻止首次启动。同时包含 v1.1.15 的全部断网休眠/生命周期稳定性修复。
+
+### 🧭 发布基线 (Release Baseline)
+
+- 发布分支：`lovitus/clashbar-rev:beta`
+- 发布方式：从当前 `beta` 分支提交打正式 tag，生成固定 Release 资产
+- 发布目标：实现全组件签名公证，消除用户安装后的 Gatekeeper 手动放行步骤
+
+### 📝 更新日志 (Changelog)
+
+**🔏 签名与公证 (Code Signing & Notarization)**
+
+- ![Feature](https://img.shields.io/badge/Feature-10B981?style=flat-square) **Developer ID 签名**：主程序、Helper daemon、mihomo core、Resource bundle 全部使用 Developer ID 证书签名，启用 Hardened Runtime。
+- ![Feature](https://img.shields.io/badge/Feature-10B981?style=flat-square) **Apple 公证**：CI 构建自动提交 Apple 公证并 staple 票据，用户安装后 Gatekeeper 直接放行，无需手动允许。
+- ![Feature](https://img.shields.io/badge/Feature-10B981?style=flat-square) **CI 全自动化**：正式 Release 与 Beta Release workflow 均已集成证书导入→签名→公证→staple 全链路。
+
+**🚀 包含 v1.1.15 的全部改进**
+
+- 断网时停止后台流，阻止 stream 持续重连
+- 关闭面板时保留代理缓存，减少重开闪烁
+- 断网停核前先关闭 TUN
+- 系统代理端口失败内联显示
+- 目标切换清理 provider 缓存
+- 配置切换统一清理代理展示状态
+
 ## v1.1.15
 
 ![macOS](https://img.shields.io/badge/macOS-Supported-000000?style=flat-square&logo=apple) ![Version](https://img.shields.io/badge/Release-v1.1.15-10B981?style=flat-square) ![Channel](https://img.shields.io/badge/Channel-Stable-2563EB?style=flat-square)
