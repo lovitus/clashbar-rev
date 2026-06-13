@@ -1,5 +1,17 @@
 @MainActor
 extension AppSession {
+    private func systemProxyInlineIssue(for error: Error) -> SystemProxyInlineIssue {
+        if let serviceError = error as? SystemProxyServiceError {
+            switch serviceError {
+            case .invalidPort:
+                return .portNotConfigured
+            default:
+                break
+            }
+        }
+        return .portReadFailed
+    }
+
     private func proxyRuntimeConfigRepository(using transport: any MihomoAPITransporting) -> RuntimeConfigRepository {
         DefaultRuntimeConfigRepository(transport: transport)
     }
@@ -46,6 +58,7 @@ extension AppSession {
         // Never auto-repair from toggle path. Toggle only applies state when helper is already healthy.
         await self.refreshSystemProxyHelperStatus()
         if enabled, self.systemProxyHelperState != .running {
+            systemProxyInlineIssue = nil
             let reason = self.systemProxyHelperFailureMessage ?? tr("ui.common.unknown")
             appendLog(level: "error", message: tr("log.system_proxy.toggle_failed", reason))
             return
@@ -53,11 +66,21 @@ extension AppSession {
 
         do {
             if enabled {
-                let target = try await resolveSystemProxyTargetFromRuntimeConfig()
+                let target: (host: String, ports: SystemProxyPorts)
+                do {
+                    target = try await resolveSystemProxyTargetFromRuntimeConfig()
+                } catch {
+                    systemProxyInlineIssue = self.systemProxyInlineIssue(for: error)
+                    systemProxyActiveDisplay = nil
+                    throw error
+                }
+
+                systemProxyInlineIssue = nil
                 try await applySystemProxy(enabled: true, host: target.host, ports: target.ports)
                 systemProxyActiveDisplay = self.buildSystemProxyDisplayString(host: target.host, ports: target.ports)
             } else {
                 try await applySystemProxy(enabled: false, host: self.controllerHost(), ports: .disabled)
+                systemProxyInlineIssue = nil
                 systemProxyActiveDisplay = nil
             }
 

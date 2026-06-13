@@ -77,6 +77,8 @@
 "ui.quick.switch_config" = "切换配置";
 "ui.quick.system_proxy" = "系统代理";
 "ui.quick.system_proxy_helper" = "代理 Helper";
+"ui.system_proxy.inline.port_not_configured" = "端口未配置";
+"ui.system_proxy.inline.port_read_failed" = "端口读取失败";
 "ui.quick.tun_mode" = "TUN 模式";
 "ui.quick.copy_terminal" = "复制终端命令";
 "ui.quick.copy_terminal_current_endpoint" = "复制当前端点命令";

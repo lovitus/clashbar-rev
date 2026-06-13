@@ -77,6 +77,8 @@
 "ui.quick.switch_config" = "Switch Config";
 "ui.quick.system_proxy" = "System Proxy";
 "ui.quick.system_proxy_helper" = "Proxy Helper";
+"ui.system_proxy.inline.port_not_configured" = "Port not configured";
+"ui.system_proxy.inline.port_read_failed" = "Port read failed";
 "ui.quick.tun_mode" = "TUN Mode";
 "ui.quick.copy_terminal" = "Copy Terminal Command";
 "ui.quick.copy_terminal_current_endpoint" = "Copy Current Endpoint Command";

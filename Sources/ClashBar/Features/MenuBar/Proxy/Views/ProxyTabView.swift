@@ -398,8 +398,19 @@ extension MenuBarRootView {
             if appSession.isSystemProxyActiveNonLocal {
                 base += " \u{26A0}\u{FE0F}"
             }
+        } else if let issue = appSession.systemProxyInlineIssue {
+            base += " \(self.systemProxyInlineIssueText(issue))"
         }
         return base
+    }
+
+    func systemProxyInlineIssueText(_ issue: SystemProxyInlineIssue) -> String {
+        switch issue {
+        case .portNotConfigured:
+            tr("ui.system_proxy.inline.port_not_configured")
+        case .portReadFailed:
+            tr("ui.system_proxy.inline.port_read_failed")
+        }
     }
 
     var systemProxyHelperStatusText: String {

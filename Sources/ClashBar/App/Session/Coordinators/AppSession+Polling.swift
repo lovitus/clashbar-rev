@@ -365,6 +365,9 @@ extension AppSession {
             isSystemProxyEnabled = enabled
             if enabled {
                 systemProxyActiveDisplay = try await readSystemProxyActiveDisplay()
+                if systemProxyActiveDisplay != nil {
+                    systemProxyInlineIssue = nil
+                }
             } else {
                 systemProxyActiveDisplay = nil
             }

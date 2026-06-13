@@ -63,6 +63,11 @@ enum SystemProxyHelperIssue: Equatable {
     case unknown
 }
 
+enum SystemProxyInlineIssue: Equatable {
+    case portNotConfigured
+    case portReadFailed
+}
+
 enum ConfigLogLevel: String, CaseIterable {
     case silent
     case error
