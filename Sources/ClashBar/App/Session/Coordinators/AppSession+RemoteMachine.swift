@@ -8,7 +8,7 @@ extension AppSession {
         self.cancelPolling()
         self.resetTrafficPresentation()
         self.clearAllLogs()
-        self.proxyGroups = []
+        self.clearProxyPresentation()
         self.ruleItems = []
         self.connectionsStore.connections = []
         self.connectionsStore.connectionsCount = 0

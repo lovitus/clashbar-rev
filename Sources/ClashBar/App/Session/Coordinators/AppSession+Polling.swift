@@ -242,6 +242,14 @@ extension AppSession {
         self.clearTrafficPresentationHistory()
     }
 
+    func clearProxyPresentation() {
+        proxyGroups = []
+        groupLatencies = [:]
+        proxyHistoryLatestDelay = [:]
+        proxyNodeTypes = [:]
+        groupLatencyLoading = []
+    }
+
     func clearTrafficPresentationHistory() {
         displayUpTotal = 0
         displayDownTotal = 0
@@ -258,11 +266,8 @@ extension AppSession {
 
         memory = MemorySnapshot(inuse: 0)
 
-        proxyGroups.removeAll(keepingCapacity: false)
         groupLatencyLoading.removeAll(keepingCapacity: false)
         groupLatencies.removeAll(keepingCapacity: false)
-        proxyHistoryLatestDelay.removeAll(keepingCapacity: false)
-        proxyNodeTypes.removeAll(keepingCapacity: false)
 
         providerProxyCount = 0
         providerRuleCount = 0
