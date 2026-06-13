@@ -9,7 +9,7 @@ extension AppSession {
         self.resetTrafficPresentation()
         self.clearAllLogs()
         self.clearProxyPresentation()
-        self.ruleItems = []
+        self.clearProviderPresentation()
         self.connectionsStore.connections = []
         self.connectionsStore.connectionsCount = 0
 

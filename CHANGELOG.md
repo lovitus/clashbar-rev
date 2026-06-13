@@ -1,3 +1,29 @@
+## v1.1.15
+
+![macOS](https://img.shields.io/badge/macOS-Supported-000000?style=flat-square&logo=apple) ![Version](https://img.shields.io/badge/Release-v1.1.15-10B981?style=flat-square) ![Channel](https://img.shields.io/badge/Channel-Stable-2563EB?style=flat-square)
+
+> 这是一次聚焦 **断网休眠恢复、后台流生命周期与代理展示缓存** 的稳定性补丁。目标是降低长时间休眠/断网后 stream 重连和缓存残留带来的资源风险，同时改善系统代理端口失败时的可见性。
+
+### 🧭 发布基线 (Release Baseline)
+
+- 发布分支：`lovitus/clashbar-rev:beta`
+- 发布方式：从当前 `beta` 分支提交打正式 tag，生成固定 Release 资产
+- 发布目标：修复长期运行、断网和目标切换场景下的稳定性与状态展示问题
+
+### 📝 更新日志 (Changelog)
+
+**🚀 优化改进 (Improvements)**
+
+- ![Optimize](https://img.shields.io/badge/Optimize-3B82F6?style=flat-square) **断网时停止后台流**：启用网络自动控制后，检测到离线会立即停止 polling/streams，并阻止离线期间 traffic、memory、connections、logs stream 持续重连。
+- ![Optimize](https://img.shields.io/badge/Optimize-3B82F6?style=flat-square) **代理页缓存更稳定**：关闭面板时保留 proxy groups、节点类型和历史延迟，减少重新打开代理页时的短暂清空闪烁。
+- ![Optimize](https://img.shields.io/badge/Optimize-3B82F6?style=flat-square) **断网停核前先关闭 TUN**：网络丢失触发自动 stop core 时，会先尝试通过 runtime 配置关闭 TUN；失败只记录日志，不阻断 stop 流程。
+
+**🐞 修复问题 (Bug Fixes)**
+
+- ![Fix](https://img.shields.io/badge/Fix-EF4444?style=flat-square) **系统代理端口失败不可见**：手动开启系统代理时，如果 core 端口未配置或 runtime config 读取失败，会在系统代理行显示短失败提示，不再只写日志。
+- ![Fix](https://img.shields.io/badge/Fix-EF4444?style=flat-square) **目标切换缓存残留**：切换本地/远端 target 时同步清理 proxy provider、rule provider 和规则统计展示缓存，避免不可达目标继续显示上一目标数据。
+- ![Fix](https://img.shields.io/badge/Fix-EF4444?style=flat-square) **配置切换代理状态残留**：配置切换触发重启时统一清理代理展示状态，补齐历史延迟缓存清理，避免新配置短时间复用旧配置延迟信息。
+
 ## v1.1.14
 
 ![macOS](https://img.shields.io/badge/macOS-Supported-000000?style=flat-square&logo=apple) ![Version](https://img.shields.io/badge/Release-v1.1.14-10B981?style=flat-square) ![Channel](https://img.shields.io/badge/Channel-Stable-2563EB?style=flat-square)
