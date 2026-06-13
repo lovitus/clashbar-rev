@@ -117,14 +117,14 @@ extension AppSession {
                 self.webSocketTask(for: kind)?.cancel(with: .goingAway, reason: nil)
                 self.setWebSocketTask(nil, for: kind)
 
-                guard self.isRemoteTarget || self.coreRepository.isRunning else { return }
+                guard self.shouldReconnectStreamAfterDisconnect() else { return }
                 do {
                     try await Task.sleep(nanoseconds: self.nextReconnectDelayNanoseconds(for: kind))
                 } catch {
                     return
                 }
                 if Task.isCancelled { return }
-                guard self.isRemoteTarget || self.coreRepository.isRunning else { return }
+                guard self.shouldReconnectStreamAfterDisconnect() else { return }
                 restart()
                 return
             }
@@ -328,6 +328,13 @@ extension AppSession {
         streamReconnectAttempts.removeValue(forKey: kind.key)
         streamLastDisconnectLogAt.removeValue(forKey: kind.key)
         streamLastDisconnectLogMessage.removeValue(forKey: kind.key)
+    }
+
+    private func shouldReconnectStreamAfterDisconnect() -> Bool {
+        if self.autoManageCoreOnNetworkChangeEnabled, self.networkReachabilityStatus == .offline {
+            return false
+        }
+        return self.isRemoteTarget || self.coreRepository.isRunning
     }
 
     private func markStreamPayloadReceived(for kind: StreamKind) {

@@ -73,6 +73,8 @@ extension AppSession {
             guard let self else { return }
             var didLog = false
 
+            self.cancelPolling()
+
             for _ in 0..<120 {
                 if Task.isCancelled { return }
                 guard self.autoManageCoreOnNetworkChangeEnabled else { return }
