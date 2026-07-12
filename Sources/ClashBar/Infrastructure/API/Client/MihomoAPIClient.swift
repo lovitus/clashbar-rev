@@ -208,9 +208,8 @@ enum APIError: Error, LocalizedError {
 final class MihomoAPIClient: MihomoAPITransporting, @unchecked Sendable {
     // Request building reads mutable credentials; guard with lock for thread safety.
     private let lock = NSLock()
-    private var session: URLSession
+    private let session: URLSession
     private let decoder = JSONDecoder()
-    private var bypassesSystemProxy: Bool
 
     private(set) var controller: String
     private(set) var secret: String?
@@ -221,27 +220,25 @@ final class MihomoAPIClient: MihomoAPITransporting, @unchecked Sendable {
 
         if let session {
             self.session = session
-            self.bypassesSystemProxy = false
         } else {
-            let shouldBypassProxy = Self.shouldBypassSystemProxy(for: controller)
-            self.session = Self.makeSession(bypassesSystemProxy: shouldBypassProxy)
-            self.bypassesSystemProxy = shouldBypassProxy
+            let config = URLSessionConfiguration.ephemeral
+            config.timeoutIntervalForRequest = 2
+            config.timeoutIntervalForResource = 240
+            config.waitsForConnectivity = false
+            config.requestCachePolicy = .reloadIgnoringLocalCacheData
+            config.urlCache = nil
+            config.httpCookieStorage = nil
+            config.httpShouldSetCookies = false
+            config.urlCredentialStorage = nil
+            self.session = URLSession(configuration: config)
         }
     }
 
     func updateCredentials(controller: String, secret: String?) {
-        let shouldBypassProxy = Self.shouldBypassSystemProxy(for: controller)
-        var staleSession: URLSession?
         self.lock.withLock {
             self.controller = controller
             self.secret = secret
-
-            guard self.bypassesSystemProxy != shouldBypassProxy else { return }
-            staleSession = self.session
-            self.session = Self.makeSession(bypassesSystemProxy: shouldBypassProxy)
-            self.bypassesSystemProxy = shouldBypassProxy
         }
-        staleSession?.finishTasksAndInvalidate()
     }
 
     func request<T: Decodable>(_ endpoint: Endpoint) async throws -> T {
@@ -255,8 +252,7 @@ final class MihomoAPIClient: MihomoAPITransporting, @unchecked Sendable {
 
     func makeWebSocketTask(for endpoint: Endpoint) throws -> URLSessionWebSocketTask {
         let request = try buildWebSocketRequest(for: endpoint)
-        let session = self.currentSession()
-        return session.webSocketTask(with: request)
+        return self.session.webSocketTask(with: request)
     }
 
     private func send(_ endpoint: Endpoint) async throws -> Data {
@@ -267,7 +263,6 @@ final class MihomoAPIClient: MihomoAPITransporting, @unchecked Sendable {
         for attempt in 0..<maxAttempts {
             do {
                 let request = try buildRequest(for: endpoint)
-                let session = self.currentSession()
                 let (data, response) = try await session.data(for: request)
                 guard let http = response as? HTTPURLResponse else {
                     throw APIError.invalidResponse
@@ -301,10 +296,6 @@ final class MihomoAPIClient: MihomoAPITransporting, @unchecked Sendable {
         return request
     }
 
-    private func currentSession() -> URLSession {
-        self.lock.withLock { self.session }
-    }
-
     private func buildWebSocketRequest(for endpoint: Endpoint) throws -> URLRequest {
         let (controller, secret) = self.lock.withLock {
             (self.controller, self.secret)
@@ -314,7 +305,7 @@ final class MihomoAPIClient: MihomoAPITransporting, @unchecked Sendable {
     }
 
     private func endpointURL(for endpoint: Endpoint, controller: String, webSocket: Bool) throws -> URL {
-        guard var components = URLComponents(string: Self.normalizedControllerAddress(controller, webSocket: webSocket))
+        guard var components = URLComponents(string: normalizedControllerAddress(controller, webSocket: webSocket))
         else {
             throw APIError.invalidURL
         }
@@ -334,7 +325,7 @@ final class MihomoAPIClient: MihomoAPITransporting, @unchecked Sendable {
         return request
     }
 
-    private static func normalizedControllerAddress(_ controller: String, webSocket: Bool) -> String {
+    private func normalizedControllerAddress(_ controller: String, webSocket: Bool) -> String {
         let hasHTTPScheme = controller.hasPrefix("http://") || controller.hasPrefix("https://")
 
         if !webSocket {
@@ -350,39 +341,6 @@ final class MihomoAPIClient: MihomoAPITransporting, @unchecked Sendable {
                 .replacingOccurrences(of: "http://", with: "ws://")
         }
         return "ws://\(controller)"
-    }
-
-    private static func makeSession(bypassesSystemProxy: Bool) -> URLSession {
-        let config = URLSessionConfiguration.ephemeral
-        config.timeoutIntervalForRequest = 2
-        config.timeoutIntervalForResource = 240
-        config.waitsForConnectivity = false
-        config.requestCachePolicy = .reloadIgnoringLocalCacheData
-        if bypassesSystemProxy {
-            config.connectionProxyDictionary = [:]
-        }
-        config.urlCache = nil
-        config.httpCookieStorage = nil
-        config.httpShouldSetCookies = false
-        config.urlCredentialStorage = nil
-        return URLSession(configuration: config)
-    }
-
-    private static func shouldBypassSystemProxy(for controller: String) -> Bool {
-        guard let host = URLComponents(string: self.normalizedControllerAddress(controller, webSocket: false))?.host?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .lowercased()
-        else {
-            return false
-        }
-
-        if host == "localhost" || host == "::1" || host == "0.0.0.0" || host == "::" {
-            return true
-        }
-        if host.hasPrefix("127.") {
-            return true
-        }
-        return false
     }
 }
 
