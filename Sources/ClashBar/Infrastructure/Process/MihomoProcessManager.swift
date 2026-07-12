@@ -54,6 +54,22 @@ private final class ProcessOutputBox: @unchecked Sendable {
     }
 }
 
+private func readCappedProcessOutput(from handle: FileHandle, limit: Int) -> Data {
+    var output = Data()
+    output.reserveCapacity(min(limit, 64 * 1024))
+
+    while true {
+        let chunk = handle.readData(ofLength: 8 * 1024)
+        if chunk.isEmpty { break }
+
+        if output.count < limit {
+            output.append(contentsOf: chunk.prefix(limit - output.count))
+        }
+    }
+
+    return output
+}
+
 /// Process callbacks run on system-managed threads. Shared mutable state is guarded by `lock`.
 final class MihomoProcessManager: MihomoControlling, @unchecked Sendable {
     private(set) var status: CoreLifecycleStatus = .stopped
@@ -68,6 +84,7 @@ final class MihomoProcessManager: MihomoControlling, @unchecked Sendable {
     private let lifecycleQueue: DispatchQueue
     private let validationQueue: DispatchQueue
     private let configValidationTimeout: TimeInterval
+    private let maxValidationOutputBytes = 256 * 1024
 
     var onLog: ((String) -> Void)?
     var onTermination: ((Int32) -> Void)?
@@ -124,8 +141,11 @@ final class MihomoProcessManager: MihomoControlling, @unchecked Sendable {
         let outputBox = ProcessOutputBox()
         let outputDrainGroup = DispatchGroup()
         outputDrainGroup.enter()
+        let maxValidationOutputBytes = self.maxValidationOutputBytes
         DispatchQueue.global(qos: .userInitiated).async {
-            let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
+            let outputData = readCappedProcessOutput(
+                from: outputPipe.fileHandleForReading,
+                limit: maxValidationOutputBytes)
             outputBox.store(outputData)
             outputDrainGroup.leave()
         }

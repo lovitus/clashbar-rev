@@ -16,6 +16,7 @@ enum AppReleaseService {
         request.setValue("ClashBar/\(currentVersion)", forHTTPHeaderField: "User-Agent")
 
         let session = Self.makeSession()
+        defer { session.finishTasksAndInvalidate() }
         let (data, response) = try await session.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse else {
             throw AppReleaseServiceError.invalidResponse

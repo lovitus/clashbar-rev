@@ -33,12 +33,15 @@ final class RemoteMachineStore: ObservableObject {
     private static let activeTargetKey = "clashbar.remote.active_target_id"
 
     private let defaults: UserDefaults
+    private let connectivitySession: URLSession
 
     @Published var machines: [RemoteMachine] = []
     @Published var activeTargetID: UUID?
     @Published var machineStatuses: [UUID: MachineConnectionStatus] = [:]
 
     private var connectivityTimer: Task<Void, Never>?
+    private var connectivityTasks: [UUID: Task<Void, Never>] = [:]
+    private var connectivityTaskTokens: [UUID: UUID] = [:]
 
     var activeTarget: MachineTarget {
         guard let id = self.activeTargetID,
@@ -51,6 +54,7 @@ final class RemoteMachineStore: ObservableObject {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        self.connectivitySession = Self.makeConnectivitySession()
         self.machines = Self.loadMachines(from: defaults)
         self.activeTargetID = Self.loadActiveTargetID(from: defaults)
     }
@@ -67,6 +71,9 @@ final class RemoteMachineStore: ObservableObject {
     }
 
     func removeMachine(id: UUID) {
+        self.connectivityTasks.removeValue(forKey: id)?.cancel()
+        self.connectivityTaskTokens.removeValue(forKey: id)
+        self.machineStatuses.removeValue(forKey: id)
         self.machines.removeAll { $0.id == id }
         if self.activeTargetID == id {
             self.activeTargetID = nil
@@ -101,10 +108,18 @@ final class RemoteMachineStore: ObservableObject {
     }
 
     func checkConnectivity(for machine: RemoteMachine) {
+        self.connectivityTasks.removeValue(forKey: machine.id)?.cancel()
+        let token = UUID()
+        self.connectivityTaskTokens[machine.id] = token
         self.machineStatuses[machine.id] = .checking
-        Task {
-            let status = await Self.probe(machine: machine)
+        self.connectivityTasks[machine.id] = Task { [weak self] in
+            guard let self else { return }
+            let status = await Self.probe(machine: machine, session: self.connectivitySession)
+            guard !Task.isCancelled else { return }
+            guard self.connectivityTaskTokens[machine.id] == token else { return }
             self.machineStatuses[machine.id] = status
+            self.connectivityTasks.removeValue(forKey: machine.id)
+            self.connectivityTaskTokens.removeValue(forKey: machine.id)
         }
     }
 
@@ -123,6 +138,11 @@ final class RemoteMachineStore: ObservableObject {
     func stopPeriodicConnectivityChecks() {
         self.connectivityTimer?.cancel()
         self.connectivityTimer = nil
+        for task in self.connectivityTasks.values {
+            task.cancel()
+        }
+        self.connectivityTasks.removeAll()
+        self.connectivityTaskTokens.removeAll()
     }
 
     private func persist() {
@@ -152,7 +172,7 @@ final class RemoteMachineStore: ObservableObject {
         return UUID(uuidString: string)
     }
 
-    private static func probe(machine: RemoteMachine) async -> MachineConnectionStatus {
+    private static func probe(machine: RemoteMachine, session: URLSession) async -> MachineConnectionStatus {
         let address = machine.controllerAddress
         let base = address.contains("://") ? address : "http://\(address)"
         guard let url = URL(string: "\(base)/version") else {
@@ -166,10 +186,6 @@ final class RemoteMachineStore: ObservableObject {
         }
 
         do {
-            let configuration = URLSessionConfiguration.ephemeral
-            configuration.timeoutIntervalForRequest = 3
-            configuration.timeoutIntervalForResource = 5
-            let session = URLSession(configuration: configuration)
             let (data, response) = try await session.data(for: request)
 
             guard let httpResponse = response as? HTTPURLResponse else {
@@ -201,5 +217,18 @@ final class RemoteMachineStore: ObservableObject {
         } catch {
             return .failed(reason: error.localizedDescription)
         }
+    }
+
+    private static func makeConnectivitySession() -> URLSession {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.timeoutIntervalForRequest = 3
+        configuration.timeoutIntervalForResource = 5
+        configuration.waitsForConnectivity = false
+        configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
+        configuration.urlCache = nil
+        configuration.httpCookieStorage = nil
+        configuration.httpShouldSetCookies = false
+        configuration.urlCredentialStorage = nil
+        return URLSession(configuration: configuration)
     }
 }

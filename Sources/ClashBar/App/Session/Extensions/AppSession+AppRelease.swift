@@ -28,8 +28,15 @@ extension AppSession {
 
     func refreshLatestAppRelease() async {
         guard !self.isLatestAppReleaseCheckInFlight else { return }
+        let now = Date()
+        if let lastAppReleaseCheckAt,
+           now.timeIntervalSince(lastAppReleaseCheckAt) < self.appReleaseCheckInterval
+        {
+            return
+        }
 
         self.isLatestAppReleaseCheckInFlight = true
+        self.lastAppReleaseCheckAt = now
         defer {
             self.isLatestAppReleaseCheckInFlight = false
         }

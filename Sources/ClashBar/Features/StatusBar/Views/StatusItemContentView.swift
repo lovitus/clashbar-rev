@@ -17,12 +17,8 @@ final class StatusItemContentView: NSView {
         return imageView
     }()
 
-    private let speedImageView: NSImageView = {
-        let imageView = NSImageView()
-        imageView.imageScaling = .scaleNone
-        imageView.translatesAutoresizingMaskIntoConstraints = true
-        return imageView
-    }()
+    private let upSpeedLabel = Self.makeSpeedLabel()
+    private let downSpeedLabel = Self.makeSpeedLabel()
 
     private var currentDisplay: MenuBarDisplay?
     private var cachedUpLine: String = ""
@@ -41,7 +37,8 @@ final class StatusItemContentView: NSView {
         super.init(frame: frameRect)
         wantsLayer = false
         self.addSubview(self.iconView)
-        self.addSubview(self.speedImageView)
+        self.addSubview(self.upSpeedLabel)
+        self.addSubview(self.downSpeedLabel)
     }
 
     @available(*, unavailable)
@@ -105,13 +102,13 @@ final class StatusItemContentView: NSView {
         switch display.mode {
         case .iconOnly:
             self.iconView.isHidden = false
-            self.speedImageView.isHidden = true
+            self.setSpeedLabelsHidden(true)
         case .iconAndSpeed:
             self.iconView.isHidden = false
-            self.speedImageView.isHidden = false
+            self.setSpeedLabelsHidden(false)
         case .speedOnly:
             self.iconView.isHidden = true
-            self.speedImageView.isHidden = false
+            self.setSpeedLabelsHidden(false)
         }
 
         let modeChanged = previousMode != display.mode
@@ -119,8 +116,8 @@ final class StatusItemContentView: NSView {
         let speedTextChanged = previousUpLine != self.cachedUpLine || previousDownLine != self.cachedDownLine
 
         if speedTextChanged || modeChanged, display.mode != .iconOnly {
-            self.speedImageView.image = self.makeSpeedTemplateImage(
-                upLine: self.cachedUpLine, downLine: self.cachedDownLine)
+            self.upSpeedLabel.stringValue = self.cachedUpLine
+            self.downSpeedLabel.stringValue = self.cachedDownLine
         }
 
         if modeChanged || iconVisibilityChanged {
@@ -148,19 +145,25 @@ final class StatusItemContentView: NSView {
             self.iconView.frame = .zero
         }
 
-        if self.speedImageView.isHidden == false {
+        if self.upSpeedLabel.isHidden == false {
             let originX = floor(
                 self.statusItemHorizontalPadding +
                     ((self.currentDisplay?.mode == .iconAndSpeed) ? (self.iconSize + self.iconTextSpacing) : 0))
             let stackHeight = self.textLineHeight * 2
             let stackOriginY = floor(centerY - stackHeight / 2)
-            self.speedImageView.frame = CGRect(
+            self.downSpeedLabel.frame = CGRect(
                 x: originX,
                 y: stackOriginY,
                 width: self.textContainerWidth,
-                height: stackHeight)
+                height: self.textLineHeight)
+            self.upSpeedLabel.frame = CGRect(
+                x: originX,
+                y: stackOriginY + self.textLineHeight,
+                width: self.textContainerWidth,
+                height: self.textLineHeight)
         } else {
-            self.speedImageView.frame = .zero
+            self.upSpeedLabel.frame = .zero
+            self.downSpeedLabel.frame = .zero
         }
     }
 
@@ -168,73 +171,20 @@ final class StatusItemContentView: NSView {
         isRunning ? self.runBrandStatusIconImage : self.sleepBrandStatusIconImage
     }
 
-    private func makeSpeedTemplateImage(upLine: String, downLine: String) -> NSImage {
-        let width = self.textContainerWidth
-        let height = self.textLineHeight * 2
-        let pointSize = NSSize(width: width, height: height)
-
-        let image = NSImage(size: pointSize)
-        for scale in Self.brandIconRenderScales {
-            guard let rep = Self.makeSpeedTextRepresentation(
-                upLine: upLine,
-                downLine: downLine,
-                pointSize: pointSize,
-                textLineHeight: self.textLineHeight,
-                scale: scale)
-            else { continue }
-            image.addRepresentation(rep)
-        }
-        image.isTemplate = true
-        return image
+    private func setSpeedLabelsHidden(_ hidden: Bool) {
+        self.upSpeedLabel.isHidden = hidden
+        self.downSpeedLabel.isHidden = hidden
     }
 
-    private static func makeSpeedTextRepresentation(
-        upLine: String,
-        downLine: String,
-        pointSize: NSSize,
-        textLineHeight: CGFloat,
-        scale: CGFloat) -> NSBitmapImageRep?
-    {
-        let pixelWidth = max(1, Int((pointSize.width * scale).rounded(.up)))
-        let pixelHeight = max(1, Int((pointSize.height * scale).rounded(.up)))
-
-        guard let rep = NSBitmapImageRep(
-            bitmapDataPlanes: nil,
-            pixelsWide: pixelWidth,
-            pixelsHigh: pixelHeight,
-            bitsPerSample: 8,
-            samplesPerPixel: 4,
-            hasAlpha: true,
-            isPlanar: false,
-            colorSpaceName: .deviceRGB,
-            bytesPerRow: 0,
-            bitsPerPixel: 0)
-        else { return nil }
-
-        rep.size = pointSize
-        guard let context = NSGraphicsContext(bitmapImageRep: rep) else { return nil }
-
-        NSGraphicsContext.saveGraphicsState()
-        NSGraphicsContext.current = context
-
-        let paragraph = NSMutableParagraphStyle()
-        paragraph.alignment = .right
-        paragraph.lineBreakMode = .byTruncatingHead
-        let attributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .medium),
-            .foregroundColor: NSColor.black,
-            .paragraphStyle: paragraph,
-        ]
-
-        // Non-flipped context: y=0 is bottom.
-        let upRect = CGRect(x: 0, y: textLineHeight, width: pointSize.width, height: textLineHeight)
-        let downRect = CGRect(x: 0, y: 0, width: pointSize.width, height: textLineHeight)
-
-        (upLine as NSString).draw(in: upRect, withAttributes: attributes)
-        (downLine as NSString).draw(in: downRect, withAttributes: attributes)
-
-        NSGraphicsContext.restoreGraphicsState()
-        return rep
+    private static func makeSpeedLabel() -> NSTextField {
+        let label = NSTextField(labelWithString: "")
+        label.alignment = .right
+        label.font = NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .medium)
+        label.lineBreakMode = .byTruncatingHead
+        label.maximumNumberOfLines = 1
+        label.textColor = .labelColor
+        label.translatesAutoresizingMaskIntoConstraints = true
+        return label
     }
 
     private static func makeBrandStatusIconImage(source: NSImage?, size: CGFloat) -> NSImage? {

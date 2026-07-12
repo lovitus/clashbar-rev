@@ -2,6 +2,74 @@ import AppKit
 import Foundation
 import SwiftUI
 
+private final class ProcessLogCoalescer: @unchecked Sendable {
+    private let lock = NSLock()
+    private let maxPendingChunks = 80
+    private let maxMessageCharacters = 4096
+    private let flushDelayNanoseconds: UInt64 = 150_000_000
+    private var pending: [String] = []
+    private var scheduled = false
+    private var dropped = 0
+
+    func enqueue(
+        _ rawMessage: String,
+        flush: @escaping @MainActor @Sendable ([String]) -> Void)
+    {
+        let message = Self.normalizedMessage(rawMessage, limit: self.maxMessageCharacters)
+        guard !message.isEmpty else { return }
+
+        var shouldSchedule = false
+        self.lock.withLock {
+            if self.pending.count < self.maxPendingChunks {
+                self.pending.append(message)
+            } else {
+                self.dropped += 1
+                self.pending[self.pending.count - 1] = message
+            }
+
+            if !self.scheduled {
+                self.scheduled = true
+                shouldSchedule = true
+            }
+        }
+
+        guard shouldSchedule else { return }
+        let delay = self.flushDelayNanoseconds
+        Task.detached(priority: .utility) { [weak self] in
+            do {
+                try await Task.sleep(nanoseconds: delay)
+            } catch {
+                return
+            }
+
+            guard let self else { return }
+            let messages = self.drain()
+            guard !messages.isEmpty else { return }
+            await flush(messages)
+        }
+    }
+
+    private func drain() -> [String] {
+        self.lock.withLock {
+            var messages = self.pending
+            if self.dropped > 0 {
+                messages.append("[mihomo log] dropped \(self.dropped) chunks during log flood")
+            }
+            self.pending.removeAll(keepingCapacity: true)
+            self.dropped = 0
+            self.scheduled = false
+            return messages
+        }
+    }
+
+    private static func normalizedMessage(_ rawMessage: String, limit: Int) -> String {
+        let trimmed = rawMessage.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count > limit else { return trimmed }
+        let endIndex = trimmed.index(trimmed.startIndex, offsetBy: limit)
+        return "\(trimmed[..<endIndex])... [truncated]"
+    }
+}
+
 @MainActor
 final class AppSession: ObservableObject {
     @Published var statusText: String = "Stopped" {
@@ -382,6 +450,8 @@ final class AppSession: ObservableObject {
     var selectedConfigMonitorSignature: String?
     var pendingConfigChangeRestart = false
     var isLatestAppReleaseCheckInFlight = false
+    var lastAppReleaseCheckAt: Date?
+    let appReleaseCheckInterval: TimeInterval = 60 * 60
 
     let defaults = UserDefaults.standard
     @AppStorage("clashbar.auto.start.core") private var autoStartCore: Bool = false
@@ -482,10 +552,13 @@ final class AppSession: ObservableObject {
 
         self.mihomoBinaryPath = self.coreRepository.detectedBinaryPath ?? "-"
         if let managedProcess = self.processManager as? MihomoProcessManager {
+            let processLogCoalescer = ProcessLogCoalescer()
             managedProcess.onLog = { [weak self] line in
-                Task { @MainActor in
-                    guard self?.isRemoteTarget != true else { return }
-                    self?.appendMihomoLog(level: "info", message: line)
+                processLogCoalescer.enqueue(line) { [weak self] lines in
+                    guard let self, self.isRemoteTarget != true else { return }
+                    for line in lines {
+                        self.appendMihomoLog(level: "info", message: line)
+                    }
                 }
             }
             managedProcess.onTermination = { [weak self] code in

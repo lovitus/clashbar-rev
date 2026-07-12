@@ -22,6 +22,7 @@ extension MenuBarRootView {
     }
 
     private static var textWidthCache: [String: CGFloat] = [:]
+    private static let textWidthCacheLimit = 512
 
     var connectionsTabBody: some View {
         let connections = self.connectionsViewModel.visibleConnections
@@ -382,6 +383,9 @@ extension MenuBarRootView {
             .font: NSFont.monospacedSystemFont(ofSize: size, weight: weight),
         ]
         let width = ceil((text as NSString).size(withAttributes: attributes).width)
+        if Self.textWidthCache.count >= Self.textWidthCacheLimit {
+            Self.textWidthCache.removeAll(keepingCapacity: true)
+        }
         Self.textWidthCache[cacheKey] = width
         return width
     }
