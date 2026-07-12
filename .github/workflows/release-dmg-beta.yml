@@ -125,12 +125,30 @@ jobs:
           echo "$ASC_PRIVATE_KEY" > /tmp/asc_key.p8
           cd dist
           ditto -c -k --keepParent ClashBar.app ClashBar.zip
-          SUBMIT_OUT=$(xcrun notarytool submit ClashBar.zip \
-            --key /tmp/asc_key.p8 \
-            --key-id "$ASC_KEY_ID" \
-            --issuer "$ASC_ISSUER_ID" \
-            --wait --output-format json 2>&1)
-          echo "$SUBMIT_OUT"
+          SUBMIT_OUT=""
+          SUBMIT_EXIT=1
+          for ATTEMPT in 1 2 3; do
+            set +e
+            SUBMIT_OUT=$(xcrun notarytool submit ClashBar.zip \
+              --key /tmp/asc_key.p8 \
+              --key-id "$ASC_KEY_ID" \
+              --issuer "$ASC_ISSUER_ID" \
+              --wait --output-format json 2>&1)
+            SUBMIT_EXIT=$?
+            set -e
+            echo "$SUBMIT_OUT"
+            if [ "$SUBMIT_EXIT" -eq 0 ]; then
+              break
+            fi
+            echo "Notary submission attempt $ATTEMPT failed with exit code $SUBMIT_EXIT"
+            if [ "$ATTEMPT" -lt 3 ]; then
+              sleep $((ATTEMPT * 15))
+            fi
+          done
+          if [ "$SUBMIT_EXIT" -ne 0 ]; then
+            rm -f /tmp/asc_key.p8 ClashBar.zip
+            exit "$SUBMIT_EXIT"
+          fi
           STATUS=$(echo "$SUBMIT_OUT" | python3 -c "import sys,json; print(json.load(sys.stdin)['status'])" 2>/dev/null || true)
           if [ "$STATUS" != "Accepted" ]; then
             echo "Notarization failed with status: $STATUS"
