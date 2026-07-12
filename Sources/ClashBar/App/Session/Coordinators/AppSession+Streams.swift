@@ -46,14 +46,16 @@ extension AppSession {
     func startStream(
         kind: StreamKind,
         preserveReconnectState: Bool = false,
-        makeWebSocket: @escaping (MihomoAPIClient) throws -> URLSessionWebSocketTask,
+        makeWebSocket: @escaping (MihomoAPIClient) throws -> any StreamWebSocketTasking,
         onPayload: @escaping (Data) -> Void)
     {
         self.cancelStream(kind, resetReconnectState: !preserveReconnectState)
+        guard self.streamAllowsAcquisition(kind) else { return }
 
         do {
             guard let client = try? clientOrThrow() else { return }
             let ws = try makeWebSocket(client)
+            let generation = self.beginStreamSession(kind)
             self.setWebSocketTask(ws, for: kind)
             ws.resume()
 
@@ -61,11 +63,13 @@ extension AppSession {
                 guard let self else { return }
                 await self.receiveLoop(
                     kind: kind,
+                    generation: generation,
                     onPayload: onPayload,
-                    restart: { [weak self] in
-                        self?.startStream(
+                    reconnect: { [weak self] expectedGeneration, delayNanoseconds in
+                        self?.scheduleStreamReconnect(
                             kind: kind,
-                            preserveReconnectState: true,
+                            generation: expectedGeneration,
+                            delayNanoseconds: delayNanoseconds,
                             makeWebSocket: makeWebSocket,
                             onPayload: onPayload)
                     })
@@ -80,9 +84,14 @@ extension AppSession {
 
     func cancelStream(_ kind: StreamKind, resetReconnectState: Bool = true) {
         self.receiveTask(for: kind)?.cancel()
+        self.reconnectTask(for: kind)?.cancel()
         self.webSocketTask(for: kind)?.cancel(with: .goingAway, reason: nil)
         self.setReceiveTask(nil, for: kind)
+        self.setReconnectTask(nil, for: kind)
         self.setWebSocketTask(nil, for: kind)
+        self.updateStreamLifecycleState(kind) { state in
+            state.cancel(resetReconnectState: resetReconnectState)
+        }
         if kind == .connections {
             currentConnectionsStreamIntervalMilliseconds = nil
         }
@@ -99,10 +108,12 @@ extension AppSession {
 
     private func receiveLoop(
         kind: StreamKind,
+        generation: UInt64,
         onPayload: @escaping (Data) -> Void,
-        restart: @escaping () -> Void) async
+        reconnect: @escaping (UInt64, UInt64) -> Void) async
     {
         while !Task.isCancelled {
+            guard self.streamOwns(kind, generation: generation) else { return }
             guard let ws = webSocketTask(for: kind) else { return }
 
             let message: URLSessionWebSocketTask.Message
@@ -110,29 +121,60 @@ extension AppSession {
                 message = try await ws.receive()
             } catch {
                 if Task.isCancelled { return }
+                guard self.streamOwns(kind, generation: generation) else { return }
                 let disconnectMessage = error.localizedDescription
                 if self.shouldLogStreamDisconnect(kind: kind, message: disconnectMessage) {
                     appendLog(level: "error", message: tr("log.stream.disconnected", tr(kind.label), disconnectMessage))
                 }
-                self.webSocketTask(for: kind)?.cancel(with: .goingAway, reason: nil)
+                ws.cancel(with: .goingAway, reason: nil)
                 self.setWebSocketTask(nil, for: kind)
+                self.setReceiveTask(nil, for: kind)
+                self.recordStreamDisconnect(kind, generation: generation, error: disconnectMessage)
 
                 guard self.shouldReconnectStreamAfterDisconnect() else { return }
-                do {
-                    try await Task.sleep(nanoseconds: self.nextReconnectDelayNanoseconds(for: kind))
-                } catch {
-                    return
-                }
-                if Task.isCancelled { return }
-                guard self.shouldReconnectStreamAfterDisconnect() else { return }
-                restart()
+                guard self.streamAllowsAcquisition(kind) else { return }
+                reconnect(generation, self.nextReconnectDelayNanoseconds(for: kind))
                 return
             }
 
             guard let payload = normalizedWebSocketPayload(from: message) else { continue }
-            self.markStreamPayloadReceived(for: kind)
+            guard self.streamOwns(kind, generation: generation) else { return }
+            self.markStreamPayloadReceived(for: kind, generation: generation)
             onPayload(payload)
         }
+    }
+
+    private func scheduleStreamReconnect(
+        kind: StreamKind,
+        generation: UInt64,
+        delayNanoseconds: UInt64,
+        makeWebSocket: @escaping (MihomoAPIClient) throws -> any StreamWebSocketTasking,
+        onPayload: @escaping (Data) -> Void)
+    {
+        guard self.streamOwns(kind, generation: generation) else { return }
+        guard self.reconnectTask(for: kind) == nil else { return }
+        self.recordStreamReconnectScheduled(kind, generation: generation, delayNanoseconds: delayNanoseconds)
+        let streamClock = self.streamClock
+
+        let task = Task { @MainActor [weak self] in
+            do {
+                try await streamClock.sleep(nanoseconds: delayNanoseconds)
+            } catch {
+                return
+            }
+            guard let self, !Task.isCancelled else { return }
+            guard self.streamOwns(kind, generation: generation) else { return }
+            self.setReconnectTask(nil, for: kind)
+            self.clearScheduledStreamReconnect(kind, generation: generation)
+            guard self.shouldReconnectStreamAfterDisconnect() else { return }
+            guard self.streamAllowsAcquisition(kind) else { return }
+            self.startStream(
+                kind: kind,
+                preserveReconnectState: true,
+                makeWebSocket: makeWebSocket,
+                onPayload: onPayload)
+        }
+        self.setReconnectTask(task, for: kind)
     }
 
     func receiveTask(for kind: StreamKind) -> Task<Void, Never>? {
@@ -140,15 +182,35 @@ extension AppSession {
     }
 
     func setReceiveTask(_ task: Task<Void, Never>?, for kind: StreamKind) {
-        streamReceiveTasks[kind] = task
+        if let task {
+            streamReceiveTasks[kind] = task
+        } else {
+            streamReceiveTasks.removeValue(forKey: kind)
+        }
     }
 
-    func webSocketTask(for kind: StreamKind) -> URLSessionWebSocketTask? {
+    func reconnectTask(for kind: StreamKind) -> Task<Void, Never>? {
+        streamReconnectTasks[kind]
+    }
+
+    func setReconnectTask(_ task: Task<Void, Never>?, for kind: StreamKind) {
+        if let task {
+            streamReconnectTasks[kind] = task
+        } else {
+            streamReconnectTasks.removeValue(forKey: kind)
+        }
+    }
+
+    func webSocketTask(for kind: StreamKind) -> (any StreamWebSocketTasking)? {
         streamWebSocketTasks[kind]
     }
 
-    func setWebSocketTask(_ task: URLSessionWebSocketTask?, for kind: StreamKind) {
-        streamWebSocketTasks[kind] = task
+    func setWebSocketTask(_ task: (any StreamWebSocketTasking)?, for kind: StreamKind) {
+        if let task {
+            streamWebSocketTasks[kind] = task
+        } else {
+            streamWebSocketTasks.removeValue(forKey: kind)
+        }
     }
 
     func startTrafficStream() {
@@ -325,7 +387,6 @@ extension AppSession {
     }
 
     private func resetStreamReconnectState(for kind: StreamKind) {
-        streamReconnectAttempts.removeValue(forKey: kind.key)
         streamLastDisconnectLogAt.removeValue(forKey: kind.key)
         streamLastDisconnectLogMessage.removeValue(forKey: kind.key)
     }
@@ -337,18 +398,105 @@ extension AppSession {
         return self.isRemoteTarget || self.coreRepository.isRunning
     }
 
-    private func markStreamPayloadReceived(for kind: StreamKind) {
-        streamReconnectAttempts[kind.key] = 0
+    private func markStreamPayloadReceived(for kind: StreamKind, generation: UInt64) {
+        guard self.streamOwns(kind, generation: generation) else { return }
+        self.updateStreamLifecycleState(kind) { state in
+            state.recordValidPayload()
+        }
     }
 
     private func nextReconnectDelayNanoseconds(for kind: StreamKind) -> UInt64 {
-        let key = kind.key
+        let attempt = self.streamLifecycleState(for: kind).reconnectAttemptValue()
         let result = self.computeNextStreamReconnectDelayUseCase.execute(
-            currentAttempt: streamReconnectAttempts[key],
+            currentAttempt: attempt,
             baseDelayNanoseconds: streamReconnectBaseDelayNanoseconds,
-            maxDelayNanoseconds: streamReconnectMaxDelayNanoseconds)
-        streamReconnectAttempts[key] = result.nextAttempt
+            maxDelayNanoseconds: streamReconnectMaxDelayNanoseconds,
+            jitter: self.streamJitterSource.nextFactor())
         return result.delayNanoseconds
+    }
+
+    func streamAllowsAcquisition(_ kind: StreamKind) -> Bool {
+        self.streamLifecycleState(for: kind).allowsAcquisition
+    }
+
+    func setStreamBreakerState(_ state: StreamCircuitBreakerState, for kind: StreamKind) {
+        if !state.allowsAcquisition {
+            self.receiveTask(for: kind)?.cancel()
+            self.reconnectTask(for: kind)?.cancel()
+            self.webSocketTask(for: kind)?.cancel(with: .goingAway, reason: nil)
+            self.setReceiveTask(nil, for: kind)
+            self.setReconnectTask(nil, for: kind)
+            self.setWebSocketTask(nil, for: kind)
+        }
+        self.updateStreamLifecycleState(kind) { lifecycle in
+            lifecycle.setBreakerState(state)
+        }
+        self.updateDataAcquisitionPolicy()
+    }
+
+    func streamRuntimeSnapshot(for kind: StreamKind) -> StreamRuntimeSnapshot {
+        self.streamLifecycleState(for: kind).snapshot(
+            key: kind.key,
+            hasSocket: self.webSocketTask(for: kind) != nil,
+            hasReceiveTask: self.receiveTask(for: kind) != nil,
+            hasReconnectTask: self.reconnectTask(for: kind) != nil)
+    }
+
+    private func streamLifecycleState(for kind: StreamKind) -> StreamLifecycleState {
+        streamLifecycleStates[kind] ?? StreamLifecycleState()
+    }
+
+    private func updateStreamLifecycleState(
+        _ kind: StreamKind,
+        mutation: (inout StreamLifecycleState) -> Void)
+    {
+        var state = self.streamLifecycleState(for: kind)
+        mutation(&state)
+        streamLifecycleStates[kind] = state
+    }
+
+    private func beginStreamSession(_ kind: StreamKind) -> UInt64 {
+        var generation: UInt64 = 0
+        self.updateStreamLifecycleState(kind) { state in
+            generation = state.beginSession(at: self.streamClock.now())
+        }
+        return generation
+    }
+
+    private func streamOwns(_ kind: StreamKind, generation: UInt64) -> Bool {
+        self.streamLifecycleState(for: kind).owns(generation)
+    }
+
+    private func recordStreamDisconnect(_ kind: StreamKind, generation: UInt64, error: String) {
+        guard self.streamOwns(kind, generation: generation) else { return }
+        self.updateStreamLifecycleState(kind) { state in
+            state.recordDisconnect(
+                error: error,
+                at: self.streamClock.now(),
+                stableAfter: 30,
+                stablePayloads: 30)
+        }
+    }
+
+    private func recordStreamReconnectScheduled(
+        _ kind: StreamKind,
+        generation: UInt64,
+        delayNanoseconds: UInt64)
+    {
+        guard self.streamOwns(kind, generation: generation) else { return }
+        self.updateStreamLifecycleState(kind) { state in
+            _ = state.scheduleReconnect(
+                delayNanoseconds: delayNanoseconds,
+                at: self.streamClock.now(),
+                rollingWindow: 60)
+        }
+    }
+
+    private func clearScheduledStreamReconnect(_ kind: StreamKind, generation: UInt64) {
+        guard self.streamOwns(kind, generation: generation) else { return }
+        self.updateStreamLifecycleState(kind) { state in
+            state.clearScheduledReconnect()
+        }
     }
 
     private func shouldLogStreamDisconnect(kind: StreamKind, message: String) -> Bool {
@@ -377,7 +525,7 @@ extension AppSession {
 
     func startDecodableStream<Payload: Decodable>(
         kind: StreamKind,
-        makeWebSocket: @escaping (MihomoAPIClient) throws -> URLSessionWebSocketTask,
+        makeWebSocket: @escaping (MihomoAPIClient) throws -> any StreamWebSocketTasking,
         onDecoded: @escaping (Payload) -> Void)
     {
         self.startStream(

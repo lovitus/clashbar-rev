@@ -419,6 +419,8 @@ final class AppSession: ObservableObject {
     let networkReachabilityMonitor: NetworkReachabilityMonitor
     let clipboardRepository: any ClipboardRepository
     let remoteMachineStore: RemoteMachineStore
+    let streamClock: any StreamClock
+    let streamJitterSource: any StreamJitterSource
     var apiClient: MihomoAPIClient?
     var modeSwitchTransportOverride: MihomoAPITransporting?
     var settingsPatchTransportOverride: MihomoAPITransporting?
@@ -426,8 +428,9 @@ final class AppSession: ObservableObject {
     var mediumFrequencyTask: Task<Void, Never>?
     var lowFrequencyTask: Task<Void, Never>?
     var streamReceiveTasks: [StreamKind: Task<Void, Never>] = [:]
-    var streamWebSocketTasks: [StreamKind: URLSessionWebSocketTask] = [:]
-    var streamReconnectAttempts: [String: Int] = [:]
+    var streamReconnectTasks: [StreamKind: Task<Void, Never>] = [:]
+    var streamWebSocketTasks: [StreamKind: any StreamWebSocketTasking] = [:]
+    var streamLifecycleStates: [StreamKind: StreamLifecycleState] = [:]
     var streamLastDisconnectLogAt: [String: Date] = [:]
     var streamLastDisconnectLogMessage: [String: String] = [:]
     var proxyPortsAutoSaveTask: Task<Void, Never>?
@@ -528,6 +531,8 @@ final class AppSession: ObservableObject {
         networkReachabilityMonitor: NetworkReachabilityMonitor = NetworkReachabilityMonitor(),
         clipboardRepository: any ClipboardRepository = PasteboardClipboardRepository(),
         remoteMachineStore: RemoteMachineStore = RemoteMachineStore(),
+        streamClock: any StreamClock = SystemStreamClock(),
+        streamJitterSource: any StreamJitterSource = SystemStreamJitterSource(),
         startBackgroundRefresh: Bool = true)
     {
         self.processManager = processManager ?? MihomoProcessManager(workingDirectoryManager: workingDirectoryManager)
@@ -539,6 +544,8 @@ final class AppSession: ObservableObject {
         self.networkReachabilityMonitor = networkReachabilityMonitor
         self.clipboardRepository = clipboardRepository
         self.remoteMachineStore = remoteMachineStore
+        self.streamClock = streamClock
+        self.streamJitterSource = streamJitterSource
         let resolvedConfigManager = configManager ?? ConfigDirectoryManager(
             workingDirectoryManager: workingDirectoryManager)
         self.configRepository = DefaultConfigRepository(
@@ -642,6 +649,9 @@ final class AppSession: ObservableObject {
         mediumFrequencyTask?.cancel()
         lowFrequencyTask?.cancel()
         for task in streamReceiveTasks.values {
+            task.cancel()
+        }
+        for task in streamReconnectTasks.values {
             task.cancel()
         }
         for webSocketTask in streamWebSocketTasks.values {

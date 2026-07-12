@@ -422,11 +422,16 @@ extension AppSession {
         forceRestart: Bool = false,
         start: () -> Void)
     {
-        guard enabled else {
+        guard enabled, self.streamAllowsAcquisition(kind) else {
             cancelStream(kind)
             return
         }
-        guard forceRestart || webSocketTask(for: kind) == nil else { return }
+        if forceRestart {
+            start()
+            return
+        }
+        guard reconnectTask(for: kind) == nil else { return }
+        guard webSocketTask(for: kind) == nil else { return }
         start()
     }
 }
