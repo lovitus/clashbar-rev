@@ -17,8 +17,8 @@ final class StatusItemContentView: NSView {
         return imageView
     }()
 
-    private let upSpeedLabel = Self.makeSpeedLabel()
-    private let downSpeedLabel = Self.makeSpeedLabel()
+    private let upSpeedLabel = StatusItemContentView.makeSpeedLabel()
+    private let downSpeedLabel = StatusItemContentView.makeSpeedLabel()
 
     private var currentDisplay: MenuBarDisplay?
     private var cachedUpLine: String = ""
