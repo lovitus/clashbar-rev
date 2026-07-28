@@ -421,6 +421,7 @@ final class AppSession: ObservableObject {
     let remoteMachineStore: RemoteMachineStore
     let streamClock: any StreamClock
     let streamJitterSource: any StreamJitterSource
+    let trafficLoopMonitor = TrafficLoopMonitor()
     var apiClient: MihomoAPIClient?
     var modeSwitchTransportOverride: MihomoAPITransporting?
     var settingsPatchTransportOverride: MihomoAPITransporting?
@@ -442,6 +443,8 @@ final class AppSession: ObservableObject {
     var coreUpgradeFeedbackClearTask: Task<Void, Never>?
     var configDirectoryMonitorTask: Task<Void, Never>?
     var trafficDecodeTask: Task<Void, Never>?
+    var trafficLoopObservationTask: Task<Void, Never>?
+    var trafficLoopRecoveryTask: Task<Void, Never>?
     var mihomoLogFlushTask: Task<Void, Never>?
     var providerRefreshGeneration: Int = 0
     var lastTrafficSampleAt: Date?
@@ -645,6 +648,8 @@ final class AppSession: ObservableObject {
         deferredEditableSettingsOverlayTask?.cancel()
         configDirectoryMonitorTask?.cancel()
         trafficDecodeTask?.cancel()
+        trafficLoopObservationTask?.cancel()
+        trafficLoopRecoveryTask?.cancel()
         mihomoLogFlushTask?.cancel()
         mediumFrequencyTask?.cancel()
         lowFrequencyTask?.cancel()

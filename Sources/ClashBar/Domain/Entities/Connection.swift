@@ -42,6 +42,73 @@ struct ConnectionsSnapshot: Decodable, Equatable {
     }
 }
 
+struct ConnectionTrafficCountersSnapshot: Decodable, Equatable {
+    static let retainedConnectionLimit = 2_048
+
+    let totalCount: Int
+    let downloadTotal: Int64
+    let downloadByID: [String: Int64]
+    let isComplete: Bool
+
+    private enum CodingKeys: String, CodingKey {
+        case connections
+        case downloadTotal
+    }
+
+    private struct Entry: Decodable {
+        let id: String?
+        let download: Int64?
+    }
+
+    init(
+        totalCount: Int,
+        downloadTotal: Int64,
+        downloadByID: [String: Int64],
+        isComplete: Bool)
+    {
+        self.totalCount = totalCount
+        self.downloadTotal = downloadTotal
+        self.downloadByID = downloadByID
+        self.isComplete = isComplete
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.downloadTotal = try container.decodeIfPresent(Int64.self, forKey: .downloadTotal) ?? 0
+
+        guard var connections = try? container.nestedUnkeyedContainer(forKey: .connections) else {
+            self.totalCount = 0
+            self.downloadByID = [:]
+            self.isComplete = false
+            return
+        }
+
+        var counters: [String: Int64] = [:]
+        counters.reserveCapacity(min(
+            Self.retainedConnectionLimit,
+            connections.count ?? Self.retainedConnectionLimit))
+        var totalCount = 0
+        var allEntriesIdentifiable = true
+
+        while !connections.isAtEnd {
+            let entry = try connections.decode(Entry.self)
+            totalCount += 1
+            guard totalCount <= Self.retainedConnectionLimit else { continue }
+            guard let id = entry.id?.trimmedNonEmpty else {
+                allEntriesIdentifiable = false
+                continue
+            }
+            counters[id] = max(counters[id] ?? 0, max(0, entry.download ?? 0))
+        }
+
+        self.totalCount = totalCount
+        self.downloadByID = counters
+        self.isComplete = totalCount <= Self.retainedConnectionLimit
+            && allEntriesIdentifiable
+            && counters.count == totalCount
+    }
+}
+
 struct ConnectionSummary: Codable, Equatable, Identifiable {
     let id: String
     let upload: Int64?

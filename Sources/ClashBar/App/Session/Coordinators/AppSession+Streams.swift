@@ -356,6 +356,7 @@ extension AppSession {
 
     private func applyTrafficSnapshot(_ snapshot: TrafficSnapshot) {
         self.traffic = snapshot
+        self.evaluateTrafficLoopProtection(snapshot)
         guard self.isPanelPresented else {
             if !self.trafficHistoryUp.isEmpty || !self.trafficHistoryDown
                 .isEmpty || self.displayUpTotal != 0 || self.displayDownTotal != 0 || self.lastTrafficSampleAt != nil

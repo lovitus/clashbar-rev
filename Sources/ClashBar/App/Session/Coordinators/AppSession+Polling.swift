@@ -10,6 +10,7 @@ extension AppSession {
 
     func cancelPolling() {
         self.teardownStreams()
+        self.resetTrafficLoopProtection()
     }
 
     private func teardownStreams() {
@@ -144,7 +145,7 @@ extension AppSession {
             panelPresented: isPanelPresented,
             activeTab: activeMenuTab)
         let effectivePolicy = DataAcquisitionPolicy(
-            enableTrafficStream: policy.enableTrafficStream,
+            enableTrafficStream: policy.enableTrafficStream || (!self.isRemoteTarget && self.coreRepository.isRunning),
             enableMemoryStream: policy.enableMemoryStream || self.shouldForceMemoryStreamInBackground,
             enableConnectionsStream: policy.enableConnectionsStream,
             connectionsIntervalMilliseconds: policy.connectionsIntervalMilliseconds,

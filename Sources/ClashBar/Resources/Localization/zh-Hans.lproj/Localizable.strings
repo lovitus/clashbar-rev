@@ -383,6 +383,9 @@
 "log.action_name.update_rule_provider" = "更新规则提供者 %@";
 "log.action_name.update_proxy_provider" = "更新代理提供者 %@";
 "log.action_name.close_all_connections" = "关闭全部连接";
+"log.traffic_loop.connection_closed" = "流量回流保护已关闭一条异常放大连接（%@/秒）。";
+"log.traffic_loop.recovery_failed" = "流量回流保护无法关闭异常连接：%@";
+"log.traffic_loop.recovery_limit_reached" = "流量回流保护在 10 分钟内尝试两次后已停止自动恢复；重启 core 可重置保护。";
 "log.action_name.close_connection" = "关闭连接 %@";
 "log.action_name.flush_fakeip_cache" = "清理 FakeIP 缓存";
 "log.action_name.flush_dns_cache" = "清理 DNS 缓存";

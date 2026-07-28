@@ -383,6 +383,9 @@
 "log.action_name.update_rule_provider" = "Update rule provider %@";
 "log.action_name.update_proxy_provider" = "Update proxy provider %@";
 "log.action_name.close_all_connections" = "Close all connections";
+"log.traffic_loop.connection_closed" = "Traffic loop protection closed one amplified connection (%@/s).";
+"log.traffic_loop.recovery_failed" = "Traffic loop protection could not close the amplified connection: %@";
+"log.traffic_loop.recovery_limit_reached" = "Traffic loop protection stopped automatic recovery after two attempts in 10 minutes. Restart the core to reset protection.";
 "log.action_name.close_connection" = "Close connection %@";
 "log.action_name.flush_fakeip_cache" = "Flush FakeIP cache";
 "log.action_name.flush_dns_cache" = "Flush DNS cache";
