@@ -42,12 +42,21 @@ struct ConnectionsSnapshot: Decodable, Equatable {
     }
 }
 
+struct ConnectionTrafficEntry: Equatable {
+    let id: String
+    let upload: Int64
+    let download: Int64
+    let start: String?
+    let type: String?
+    let processPath: String?
+}
+
 struct ConnectionTrafficCountersSnapshot: Decodable, Equatable {
-    static let retainedConnectionLimit = 2_048
+    static let retainedConnectionLimit = 2048
 
     let totalCount: Int
     let downloadTotal: Int64
-    let downloadByID: [String: Int64]
+    let entriesByID: [String: ConnectionTrafficEntry]
     let isComplete: Bool
 
     private enum CodingKeys: String, CodingKey {
@@ -55,20 +64,28 @@ struct ConnectionTrafficCountersSnapshot: Decodable, Equatable {
         case downloadTotal
     }
 
+    private struct EntryMetadata: Decodable {
+        let type: String?
+        let processPath: String?
+    }
+
     private struct Entry: Decodable {
         let id: String?
+        let upload: Int64?
         let download: Int64?
+        let start: String?
+        let metadata: EntryMetadata?
     }
 
     init(
         totalCount: Int,
         downloadTotal: Int64,
-        downloadByID: [String: Int64],
+        entriesByID: [String: ConnectionTrafficEntry],
         isComplete: Bool)
     {
         self.totalCount = totalCount
         self.downloadTotal = downloadTotal
-        self.downloadByID = downloadByID
+        self.entriesByID = entriesByID
         self.isComplete = isComplete
     }
 
@@ -78,13 +95,13 @@ struct ConnectionTrafficCountersSnapshot: Decodable, Equatable {
 
         guard var connections = try? container.nestedUnkeyedContainer(forKey: .connections) else {
             self.totalCount = 0
-            self.downloadByID = [:]
+            self.entriesByID = [:]
             self.isComplete = false
             return
         }
 
-        var counters: [String: Int64] = [:]
-        counters.reserveCapacity(min(
+        var entries: [String: ConnectionTrafficEntry] = [:]
+        entries.reserveCapacity(min(
             Self.retainedConnectionLimit,
             connections.count ?? Self.retainedConnectionLimit))
         var totalCount = 0
@@ -98,14 +115,24 @@ struct ConnectionTrafficCountersSnapshot: Decodable, Equatable {
                 allEntriesIdentifiable = false
                 continue
             }
-            counters[id] = max(counters[id] ?? 0, max(0, entry.download ?? 0))
+            guard entries[id] == nil else {
+                allEntriesIdentifiable = false
+                continue
+            }
+            entries[id] = ConnectionTrafficEntry(
+                id: id,
+                upload: max(0, entry.upload ?? 0),
+                download: max(0, entry.download ?? 0),
+                start: entry.start?.trimmedNonEmpty,
+                type: entry.metadata?.type?.trimmedNonEmpty,
+                processPath: entry.metadata?.processPath?.trimmedNonEmpty)
         }
 
         self.totalCount = totalCount
-        self.downloadByID = counters
+        self.entriesByID = entries
         self.isComplete = totalCount <= Self.retainedConnectionLimit
             && allEntriesIdentifiable
-            && counters.count == totalCount
+            && entries.count == totalCount
     }
 }
 

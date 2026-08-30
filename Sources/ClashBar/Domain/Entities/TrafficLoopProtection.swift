@@ -1,120 +1,179 @@
 import Foundation
 
+enum TrafficLoopDirection: Equatable {
+    case ingress
+    case egress
+}
+
 struct TrafficLoopRateSample: Equatable {
-    let timestamp: TimeInterval
-    let coreDownloadBytesPerSecond: Double
-    let dominantTunIngressBytesPerSecond: Double
-    let externalIngressBytesPerSecond: Double
+    let tunInterfaceName: String
+    let direction: TrafficLoopDirection
+    let coreBytesPerSecond: Double
+    let tunBytesPerSecond: Double
+    let tunPacketsPerSecond: Double
+    let externalPacketsPerSecond: Double
 }
 
 enum TrafficLoopProtectionDecision: Equatable {
     case none
-    case confirm
+    case armed
+    case confirm(TrafficLoopRateSample)
 }
 
 struct TrafficLoopProtectionState: Equatable {
-    static let minimumCoreDownloadBytesPerSecond: Double = 32 * 1024 * 1024
-    static let requiredSuspiciousDuration: TimeInterval = 3
-    static let recoveryCooldown: TimeInterval = 15
+    static let minimumTunPacketsPerSecond: Double = 10000
+    static let externalPacketRatio: Double = 8
+    static let externalPacketMargin: Double = 5000
+    static let minimumCoreBytesPerSecond: Double = 64 * 1024
+    static let tunToCoreByteRatio: Double = 1.5
+    static let requiredConfirmationSamples = 3
 
-    private(set) var suspiciousSince: TimeInterval?
-    private(set) var cooldownUntil: TimeInterval?
+    private(set) var lockedInterfaceName: String?
+    private(set) var lockedDirection: TrafficLoopDirection?
+    private(set) var confirmationCount = 0
 
-    mutating func observe(_ sample: TrafficLoopRateSample) -> TrafficLoopProtectionDecision {
-        if let cooldownUntil, sample.timestamp < cooldownUntil {
-            self.suspiciousSince = nil
-            return .none
-        }
-        self.cooldownUntil = nil
-
-        guard Self.isConservationViolation(sample) else {
-            self.suspiciousSince = nil
-            return .none
-        }
-
-        if self.suspiciousSince == nil {
-            self.suspiciousSince = sample.timestamp
-            return .none
-        }
-
-        guard sample.timestamp - (self.suspiciousSince ?? sample.timestamp) >= Self.requiredSuspiciousDuration else {
-            return .none
-        }
-
-        self.suspiciousSince = nil
-        return .confirm
+    var isConfirming: Bool {
+        self.lockedInterfaceName != nil && self.lockedDirection != nil
     }
 
-    mutating func beginRecoveryCooldown(at timestamp: TimeInterval) {
-        self.suspiciousSince = nil
-        self.cooldownUntil = timestamp + Self.recoveryCooldown
+    mutating func observe(_ sample: TrafficLoopRateSample) -> TrafficLoopProtectionDecision {
+        guard self.isConfirming else {
+            return self.armIfNeeded(sample)
+        }
+        guard self.lockedInterfaceName == sample.tunInterfaceName,
+              self.lockedDirection == sample.direction,
+              Self.isConservationViolation(sample)
+        else {
+            self.reset()
+            return .none
+        }
+
+        self.confirmationCount += 1
+        guard self.confirmationCount >= Self.requiredConfirmationSamples else { return .none }
+        self.reset()
+        return .confirm(sample)
     }
 
     mutating func reset() {
-        self.suspiciousSince = nil
-        self.cooldownUntil = nil
+        self.lockedInterfaceName = nil
+        self.lockedDirection = nil
+        self.confirmationCount = 0
     }
 
-    private static func isConservationViolation(_ sample: TrafficLoopRateSample) -> Bool {
-        let coreDown = sample.coreDownloadBytesPerSecond
-        guard coreDown >= self.minimumCoreDownloadBytesPerSecond else { return false }
-        guard sample.dominantTunIngressBytesPerSecond >= coreDown * 1.5 else { return false }
-        return sample.externalIngressBytesPerSecond * 8 < coreDown
+    static func isConservationViolation(_ sample: TrafficLoopRateSample) -> Bool {
+        guard sample.tunPacketsPerSecond > self.minimumTunPacketsPerSecond else { return false }
+        guard sample.tunPacketsPerSecond >=
+            sample.externalPacketsPerSecond * self.externalPacketRatio + self.externalPacketMargin
+        else { return false }
+        guard sample.coreBytesPerSecond >= self.minimumCoreBytesPerSecond else { return false }
+        return sample.tunBytesPerSecond >= sample.coreBytesPerSecond * self.tunToCoreByteRatio
+    }
+
+    private mutating func armIfNeeded(_ sample: TrafficLoopRateSample) -> TrafficLoopProtectionDecision {
+        guard sample.tunPacketsPerSecond > Self.minimumTunPacketsPerSecond else { return .none }
+        self.lockedInterfaceName = sample.tunInterfaceName
+        self.lockedDirection = sample.direction
+        self.confirmationCount = 0
+        return .armed
     }
 }
 
 struct TrafficLoopConnectionCandidate: Equatable {
     let id: String
-    let downloadDelta: Int64
+    let start: String
+    let processPath: String
+    let directionalDelta: Int64
 }
 
 struct FindTrafficLoopConnectionCandidateUseCase {
-    static let minimumDownloadDelta: Int64 = 16 * 1024 * 1024
+    static let minimumDirectionalDelta: Int64 = 64 * 1024
+    static let minimumDominantShare: Double = 0.8
 
     func execute(
         first: ConnectionTrafficCountersSnapshot,
-        second: ConnectionTrafficCountersSnapshot)
-        -> TrafficLoopConnectionCandidate?
+        second: ConnectionTrafficCountersSnapshot,
+        direction: TrafficLoopDirection,
+        excludedProcessPaths: Set<String>) -> TrafficLoopConnectionCandidate?
     {
         guard first.isComplete, second.isComplete else { return nil }
-        let totalDelta = max(0, second.downloadTotal - first.downloadTotal)
-        guard totalDelta >= Self.minimumDownloadDelta else { return nil }
-
-        var best: TrafficLoopConnectionCandidate?
-        for (id, download) in second.downloadByID {
-            guard let previous = first.downloadByID[id] else { continue }
-            let delta = max(0, download - previous)
-            if delta > (best?.downloadDelta ?? -1) {
-                best = TrafficLoopConnectionCandidate(id: id, downloadDelta: delta)
-            }
+        for previous in first.entriesByID.values where Self.isTun(previous) {
+            guard let current = second.entriesByID[previous.id],
+                  Self.isTun(current),
+                  current.start == previous.start
+            else { return nil }
         }
 
-        guard let best, best.downloadDelta >= Self.minimumDownloadDelta else { return nil }
-        guard Double(best.downloadDelta) / Double(totalDelta) >= 0.8 else { return nil }
-        return best
+        let exclusions = Set(excludedProcessPaths.map(Self.normalizedPath))
+        var totalDelta: Int64 = 0
+        var ranked: [(entry: ConnectionTrafficEntry, delta: Int64)] = []
+        for entry in second.entriesByID.values where Self.isTun(entry) {
+            let counter = Self.counter(entry, direction: direction)
+            let delta: Int64
+            if let previous = first.entriesByID[entry.id] {
+                guard previous.start == entry.start else { return nil }
+                let previousCounter = Self.counter(previous, direction: direction)
+                guard counter >= previousCounter else { return nil }
+                delta = counter - previousCounter
+            } else {
+                delta = counter
+            }
+            let (updatedTotal, overflow) = totalDelta.addingReportingOverflow(delta)
+            guard !overflow else { return nil }
+            totalDelta = updatedTotal
+            ranked.append((entry, delta))
+        }
+
+        ranked.sort { $0.delta > $1.delta }
+        guard totalDelta >= Self.minimumDirectionalDelta,
+              let best = ranked.first,
+              best.delta >= Self.minimumDirectionalDelta,
+              best.delta > (ranked.dropFirst().first?.delta ?? -1),
+              Double(best.delta) / Double(totalDelta) >= Self.minimumDominantShare,
+              let start = best.entry.start?.trimmedNonEmpty,
+              let processPath = best.entry.processPath?.trimmedNonEmpty,
+              processPath.hasPrefix("/"),
+              !Self.isProtectedProcessPath(processPath, exclusions: exclusions)
+        else { return nil }
+
+        return TrafficLoopConnectionCandidate(
+            id: best.entry.id,
+            start: start,
+            processPath: processPath,
+            directionalDelta: best.delta)
+    }
+
+    private static func isTun(_ entry: ConnectionTrafficEntry) -> Bool {
+        entry.type?.caseInsensitiveCompare("tun") == .orderedSame
+    }
+
+    private static func counter(_ entry: ConnectionTrafficEntry, direction: TrafficLoopDirection) -> Int64 {
+        direction == .ingress ? entry.download : entry.upload
+    }
+
+    private static func normalizedPath(_ path: String) -> String {
+        URL(fileURLWithPath: path).standardizedFileURL.path.lowercased()
+    }
+
+    private static func isProtectedProcessPath(_ path: String, exclusions: Set<String>) -> Bool {
+        let normalized = self.normalizedPath(path)
+        return exclusions.contains(normalized)
+            || normalized.contains("mihomo")
+            || normalized.contains("clash")
     }
 }
 
-struct TrafficLoopRecoveryBudget: Equatable {
-    static let rollingWindow: TimeInterval = 10 * 60
-    static let maximumAttempts = 2
-
-    private(set) var attemptTimestamps: [TimeInterval] = []
-    private(set) var isBlocked = false
-
-    mutating func claim(at timestamp: TimeInterval) -> Bool {
-        guard !self.isBlocked else { return false }
-        self.attemptTimestamps.removeAll { timestamp - $0 >= Self.rollingWindow }
-        guard self.attemptTimestamps.count < Self.maximumAttempts else {
-            self.isBlocked = true
-            return false
-        }
-        self.attemptTimestamps.append(timestamp)
-        return true
-    }
-
-    mutating func reset() {
-        self.attemptTimestamps.removeAll(keepingCapacity: false)
-        self.isBlocked = false
+struct VerifyTrafficLoopCausalRecoveryUseCase {
+    func execute(
+        preClose: TrafficLoopRateSample,
+        postClose: TrafficLoopRateSample,
+        candidateIsAbsent: Bool) -> Bool
+    {
+        guard candidateIsAbsent,
+              preClose.tunInterfaceName == postClose.tunInterfaceName,
+              preClose.direction == postClose.direction,
+              TrafficLoopProtectionState.isConservationViolation(preClose)
+        else { return false }
+        let packetsRecovered = postClose.tunPacketsPerSecond <= preClose.tunPacketsPerSecond * 0.2
+        return packetsRecovered && !TrafficLoopProtectionState.isConservationViolation(postClose)
     }
 }

@@ -445,6 +445,8 @@ final class AppSession: ObservableObject {
     var trafficDecodeTask: Task<Void, Never>?
     var trafficLoopObservationTask: Task<Void, Never>?
     var trafficLoopRecoveryTask: Task<Void, Never>?
+    var trafficLoopProtectionGeneration: UInt64 = 0
+    var currentTunDeviceName: String?
     var mihomoLogFlushTask: Task<Void, Never>?
     var providerRefreshGeneration: Int = 0
     var lastTrafficSampleAt: Date?

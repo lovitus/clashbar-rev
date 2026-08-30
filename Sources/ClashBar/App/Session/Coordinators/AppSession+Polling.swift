@@ -10,7 +10,7 @@ extension AppSession {
 
     func cancelPolling() {
         self.teardownStreams()
-        self.resetTrafficLoopProtection()
+        self.resetTrafficLoopProtection(clearTunDevice: true)
     }
 
     private func teardownStreams() {
@@ -219,6 +219,9 @@ extension AppSession {
     }
 
     private func applyRuntimeConfigSnapshot(_ config: ConfigSnapshot) {
+        self.updateTrafficLoopRuntime(
+            tunEnabled: config.tunEnabled,
+            deviceName: config.tun?.device)
         let remoteMode = normalizeMode(config.mode)
         if let remoteMode {
             currentMode = remoteMode

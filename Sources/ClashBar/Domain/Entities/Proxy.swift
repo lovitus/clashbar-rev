@@ -67,21 +67,25 @@ struct ConfigSnapshot: Codable, Equatable {
     struct TunConfig: Codable, Equatable {
         let enable: Bool?
         let stack: String?
+        let device: String?
 
         private enum CodingKeys: String, CodingKey {
             case enable
             case stack
+            case device
         }
 
-        init(enable: Bool?, stack: String?) {
+        init(enable: Bool?, stack: String?, device: String? = nil) {
             self.enable = enable
             self.stack = stack
+            self.device = device
         }
 
         init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             self.enable = container.decodeFlexibleBool(forKey: .enable)
             self.stack = container.decodeFlexibleString(forKey: .stack)
+            self.device = container.decodeFlexibleString(forKey: .device).trimmedNonEmpty
         }
     }
 
